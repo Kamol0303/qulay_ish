@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Replace Workers - Qulay Ish</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 40px 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 24px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        h1 { font-size: 32px; font-weight: 900; color: #1a202c; margin-bottom: 12px; }
+        p { color: #718096; margin-bottom: 32px; line-height: 1.6; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        button { padding: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-delete { background: linear-gradient(135deg, #f56565 0%, #c53030 100%); }
+        .btn-delete:hover { box-shadow: 0 12px 24px rgba(245, 101, 101, 0.4); }
+        #log { margin-top: 32px; padding: 24px; background: #f7fafc; border-radius: 16px; max-height: 500px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 13px; }
+        .log-item { padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+        .log-item:last-child { border-bottom: none; }
+        .success { color: #38a169; font-weight: 600; }
+        .error { color: #e53e3e; font-weight: 600; }
+        .info { color: #3182ce; }
+        .warning { color: #d69e2e; font-weight: 600; }
+        .progress { margin-top: 24px; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Ishchilarni Almashtirish</h1>
+        <p>Bu sahifa avval mavjud ishchilarni o'chiradi, keyin 10 ta yangi ayol ishchi profilini qo'shadi.</p>
+        
+        <div class="btn-group">
+            <button class="btn-delete" onclick="deleteOldWorkers()">1️⃣ Eski ishchilarni o'chirish</button>
+            <button onclick="addNewWorkers()">2️⃣ Yangi ishchilarni qo'shish</button>
+        </div>
+        
+        <button style="width: 100%;" onclick="replaceAll()">⚡ Hammasini avtomatik bajarish</button>
+        
+        <div id="progressContainer" style="display: none;">
+            <div class="progress">
+                <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+        
+        <div id="log"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFirestore, collection, getDocs, deleteDoc, setDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCg0p8UOPAoe6WmhCRCbEBntCcL026w25o",
+            authDomain: "gen-lang-client-0528497200.firebaseapp.com",
+            projectId: "gen-lang-client-0528497200",
+            storageBucket: "gen-lang-client-0528497200.firebasestorage.app",
+            messagingSenderId: "519605089294",
+            appId: "1:519605089294:web:ee4f72e5d340748e8cb85f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const workers = [
+            { fullName: "Dilnoza Rahimova", district: "Samarqand", skills: ["Tikuvchilik", "Libos tikish", "Ko'ylak tikish", "Parda tikish", "Naqsh chizish"], bio: "10 yillik tajribaga ega professional tikuvchi. Har qanday libosni sifatli tikaman. Milliy va zamonaviy uslublarni bilaman.", rating: 4.8, reviewCount: 45, completedJobs: 87, bgColor: "FF6B9D" },
+            { fullName: "Gulnora Karimova", district: "Urgut", skills: ["Uy tozalash", "Ovqat pishirish", "Kir yuvish", "Dazmollash", "Umumiy tozalash"], bio: "Uy ishlarida 8 yillik tajriba. Toza va tartibli ishlashni yaxshi ko'raman. Mas'uliyatli va ishonchli.", rating: 4.6, reviewCount: 38, completedJobs: 92, bgColor: "4ECDC4" },
+            { fullName: "Zarina Tursunova", district: "Jomboy", skills: ["Bolalarga qarash", "O'qitish", "O'yin o'rgatish", "Ovqat pishirish", "Uy tozalash"], bio: "Bolalarga qarashda 5 yillik tajriba. Pedagogik ma'lumotim bor. Mehribon va mas'uliyatli. Bolalar bilan ishlashni yaxshi ko'raman.", rating: 4.9, reviewCount: 52, completedJobs: 68, bgColor: "95E1D3" },
+            { fullName: "Malika Yusupova", district: "Kattaqo'rg'on", skills: ["To'qimachilik", "Igna ishi", "Qo'l san'ati", "Paypoq to'qish", "Sviter to'qish"], bio: "To'qimachilik san'atini mukammal bilaman. 12 yillik tajriba. Har xil mahsulotlar tayyorlayman. Buyurtmalar qabul qilaman.", rating: 4.7, reviewCount: 41, completedJobs: 76, bgColor: "F38181" },
+            { fullName: "Nodira Azimova", district: "Narpay", skills: ["Soch turmaklash", "Makiyaj", "Manikür", "Soch bo'yash", "Soch olish"], bio: "Professional sartarosh va stilist. Zamonaviy va klassik uslublarni bilaman. 7 yillik tajriba. Uyga chiqaman.", rating: 4.8, reviewCount: 63, completedJobs: 124, bgColor: "AA96DA" },
+            { fullName: "Sevara Mahmudova", district: "Oqdaryo", skills: ["Ovqat pishirish", "Milliy taomlar", "Shirinliklar", "Osh pishirish", "Tort pishirish"], bio: "Milliy taomlarni juda mazali pishiraman. 15 yillik tajriba. To'ylar va tadbirlarga buyurtma qabul qilaman.", rating: 4.9, reviewCount: 71, completedJobs: 143, bgColor: "FCBAD3" },
+            { fullName: "Feruza Saidova", district: "Toyloq", skills: ["Tikuvchilik", "Libos dizayni", "Naqsh chizish", "Ko'rpa-to'shak tikish", "Uy tekstili"], bio: "Libos dizayni va tikuvchilikda mutaxassis. Kreativ yondashaman. Individual buyurtmalar qabul qilaman.", rating: 4.7, reviewCount: 34, completedJobs: 59, bgColor: "A8D8EA" },
+            { fullName: "Kamola Ibragimova", district: "Paxtachi", skills: ["Uy tozalash", "Oyna yuvish", "Umumiy tozalash", "Ofis tozalash", "Kir yuvish"], bio: "Uy va ofislarni professional darajada tozalayman. 6 yillik tajriba. Tez va sifatli ishlayman.", rating: 4.6, reviewCount: 47, completedJobs: 98, bgColor: "FFFFD2" },
+            { fullName: "Dilfuza Nurmatova", district: "Payariq", skills: ["Igna ishi", "Bisser ishi", "Qo'l san'ati", "Kashtachilik", "Naqsh solish"], bio: "Qo'l san'ati va igna ishida professional. Noyob mahsulotlar yarataman. O'rgataman ham. 9 yillik tajriba.", rating: 4.8, reviewCount: 29, completedJobs: 54, bgColor: "C7CEEA" },
+            { fullName: "Munira Alimova", district: "Bulung'ur", skills: ["Ovqat pishirish", "Tort pishirish", "Shirinliklar", "Milliy taomlar", "Uy tozalash"], bio: "Tort va shirinliklar tayyorlashda mutaxassis. To'y va tadbirlarga buyurtma qabul qilaman. 11 yillik tajriba.", rating: 4.9, reviewCount: 58, completedJobs: 102, bgColor: "FFB6B9" }
+        ];
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const item = document.createElement('div');
+            item.className = `log-item ${type}`;
+            item.textContent = message;
+            logDiv.appendChild(item);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateProgress(current, total) {
+            const percent = (current / total) * 100;
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        window.deleteOldWorkers = async function() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('progressContainer').style.display = 'block';
+            
+            log('🗑️ Eski ishchilarni o\'chirish boshlandi...', 'warning');
+
+            try {
+                const q = query(collection(db, 'profiles'), where('role', '==', 'worker'));
+                const snapshot = await getDocs(q);
+                
+                log(`📊 Topildi: ${snapshot.size} ta ishchi`, 'info');
+
+                let deleted = 0;
+                for (const docSnap of snapshot.docs) {
+                    try {
+                        await deleteDoc(doc(db, 'profiles', docSnap.id));
+                        deleted++;
+                        log(`✅ O'chirildi: ${docSnap.data().fullName || docSnap.id}`, 'success');
+                        updateProgress(deleted, snapshot.size);
+                    } catch (error) {
+                        log(`❌ Xatolik: ${docSnap.id} - ${error.message}`, 'error');
+                    }
+                }
+
+                log(`🎉 Jami ${deleted} ta ishchi o'chirildi!`, 'success');
+            } catch (error) {
+                log(`❌ Xatolik: ${error.message}`, 'error');
+            }
+        };
+
+        window.addNewWorkers = async function() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('progressContainer').style.display = 'block';
+            
+            log('🚀 Yangi ishchilarni qo\'shish boshlandi...', 'info');
+
+            for (let i = 0; i < workers.length; i++) {
+                const worker = workers[i];
+                const uid = `worker_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                try {
+                    const profile = {
+                        uid,
+                        fullName: worker.fullName,
+                        email: `${worker.fullName.toLowerCase().replace(/\s+/g, '').replace(/'/g, '')}@worker.uz`,
+                        phoneNumber: `+998 ${90 + Math.floor(Math.random() * 9)} ${Math.floor(Math.random() * 900) + 100} ${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 90) + 10}`,
+                        role: 'worker',
+                        region: 'Samarqand viloyati',
+                        district: worker.district,
+                        bio: worker.bio,
+                        skills: worker.skills,
+                        photoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.fullName)}&background=${worker.bgColor}&color=fff&size=200`,
+                        experienceLevel: worker.completedJobs > 80 ? 'expert' : 'intermediate',
+                        isPremium: worker.rating >= 4.8,
+                        rating: worker.rating,
+                        reviewCount: worker.reviewCount,
+                        completedJobs: worker.completedJobs,
+                        isVerified: worker.rating >= 4.7,
+                        verificationStatus: worker.rating >= 4.7 ? 'verified' : 'none',
+                        trustScore: Math.floor(worker.rating * 20),
+                        violationCount: 0,
+                        riskScore: 0,
+                        isBlocked: false,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        lastActive: new Date().toISOString()
+                    };
+
+                    await setDoc(doc(db, 'profiles', uid), profile);
+                    log(`✅ ${i + 1}/10 - Qo'shildi: ${worker.fullName} (${worker.district})`, 'success');
+                    updateProgress(i + 1, workers.length);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 400));
+                } catch (error) {
+                    log(`❌ Xatolik: ${worker.fullName} - ${error.message}`, 'error');
+                }
+            }
+
+            log('🎉 Barcha yangi ishchilar qo\'shildi!', 'success');
+        };
+
+        window.replaceAll = async function() {
+            document.getElementById('log').innerHTML = '';
+            log('⚡ Avtomatik almashtirish boshlandi...', 'info');
+            
+            await deleteOldWorkers();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await addNewWorkers();
+            
+            log('✨ Jarayon tugadi! Sahifani yangilang.', 'success');
+        };
+    </script>
+</body>
+</html>
