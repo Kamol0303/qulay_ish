@@ -18,6 +18,7 @@ import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../firebase';
 import { demoStore } from './demoStore';
 import { passwordService } from './passwordService';
+import { totpService } from './totpService';
 
 export interface AuthResult {
   success: boolean;
@@ -1010,7 +1011,8 @@ export const authService = {
         if (functions) {
           const createOTPLoginToken = httpsCallable(functions, 'createOTPLoginToken');
           const result = await createOTPLoginToken({sessionId});
-          const customToken = result.data.customToken;
+          const tokenData = result.data as { customToken: string };
+          const customToken = tokenData.customToken;
 
           // Sign in with custom token
           await signInWithCustomToken(auth, customToken);
@@ -1082,6 +1084,182 @@ export const authService = {
       }
     } catch (error: any) {
       debugError('OTP Login Completion Error]', error);
+      return {
+        success: false,
+        error: mapFirebaseError(error),
+      };
+    }
+  },
+
+  /**
+   * TOTP orqali ro'yxatdan o'tish - secret va QR kod generatsiyasi
+   */
+  async requestTOTPForRegistration(data: {
+    phoneNumber: string;
+    password: string;
+    fullName: string;
+    role: 'worker' | 'employer';
+    email?: string;
+  }): Promise<AuthResult & { sessionId?: string; otpauthUri?: string; backupCodes?: string[] }> {
+    try {
+      const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
+      const passwordValidation = passwordService.validatePassword(data.password);
+
+      if (!passwordValidation.isValid) {
+        return {
+          success: false,
+          error: passwordValidation.error,
+        };
+      }
+
+      const result = await totpService.generateSecret({
+        phoneNumber: normalizedPhone,
+        password: data.password,
+        fullName: data.fullName.trim(),
+        role: data.role,
+        email: data.email?.trim(),
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
+
+      return {
+        success: true,
+        sessionId: result.sessionId,
+        otpauthUri: result.otpauthUri,
+        backupCodes: result.backupCodes,
+      };
+    } catch (error) {
+      debugError('TOTP Registration Request Error]', error);
+      return {
+        success: false,
+        error: mapFirebaseError(error),
+      };
+    }
+  },
+
+  /**
+   * TOTP kodini tasdiqlash va ro'yxatdan o'tishni yakunlash
+   */
+  async verifyTOTPForRegistration(
+    sessionId: string,
+    code: string
+  ): Promise<AuthResult> {
+    try {
+      const result = await totpService.verifyTOTP({ sessionId, code });
+
+      if (!result.success || !result.customToken) {
+        return {
+          success: false,
+          error: result.error || 'TOTP tasdiqlash muvaffaqiyatsiz.',
+        };
+      }
+
+      await signInWithCustomToken(auth, result.customToken);
+      return { success: true, needsRoleSelection: false };
+    } catch (error) {
+      debugError('TOTP Registration Verify Error]', error);
+      return {
+        success: false,
+        error: mapFirebaseError(error),
+      };
+    }
+  },
+
+  /**
+   * TOTP orqali kirish - telefon va parolni tekshirish
+   */
+  async initiateTOTPLogin(data: {
+    phoneNumber: string;
+    password: string;
+  }): Promise<AuthResult & { sessionId?: string }> {
+    try {
+      const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
+      const result = await totpService.initiateLogin({
+        phoneNumber: normalizedPhone,
+        password: data.password,
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
+
+      return {
+        success: true,
+        sessionId: result.sessionId,
+      };
+    } catch (error) {
+      debugError('TOTP Login Initiate Error]', error);
+      return {
+        success: false,
+        error: mapFirebaseError(error),
+      };
+    }
+  },
+
+  /**
+   * TOTP kodini tasdiqlash va tizimga kirish
+   */
+  async completeTOTPLogin(sessionId: string, code: string): Promise<AuthResult> {
+    try {
+      const result = await totpService.completeLogin({ sessionId, code });
+
+      if (!result.success || !result.customToken) {
+        return {
+          success: false,
+          error: result.error || 'TOTP tasdiqlash muvaffaqiyatsiz.',
+        };
+      }
+
+      await signInWithCustomToken(auth, result.customToken);
+      return { success: true, needsRoleSelection: false };
+    } catch (error) {
+      debugError('TOTP Login Complete Error]', error);
+      return {
+        success: false,
+        error: mapFirebaseError(error),
+      };
+    }
+  },
+
+  /**
+   * Zaxira kod orqali tizimga kirish
+   */
+  async loginWithBackupCode(data: {
+    phoneNumber: string;
+    password: string;
+    backupCode: string;
+  }): Promise<AuthResult & { remainingBackupCodes?: number }> {
+    try {
+      const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
+      const result = await totpService.useBackupCode({
+        phoneNumber: normalizedPhone,
+        password: data.password,
+        backupCode: data.backupCode,
+      });
+
+      if (!result.success || !result.customToken) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
+
+      await signInWithCustomToken(auth, result.customToken);
+      return {
+        success: true,
+        needsRoleSelection: false,
+        remainingBackupCodes: result.remainingBackupCodes,
+      };
+    } catch (error) {
+      debugError('Backup Code Login Error]', error);
       return {
         success: false,
         error: mapFirebaseError(error),

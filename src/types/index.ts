@@ -34,6 +34,12 @@ export interface Profile {
   // Behavior tracking
   trustScore?: number;
   behaviorFlags?: string[];
+  // TOTP two-factor authentication
+  totpEnabled?: boolean;
+  totpSecretEncrypted?: string;
+  totpVerifiedAt?: any;
+  backupCodes?: string[];
+  authMethod?: 'otp' | 'totp' | 'password' | 'google';
 }
 
 export interface Job {

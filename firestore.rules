@@ -30,6 +30,11 @@ service cloud.firestore {
       return isAuthenticated() && getUserRole() == 'super_admin';
     }
 
+    function totpFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['totpEnabled', 'totpSecretEncrypted', 'totpVerifiedAt', 'backupCodes']);
+    }
+
     function isWorker() {
       return isAuthenticated() && getUserRole() == 'worker';
     }
@@ -49,9 +54,9 @@ service cloud.firestore {
       allow create: if isDemoUser(uid) || 
                        (isOwner(uid) && isAuthenticated());
       
-      // Update: Demo users OR Owner OR Admin
+      // Update: Demo users OR Owner OR Admin (TOTP fields are server-managed only)
       allow update: if isDemoUser(uid) ||
-                       isOwner(uid) ||
+                       (isOwner(uid) && totpFieldsUnchanged()) ||
                        isAdmin();
       
       // Delete: Only super_admin can delete profiles
@@ -362,6 +367,20 @@ service cloud.firestore {
       // Delete: User can remove their own saved jobs, or admin can delete
       allow delete: if isAuthenticated() &&
         (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ============================================
+    // TOTP SESSIONS COLLECTION (server-managed)
+    // ============================================
+    match /totp_sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    // ============================================
+    // LEGACY OTP SESSIONS (server-managed)
+    // ============================================
+    match /otp_sessions/{sessionId} {
+      allow read, write: if false;
     }
 
     // ============================================

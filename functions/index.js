@@ -1,17 +1,9 @@
 /**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * Cloud Functions entry point for Qulay Ish.
  */
 
 const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
 
-// Import OTP functions
 const {
   sendOTPEmail,
   sendOTPSMS,
@@ -20,29 +12,32 @@ const {
   createOTPLoginToken,
 } = require("./otp");
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+const {
+  generateSecret,
+  verifyTOTP,
+  initiateTOTPLogin,
+  completeTOTPLogin,
+  generateBackupCodes,
+  useBackupCode,
+  disableTOTP,
+  rotateSecret,
+} = require("./totp");
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+setGlobalOptions({maxInstances: 10});
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
-
-// Export OTP functions
+// Legacy OTP functions (kept for backward compatibility during migration)
 exports.sendOTPEmail = sendOTPEmail;
 exports.sendOTPSMS = sendOTPSMS;
 exports.verifyOTPSession = verifyOTPSession;
 exports.cleanupExpiredOTP = cleanupExpiredOTP;
 exports.createOTPLoginToken = createOTPLoginToken;
+
+// TOTP authentication functions
+exports.generateSecret = generateSecret;
+exports.verifyTOTP = verifyTOTP;
+exports.initiateTOTPLogin = initiateTOTPLogin;
+exports.completeTOTPLogin = completeTOTPLogin;
+exports.generateBackupCodes = generateBackupCodes;
+exports.useBackupCode = useBackupCode;
+exports.disableTOTP = disableTOTP;
+exports.rotateSecret = rotateSecret;
