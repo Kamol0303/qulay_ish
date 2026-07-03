@@ -4,6 +4,11 @@ import { auth, db } from '../firebase';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { Profile } from '../types';
+import {
+  clearTwoFactorVerification,
+  isTwoFactorEnabled,
+  isTwoFactorVerifiedForUser,
+} from '../lib/twoFactorStorage';
 
 // Debug logger - only in development
 const debugWarn = (label: string, data?: unknown) => {
@@ -27,6 +32,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   userRole: UserRole | null;
   isDemo: boolean;
+  requiresTwoFactor: boolean;
+  isTwoFactorVerified: boolean;
   /** Call after profile is written to Firestore to force a fresh read */
   refreshProfile: () => Promise<void>;
   checkDemoSession: () => void;
@@ -50,6 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isDemo = useMemo(
     () => !!(user?.uid?.startsWith('demo_') || profile?.uid?.startsWith('demo_') || localStorage.getItem('qulay_ish_demo_session')),
     [user, profile]
+  );
+
+  const requiresTwoFactor = useMemo(
+    () => !isDemo && isTwoFactorEnabled(profile),
+    [isDemo, profile]
+  );
+
+  const isTwoFactorVerified = useMemo(
+    () => !requiresTwoFactor || isTwoFactorVerifiedForUser(user?.uid),
+    [requiresTwoFactor, user?.uid]
   );
 
   const checkDemoSession = useCallback(() => {
@@ -243,6 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clear OTP login session if any
     localStorage.removeItem('qulay_ish_otp_login_uid');
     localStorage.removeItem('qulay_ish_otp_login_profile');
+    clearTwoFactorVerification();
 
     try {
       await firebaseSignOut(auth);
@@ -257,7 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signOut, userRole, isDemo, refreshProfile, checkDemoSession }}
+      value={{ user, profile, loading, signOut, userRole, isDemo, requiresTwoFactor, isTwoFactorVerified, refreshProfile, checkDemoSession }}
     >
       {children}
     </AuthContext.Provider>

@@ -5,7 +5,7 @@ const {getAuth} = require("firebase-admin/auth");
 const logger = require("firebase-functions/logger");
 const crypto = require("crypto");
 const {authenticator} = require("otplib");
-const bcrypt = require("bcryptjs");
+const QRCode = require("qrcode");
 
 if (getApps().length === 0) {
   initializeApp();
@@ -30,13 +30,8 @@ const corsOptions = {
   credentials: true,
 };
 
-authenticator.options = {
-  window: 1,
-};
+authenticator.options = {window: 1};
 
-/**
- * @return {Buffer}
- */
 function getEncryptionKey() {
   const keyHex = process.env.TOTP_ENCRYPTION_KEY;
   if (!keyHex || keyHex.length !== 64) {
@@ -48,10 +43,6 @@ function getEncryptionKey() {
   return Buffer.from(keyHex, "hex");
 }
 
-/**
- * @param {string} plaintext
- * @return {string}
- */
 function encryptSecret(plaintext) {
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(12);
@@ -68,16 +59,11 @@ function encryptSecret(plaintext) {
   ].join(":");
 }
 
-/**
- * @param {string} payload
- * @return {string}
- */
 function decryptSecret(payload) {
   const [ivHex, authTagHex, encryptedHex] = payload.split(":");
   if (!ivHex || !authTagHex || !encryptedHex) {
     throw new HttpsError("internal", "Invalid encrypted secret format.");
   }
-
   const key = getEncryptionKey();
   const decipher = crypto.createDecipheriv(
       "aes-256-gcm",
@@ -92,35 +78,13 @@ function decryptSecret(payload) {
   return decrypted.toString("utf8");
 }
 
-/**
- * @param {string} phone
- * @return {string}
- */
-function normalizePhoneNumber(phone) {
-  const digits = String(phone || "").replace(/\D/g, "");
-  if (digits.startsWith("998")) {
-    return `+${digits.slice(0, 12)}`;
-  }
-  if (digits.length <= 9) {
-    return `+998${digits}`;
-  }
-  return `+${digits.slice(0, 12)}`;
-}
-
-/**
- * @return {string}
- */
 function createSessionId(prefix) {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
 }
 
-/**
- * @return {string[]}
- */
 function createPlainBackupCodes() {
   const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const codes = [];
-
   for (let i = 0; i < BACKUP_CODE_COUNT; i++) {
     let part1 = "";
     let part2 = "";
@@ -130,14 +94,9 @@ function createPlainBackupCodes() {
     }
     codes.push(`${part1}-${part2}`);
   }
-
   return codes;
 }
 
-/**
- * @param {string} code
- * @return {string}
- */
 function hashBackupCode(code) {
   return crypto
       .createHash("sha256")
@@ -145,114 +104,84 @@ function hashBackupCode(code) {
       .digest("hex");
 }
 
-/**
- * @param {string} secret
- * @param {string} accountLabel
- * @return {string}
- */
 function buildOtpauthUri(secret, accountLabel) {
   const label = encodeURIComponent(`${TOTP_ACCOUNT_NAME}:${accountLabel}`);
   const issuer = encodeURIComponent(TOTP_ISSUER);
   return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
 }
 
-/**
- * @param {FirebaseFirestore.DocumentSnapshot} sessionSnap
- */
+function isTwoFactorEnabled(profile) {
+  return !!(profile?.twoFactorEnabled || profile?.totpEnabled);
+}
+
 function assertSessionActive(sessionSnap) {
   if (!sessionSnap.exists) {
     throw new HttpsError("not-found", "TOTP sessiyasi topilmadi.");
   }
-
   const sessionData = sessionSnap.data();
   if (Date.now() > sessionData.expiryTime) {
     throw new HttpsError("deadline-exceeded", "TOTP sessiyasi muddati tugagan.");
   }
-
   if (sessionData.attempts >= MAX_ATTEMPTS) {
     throw new HttpsError(
         "resource-exhausted",
         "Juda ko'p xato urinish. Qayta urinib ko'ring.",
     );
   }
-
   return sessionData;
 }
 
-/**
- * @param {FirebaseFirestore.DocumentReference} sessionRef
- * @param {Record<string, unknown>} sessionData
- * @param {string} code
- * @param {string} encryptedSecret
- */
-async function verifyTotpCode(sessionRef, sessionData, code, encryptedSecret) {
+async function verifyTotpToken(code, encryptedSecret) {
   const secret = decryptSecret(encryptedSecret);
-  const isValid = authenticator.verify({token: code, secret});
-
+  const isValid = authenticator.verify({token: String(code).trim(), secret});
   if (!isValid) {
-    await sessionRef.update({attempts: (sessionData.attempts || 0) + 1});
     throw new HttpsError("invalid-argument", "Tasdiqlash kodi noto'g'ri.");
   }
 }
 
+async function generateQrDataUrl(otpauthUri) {
+  return QRCode.toDataURL(otpauthUri, {
+    width: 220,
+    margin: 2,
+    color: {dark: "#1e3a8a", light: "#ffffff"},
+  });
+}
+
 /**
- * Generate TOTP secret for registration and return QR URI + backup codes.
+ * Start 2FA enrollment for authenticated user (optional layer).
  */
 exports.generateSecret = onCall({
   maxInstances: 10,
   cors: corsOptions,
 }, async (request) => {
-  const {
-    phoneNumber,
-    password,
-    fullName,
-    role,
-    email,
-  } = request.data || {};
-
-  if (!phoneNumber || !password || !fullName || !role) {
-    throw new HttpsError(
-        "invalid-argument",
-        "Telefon, parol, ism va rol talab qilinadi.",
-    );
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Autentifikatsiya talab qilinadi.");
   }
 
-  if (!["worker", "employer"].includes(role)) {
-    throw new HttpsError("invalid-argument", "Rol noto'g'ri.");
+  const uid = request.auth.uid;
+  const profileRef = db.collection("profiles").doc(uid);
+  const profileSnap = await profileRef.get();
+
+  if (!profileSnap.exists) {
+    throw new HttpsError("not-found", "Profil topilmadi.");
   }
 
-  const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  const phoneDigits = normalizedPhone.replace(/\D/g, "");
-  const syntheticEmail = email?.trim() ||
-    `${phoneDigits}@qulayish.local`;
-
-  const existingPhone = await db.collection("profiles")
-      .where("phoneNumber", "==", normalizedPhone)
-      .limit(1)
-      .get();
-
-  if (!existingPhone.empty) {
-    throw new HttpsError(
-        "already-exists",
-        "Bu telefon raqam allaqachon ro'yxatdan o'tgan.",
-    );
+  const profile = profileSnap.data();
+  if (isTwoFactorEnabled(profile)) {
+    throw new HttpsError("already-exists", "Ikki bosqichli autentifikatsiya allaqachon yoqilgan.");
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
   const secret = authenticator.generateSecret();
   const secretEncrypted = encryptSecret(secret);
   const backupCodes = createPlainBackupCodes();
   const backupCodesHashed = backupCodes.map(hashBackupCode);
-  const sessionId = createSessionId("totp_reg");
+  const sessionId = createSessionId("totp_enroll");
+  const accountLabel = profile.phoneNumber || profile.email || uid;
 
   await db.collection("totp_sessions").doc(sessionId).set({
     sessionId,
-    purpose: "registration",
-    phoneNumber: normalizedPhone,
-    email: syntheticEmail,
-    fullName: String(fullName).trim(),
-    role,
-    passwordHash,
+    purpose: "enrollment",
+    uid,
     secretEncrypted,
     backupCodesHashed,
     verified: false,
@@ -261,25 +190,32 @@ exports.generateSecret = onCall({
     createdAt: FieldValue.serverTimestamp(),
   });
 
-  logger.info("TOTP registration secret generated", {sessionId});
+  const otpauthUri = buildOtpauthUri(secret, accountLabel);
+  const qrCodeDataUrl = await generateQrDataUrl(otpauthUri);
+
+  logger.info("2FA enrollment secret generated", {uid, sessionId});
 
   return {
     success: true,
     sessionId,
-    otpauthUri: buildOtpauthUri(secret, normalizedPhone),
+    otpauthUri,
+    qrCodeDataUrl,
     backupCodes,
   };
 });
 
 /**
- * Verify TOTP during registration and create the user account.
+ * Confirm 2FA enrollment with first valid TOTP code.
  */
 exports.verifyTOTP = onCall({
   maxInstances: 10,
   cors: corsOptions,
 }, async (request) => {
-  const {sessionId, code} = request.data || {};
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Autentifikatsiya talab qilinadi.");
+  }
 
+  const {sessionId, code} = request.data || {};
   if (!sessionId || !code) {
     throw new HttpsError(
         "invalid-argument",
@@ -287,190 +223,96 @@ exports.verifyTOTP = onCall({
     );
   }
 
+  const uid = request.auth.uid;
   const sessionRef = db.collection("totp_sessions").doc(sessionId);
   const sessionSnap = await sessionRef.get();
   const sessionData = assertSessionActive(sessionSnap);
 
-  if (sessionData.purpose !== "registration") {
-    throw new HttpsError("failed-precondition", "Noto'g'ri TOTP sessiya turi.");
+  if (sessionData.purpose !== "enrollment" || sessionData.uid !== uid) {
+    throw new HttpsError("permission-denied", "Noto'g'ri enrollment sessiyasi.");
   }
 
-  if (sessionData.verified) {
-    throw new HttpsError("already-exists", "TOTP allaqachon tasdiqlangan.");
-  }
-
-  await verifyTotpCode(
-      sessionRef,
-      sessionData,
-      String(code).trim(),
-      sessionData.secretEncrypted,
-  );
-
-  let userRecord;
   try {
-    userRecord = await auth.createUser({
-      email: sessionData.email,
-      password: crypto.randomBytes(24).toString("hex"),
-      displayName: sessionData.fullName,
-    });
+    await verifyTotpToken(code, sessionData.secretEncrypted);
   } catch (error) {
-    logger.error("Failed to create Firebase user during TOTP registration", error);
-    throw new HttpsError("internal", "Foydalanuvchi yaratishda xatolik yuz berdi.");
+    if (error instanceof HttpsError && error.code === "invalid-argument") {
+      await sessionRef.update({attempts: (sessionData.attempts || 0) + 1});
+    }
+    throw error;
   }
 
-  const profileRef = db.collection("profiles").doc(userRecord.uid);
-  await profileRef.set({
-    uid: userRecord.uid,
-    fullName: sessionData.fullName,
-    email: sessionData.email,
-    phoneNumber: sessionData.phoneNumber,
-    passwordHash: sessionData.passwordHash,
-    role: sessionData.role,
-    region: "Samarqand",
-    district: "",
-    neighborhood: "",
-    bio: "",
-    skills: [],
-    isVerified: true,
-    verificationStatus: "verified",
-    status: "active",
-    authMethod: "totp",
+  await db.collection("profiles").doc(uid).update({
+    twoFactorEnabled: true,
     totpEnabled: true,
     totpSecretEncrypted: sessionData.secretEncrypted,
     totpVerifiedAt: FieldValue.serverTimestamp(),
     backupCodes: sessionData.backupCodesHashed,
-    rating: 0,
-    reviewCount: 0,
-    completedJobs: 0,
-    createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-    lastActive: FieldValue.serverTimestamp(),
   });
 
   await sessionRef.update({
     verified: true,
     completed: true,
-    uid: userRecord.uid,
     completedAt: FieldValue.serverTimestamp(),
   });
 
-  const customToken = await auth.createCustomToken(userRecord.uid);
+  logger.info("2FA enrollment completed", {uid});
 
-  logger.info("TOTP registration completed", {uid: userRecord.uid});
-
-  return {
-    success: true,
-    uid: userRecord.uid,
-    customToken,
-  };
+  return {success: true, uid};
 });
 
 /**
- * Initiate login with phone + password, returning a TOTP session.
+ * Verify 2FA code after first-factor login (user already authenticated).
  */
-exports.initiateTOTPLogin = onCall({
+exports.verifyTwoFactor = onCall({
   maxInstances: 10,
   cors: corsOptions,
 }, async (request) => {
-  const {phoneNumber, password} = request.data || {};
-
-  if (!phoneNumber || !password) {
-    throw new HttpsError(
-        "invalid-argument",
-        "Telefon va parol talab qilinadi.",
-    );
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Autentifikatsiya talab qilinadi.");
   }
 
-  const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  const profileSnap = await db.collection("profiles")
-      .where("phoneNumber", "==", normalizedPhone)
-      .limit(1)
-      .get();
-
-  if (profileSnap.empty) {
-    throw new HttpsError("not-found", "Telefon raqam topilmadi.");
+  const {code} = request.data || {};
+  if (!code) {
+    throw new HttpsError("invalid-argument", "Tasdiqlash kodi talab qilinadi.");
   }
 
-  const profile = profileSnap.docs[0].data();
-  const uid = profileSnap.docs[0].id;
+  const uid = request.auth.uid;
+  const profileRef = db.collection("profiles").doc(uid);
+  const profileSnap = await profileRef.get();
 
-  if (!profile.totpEnabled || !profile.totpSecretEncrypted) {
-    throw new HttpsError(
-        "failed-precondition",
-        "Bu hisob uchun Google Authenticator sozlanmagan. Administrator bilan bog'laning.",
-    );
+  if (!profileSnap.exists) {
+    throw new HttpsError("not-found", "Profil topilmadi.");
   }
 
-  if (!profile.passwordHash) {
-    throw new HttpsError(
-        "failed-precondition",
-        "Bu hisob parol bilan himoyalanmagan. Administrator bilan bog'laning.",
-    );
+  const profile = profileSnap.data();
+  if (!isTwoFactorEnabled(profile) || !profile.totpSecretEncrypted) {
+    throw new HttpsError("failed-precondition", "2FA yoqilmagan.");
   }
 
-  const passwordValid = await bcrypt.compare(password, profile.passwordHash);
-  if (!passwordValid) {
-    throw new HttpsError("permission-denied", "Telefon yoki parol noto'g'ri.");
-  }
-
-  const sessionId = createSessionId("totp_login");
-  await db.collection("totp_sessions").doc(sessionId).set({
+  const sessionId = createSessionId("totp_2fa");
+  const sessionRef = db.collection("totp_sessions").doc(sessionId);
+  await sessionRef.set({
     sessionId,
-    purpose: "login",
+    purpose: "login_challenge",
     uid,
-    phoneNumber: normalizedPhone,
     verified: false,
     attempts: 0,
     expiryTime: Date.now() + SESSION_TTL_MS,
     createdAt: FieldValue.serverTimestamp(),
   });
 
-  return {
-    success: true,
-    sessionId,
-  };
-});
-
-/**
- * Complete login after TOTP verification.
- */
-exports.completeTOTPLogin = onCall({
-  maxInstances: 10,
-  cors: corsOptions,
-}, async (request) => {
-  const {sessionId, code} = request.data || {};
-
-  if (!sessionId || !code) {
-    throw new HttpsError(
-        "invalid-argument",
-        "Sessiya ID va tasdiqlash kodi talab qilinadi.",
-    );
-  }
-
-  const sessionRef = db.collection("totp_sessions").doc(sessionId);
   const sessionSnap = await sessionRef.get();
-  const sessionData = assertSessionActive(sessionSnap);
+  const sessionData = sessionSnap.data();
 
-  if (sessionData.purpose !== "login") {
-    throw new HttpsError("failed-precondition", "Noto'g'ri TOTP sessiya turi.");
+  try {
+    await verifyTotpToken(code, profile.totpSecretEncrypted);
+  } catch (error) {
+    if (error instanceof HttpsError && error.code === "invalid-argument") {
+      await sessionRef.update({attempts: (sessionData.attempts || 0) + 1});
+    }
+    throw error;
   }
-
-  const profileRef = db.collection("profiles").doc(sessionData.uid);
-  const profileSnap = await profileRef.get();
-
-  if (!profileSnap.exists) {
-    throw new HttpsError("not-found", "Foydalanuvchi profili topilmadi.");
-  }
-
-  const profile = profileSnap.data();
-  await verifyTotpCode(
-      sessionRef,
-      sessionData,
-      String(code).trim(),
-      profile.totpSecretEncrypted,
-  );
-
-  const customToken = await auth.createCustomToken(sessionData.uid);
 
   await profileRef.update({
     lastActive: FieldValue.serverTimestamp(),
@@ -483,17 +325,11 @@ exports.completeTOTPLogin = onCall({
     completedAt: FieldValue.serverTimestamp(),
   });
 
-  logger.info("TOTP login completed", {uid: sessionData.uid});
-
-  return {
-    success: true,
-    customToken,
-    uid: sessionData.uid,
-  };
+  return {success: true, uid, verifiedAt: Date.now()};
 });
 
 /**
- * Generate new backup codes for the authenticated user.
+ * Regenerate backup codes for authenticated 2FA user.
  */
 exports.generateBackupCodes = onCall({
   maxInstances: 10,
@@ -507,8 +343,8 @@ exports.generateBackupCodes = onCall({
   const profileRef = db.collection("profiles").doc(uid);
   const profileSnap = await profileRef.get();
 
-  if (!profileSnap.exists || !profileSnap.data().totpEnabled) {
-    throw new HttpsError("failed-precondition", "TOTP yoqilmagan.");
+  if (!profileSnap.exists || !isTwoFactorEnabled(profileSnap.data())) {
+    throw new HttpsError("failed-precondition", "2FA yoqilmagan.");
   }
 
   const backupCodes = createPlainBackupCodes();
@@ -519,49 +355,36 @@ exports.generateBackupCodes = onCall({
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  return {
-    success: true,
-    backupCodes,
-  };
+  return {success: true, backupCodes};
 });
 
 /**
- * Use a one-time backup code for login recovery.
+ * Use one-time backup code during 2FA challenge (user already authenticated).
  */
 exports.useBackupCode = onCall({
   maxInstances: 10,
   cors: corsOptions,
 }, async (request) => {
-  const {phoneNumber, password, backupCode} = request.data || {};
-
-  if (!phoneNumber || !password || !backupCode) {
-    throw new HttpsError(
-        "invalid-argument",
-        "Telefon, parol va zaxira kod talab qilinadi.",
-    );
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Autentifikatsiya talab qilinadi.");
   }
 
-  const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  const profileSnap = await db.collection("profiles")
-      .where("phoneNumber", "==", normalizedPhone)
-      .limit(1)
-      .get();
-
-  if (profileSnap.empty) {
-    throw new HttpsError("not-found", "Telefon raqam topilmadi.");
+  const {backupCode} = request.data || {};
+  if (!backupCode) {
+    throw new HttpsError("invalid-argument", "Zaxira kod talab qilinadi.");
   }
 
-  const profileDoc = profileSnap.docs[0];
-  const profile = profileDoc.data();
-  const uid = profileDoc.id;
+  const uid = request.auth.uid;
+  const profileRef = db.collection("profiles").doc(uid);
+  const profileSnap = await profileRef.get();
 
-  if (!profile.passwordHash) {
-    throw new HttpsError("failed-precondition", "Parol sozlanmagan.");
+  if (!profileSnap.exists) {
+    throw new HttpsError("not-found", "Profil topilmadi.");
   }
 
-  const passwordValid = await bcrypt.compare(password, profile.passwordHash);
-  if (!passwordValid) {
-    throw new HttpsError("permission-denied", "Telefon yoki parol noto'g'ri.");
+  const profile = profileSnap.data();
+  if (!isTwoFactorEnabled(profile)) {
+    throw new HttpsError("failed-precondition", "2FA yoqilmagan.");
   }
 
   const hashedInput = hashBackupCode(String(backupCode));
@@ -574,26 +397,24 @@ exports.useBackupCode = onCall({
 
   const updatedCodes = storedCodes.filter((_, index) => index !== matchIndex);
 
-  await profileDoc.ref.update({
+  await profileRef.update({
     backupCodes: updatedCodes,
     updatedAt: FieldValue.serverTimestamp(),
     lastActive: FieldValue.serverTimestamp(),
   });
 
-  const customToken = await auth.createCustomToken(uid);
-
-  logger.info("Backup code used for login", {uid, remainingCodes: updatedCodes.length});
+  logger.info("Backup code used for 2FA", {uid, remainingCodes: updatedCodes.length});
 
   return {
     success: true,
-    customToken,
     uid,
+    verifiedAt: Date.now(),
     remainingBackupCodes: updatedCodes.length,
   };
 });
 
 /**
- * Disable TOTP for a user (self-service or admin).
+ * Disable 2FA (self or admin with verification).
  */
 exports.disableTOTP = onCall({
   maxInstances: 10,
@@ -603,13 +424,11 @@ exports.disableTOTP = onCall({
     throw new HttpsError("unauthenticated", "Autentifikatsiya talab qilinadi.");
   }
 
-  const {targetUid, adminVerified} = request.data || {};
+  const {targetUid, adminVerified, code} = request.data || {};
   const callerUid = request.auth.uid;
-  const profileRef = db.collection("profiles").doc(callerUid);
-  const callerSnap = await profileRef.get();
+  const callerSnap = await db.collection("profiles").doc(callerUid).get();
   const callerRole = callerSnap.exists ? callerSnap.data().role : null;
   const isAdmin = callerRole === "admin" || callerRole === "super_admin";
-
   const resolvedUid = targetUid && isAdmin ? targetUid : callerUid;
 
   if (targetUid && targetUid !== callerUid && !isAdmin) {
@@ -625,12 +444,20 @@ exports.disableTOTP = onCall({
 
   const targetRef = db.collection("profiles").doc(resolvedUid);
   const targetSnap = await targetRef.get();
-
   if (!targetSnap.exists) {
     throw new HttpsError("not-found", "Foydalanuvchi topilmadi.");
   }
 
+  const targetProfile = targetSnap.data();
+  if (resolvedUid === callerUid && isTwoFactorEnabled(targetProfile)) {
+    if (!code) {
+      throw new HttpsError("invalid-argument", "2FA o'chirish uchun joriy kod talab qilinadi.");
+    }
+    await verifyTotpToken(code, targetProfile.totpSecretEncrypted);
+  }
+
   await targetRef.update({
+    twoFactorEnabled: false,
     totpEnabled: false,
     totpSecretEncrypted: FieldValue.delete(),
     totpVerifiedAt: FieldValue.delete(),
@@ -638,16 +465,12 @@ exports.disableTOTP = onCall({
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  logger.info("TOTP disabled", {uid: resolvedUid, by: callerUid});
-
-  return {
-    success: true,
-    uid: resolvedUid,
-  };
+  logger.info("2FA disabled", {uid: resolvedUid, by: callerUid});
+  return {success: true, uid: resolvedUid};
 });
 
 /**
- * Rotate TOTP secret for the authenticated user.
+ * Rotate TOTP secret after verifying current code.
  */
 exports.rotateSecret = onCall({
   maxInstances: 10,
@@ -666,34 +489,29 @@ exports.rotateSecret = onCall({
   const profileRef = db.collection("profiles").doc(uid);
   const profileSnap = await profileRef.get();
 
-  if (!profileSnap.exists || !profileSnap.data().totpEnabled) {
-    throw new HttpsError("failed-precondition", "TOTP yoqilmagan.");
+  if (!profileSnap.exists || !isTwoFactorEnabled(profileSnap.data())) {
+    throw new HttpsError("failed-precondition", "2FA yoqilmagan.");
   }
 
   const profile = profileSnap.data();
-  const currentSecret = decryptSecret(profile.totpSecretEncrypted);
-  const isValid = authenticator.verify({token: String(code).trim(), secret: currentSecret});
-
-  if (!isValid) {
-    throw new HttpsError("invalid-argument", "Joriy TOTP kodi noto'g'ri.");
-  }
+  await verifyTotpToken(code, profile.totpSecretEncrypted);
 
   const newSecret = authenticator.generateSecret();
   const newSecretEncrypted = encryptSecret(newSecret);
   const backupCodes = createPlainBackupCodes();
   const backupCodesHashed = backupCodes.map(hashBackupCode);
   const accountLabel = profile.phoneNumber || profile.email || uid;
+  const otpauthUri = buildOtpauthUri(newSecret, accountLabel);
+  const qrCodeDataUrl = await generateQrDataUrl(otpauthUri);
 
   await profileRef.update({
     totpSecretEncrypted: newSecretEncrypted,
     totpVerifiedAt: FieldValue.serverTimestamp(),
     backupCodes: backupCodesHashed,
+    twoFactorEnabled: true,
+    totpEnabled: true,
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  return {
-    success: true,
-    otpauthUri: buildOtpauthUri(newSecret, accountLabel),
-    backupCodes,
-  };
+  return {success: true, otpauthUri, qrCodeDataUrl, backupCodes};
 });

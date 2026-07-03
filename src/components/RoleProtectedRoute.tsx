@@ -13,7 +13,7 @@ export default function RoleProtectedRoute({
   children,
   allowedRoles,
 }: RoleProtectedRouteProps) {
-  const { profile, loading, user } = useAuth();
+  const { profile, loading, user, requiresTwoFactor, isTwoFactorVerified } = useAuth();
   const { t } = useTranslation();
   const location = useLocation();
 
@@ -44,6 +44,10 @@ export default function RoleProtectedRoute({
         </div>
       </div>
     );
+  }
+
+  if (requiresTwoFactor && !isTwoFactorVerified) {
+    return <Navigate to="/auth/2fa" replace />;
   }
 
   if (!allowedRoles.includes(profile.role)) {

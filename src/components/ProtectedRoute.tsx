@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, requiresTwoFactor, isTwoFactorVerified } = useAuth();
   const { t } = useTranslation();
 
   // Still resolving auth state — show spinner, never redirect yet
@@ -33,6 +33,10 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         </div>
       </div>
     );
+  }
+
+  if (requiresTwoFactor && !isTwoFactorVerified) {
+    return <Navigate to="/auth/2fa" replace />;
   }
 
   return <>{children}</>;

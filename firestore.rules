@@ -32,7 +32,7 @@ service cloud.firestore {
 
     function totpFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['totpEnabled', 'totpSecretEncrypted', 'totpVerifiedAt', 'backupCodes']);
+        .hasAny(['twoFactorEnabled', 'totpEnabled', 'totpSecretEncrypted', 'totpVerifiedAt', 'backupCodes']);
     }
 
     function isWorker() {

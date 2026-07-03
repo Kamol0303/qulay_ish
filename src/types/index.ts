@@ -34,7 +34,8 @@ export interface Profile {
   // Behavior tracking
   trustScore?: number;
   behaviorFlags?: string[];
-  // TOTP two-factor authentication
+  // TOTP two-factor authentication (optional)
+  twoFactorEnabled?: boolean;
   totpEnabled?: boolean;
   totpSecretEncrypted?: string;
   totpVerifiedAt?: any;

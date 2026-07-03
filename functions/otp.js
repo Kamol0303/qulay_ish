@@ -1,11 +1,13 @@
-const {onCall} = require("firebase-functions/v2/https");
-const {initializeApp} = require("firebase-admin/app");
-const {getFirestore} = require("firebase-admin/firestore");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {initializeApp, getApps} = require("firebase-admin/app");
+const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 const {getAuth} = require("firebase-admin/auth");
 const logger = require("firebase-functions/logger");
+const crypto = require("crypto");
 
-// Initialize Firebase Admin
-initializeApp();
+if (getApps().length === 0) {
+  initializeApp();
+}
 const db = getFirestore();
 const auth = getAuth();
 
@@ -19,6 +21,222 @@ const corsOptions = {
   ],
   credentials: true,
 };
+
+const OTP_TTL_MS = 10 * 60 * 1000;
+const MAX_OTP_ATTEMPTS = 5;
+
+function normalizePhoneNumber(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (digits.startsWith("998")) return `+${digits.slice(0, 12)}`;
+  if (digits.length <= 9) return `+998${digits}`;
+  return `+${digits.slice(0, 12)}`;
+}
+
+function generateOtpCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function createOtpSessionId(prefix) {
+  return `${prefix}_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
+}
+
+async function dispatchOtp(identifier, identifierType, otp, purpose) {
+  try {
+    if (identifierType === "phone") {
+      logger.info(`Sending OTP SMS to ${identifier}`, {purpose});
+    } else {
+      logger.info(`Sending OTP email to ${identifier}`, {purpose});
+    }
+  } catch (error) {
+    logger.warn("OTP dispatch failed (non-fatal)", error);
+  }
+}
+
+/**
+ * Server-side OTP registration session (secret never exposed to client rules).
+ */
+exports.createOTPRegistrationSession = onCall({
+  maxInstances: 10,
+  cors: corsOptions,
+}, async (request) => {
+  const {phoneOrEmail, fullName, role} = request.data || {};
+  if (!phoneOrEmail || !fullName || !role) {
+    throw new HttpsError("invalid-argument", "Majburiy maydonlar to'ldirilmagan.");
+  }
+
+  const isPhone = /^(\+|[0-9])/.test(String(phoneOrEmail).trim());
+  const isEmail = String(phoneOrEmail).includes("@");
+  if (!isPhone && !isEmail) {
+    throw new HttpsError("invalid-argument", "Telefon yoki email noto'g'ri.");
+  }
+
+  const normalizedIdentifier = isPhone ?
+    normalizePhoneNumber(phoneOrEmail) : String(phoneOrEmail).trim();
+  const identifierField = isPhone ? "phoneNumber" : "email";
+
+  const existing = await db.collection("profiles")
+      .where(identifierField, "==", normalizedIdentifier)
+      .limit(1)
+      .get();
+  if (!existing.empty) {
+    throw new HttpsError(
+        "already-exists",
+        isPhone ? "Bu telefon raqam allaqachon ro'yxatdan o'tgan" :
+        "Bu email allaqachon ro'yxatdan o'tgan",
+    );
+  }
+
+  const otp = generateOtpCode();
+  const sessionId = createOtpSessionId("otp_reg");
+  await db.collection("otp_sessions").doc(sessionId).set({
+    sessionId,
+    identifier: normalizedIdentifier,
+    identifierType: isPhone ? "phone" : "email",
+    otp,
+    fullName: String(fullName).trim(),
+    role,
+    verified: false,
+    expiryTime: Date.now() + OTP_TTL_MS,
+    createdAt: FieldValue.serverTimestamp(),
+    attempts: 0,
+  });
+
+  await dispatchOtp(normalizedIdentifier, isPhone ? "phone" : "email", otp, "registration");
+  return {success: true, sessionId};
+});
+
+/**
+ * Server-side OTP login session.
+ */
+exports.createOTPLoginSession = onCall({
+  maxInstances: 10,
+  cors: corsOptions,
+}, async (request) => {
+  const {phoneOrEmail} = request.data || {};
+  if (!phoneOrEmail) {
+    throw new HttpsError("invalid-argument", "Telefon yoki email talab qilinadi.");
+  }
+
+  const isPhone = /^(\+|[0-9])/.test(String(phoneOrEmail).trim());
+  const isEmail = String(phoneOrEmail).includes("@");
+  if (!isPhone && !isEmail) {
+    throw new HttpsError("invalid-argument", "Telefon yoki email noto'g'ri.");
+  }
+
+  const normalizedIdentifier = isPhone ?
+    normalizePhoneNumber(phoneOrEmail) : String(phoneOrEmail).trim();
+  const identifierField = isPhone ? "phoneNumber" : "email";
+
+  const userSnap = await db.collection("profiles")
+      .where(identifierField, "==", normalizedIdentifier)
+      .limit(1)
+      .get();
+  if (userSnap.empty) {
+    throw new HttpsError(
+        "not-found",
+        isPhone ? "Bu telefon raqam ro'yxatdan o'tmagan" :
+        "Bu email ro'yxatdan o'tmagan",
+    );
+  }
+
+  const userData = userSnap.docs[0].data();
+  const otp = generateOtpCode();
+  const sessionId = createOtpSessionId("otp_login");
+
+  await db.collection("otp_sessions").doc(sessionId).set({
+    sessionId,
+    identifier: normalizedIdentifier,
+    identifierType: isPhone ? "phone" : "email",
+    otp,
+    uid: userData.uid,
+    verified: false,
+    expiryTime: Date.now() + OTP_TTL_MS,
+    createdAt: FieldValue.serverTimestamp(),
+    attempts: 0,
+    purpose: "login",
+  });
+
+  await dispatchOtp(normalizedIdentifier, isPhone ? "phone" : "email", otp, "login");
+  return {success: true, sessionId};
+});
+
+/**
+ * Complete registration after server-verified OTP session.
+ */
+exports.completeOTPRegistration = onCall({
+  maxInstances: 10,
+  cors: corsOptions,
+}, async (request) => {
+  const {sessionId, email, phoneNumber} = request.data || {};
+  if (!sessionId) {
+    throw new HttpsError("invalid-argument", "Session ID talab qilinadi.");
+  }
+
+  const otpRef = db.collection("otp_sessions").doc(sessionId);
+  const otpSnap = await otpRef.get();
+  if (!otpSnap.exists) {
+    throw new HttpsError("not-found", "OTP sessiyasi topilmadi.");
+  }
+
+  const otpData = otpSnap.data();
+  if (!otpData.verified) {
+    throw new HttpsError("failed-precondition", "OTP tasdiqlanmagan.");
+  }
+  if (otpData.completed) {
+    throw new HttpsError("already-exists", "Ro'yxatdan o'tish allaqachon yakunlangan.");
+  }
+
+  let resolvedEmail = email?.trim() || "";
+  let resolvedPhone = phoneNumber?.trim() || "";
+  if (otpData.identifierType === "phone") {
+    resolvedPhone = otpData.identifier;
+    if (!resolvedEmail) {
+      resolvedEmail = `${otpData.identifier.replace(/\D/g, "")}@qulayish.local`;
+    }
+  } else {
+    resolvedEmail = otpData.identifier;
+  }
+
+  const userRecord = await auth.createUser({
+    email: resolvedEmail,
+    password: crypto.randomBytes(24).toString("hex"),
+    displayName: otpData.fullName,
+  });
+
+  await db.collection("profiles").doc(userRecord.uid).set({
+    uid: userRecord.uid,
+    fullName: otpData.fullName,
+    email: resolvedEmail,
+    phoneNumber: resolvedPhone,
+    role: otpData.role,
+    region: "Samarqand",
+    district: "",
+    neighborhood: "",
+    bio: "",
+    skills: [],
+    isVerified: true,
+    verificationStatus: "verified",
+    status: "active",
+    authMethod: "otp",
+    twoFactorEnabled: false,
+    totpEnabled: false,
+    rating: 0,
+    reviewCount: 0,
+    completedJobs: 0,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    lastActive: FieldValue.serverTimestamp(),
+  });
+
+  await otpRef.update({
+    completed: true,
+    completedAt: FieldValue.serverTimestamp(),
+    uid: userRecord.uid,
+  });
+
+  const customToken = await auth.createCustomToken(userRecord.uid);
+  return {success: true, uid: userRecord.uid, customToken};
+});
 
 /**
  * OTP Login - Generate custom token for user authentication
@@ -37,8 +255,8 @@ exports.createOTPLoginToken = onCall({
     const otpRef = db.collection("otp_sessions").doc(sessionId);
     const otpSnap = await otpRef.get();
 
-    if (!otpSnap.exists()) {
-      throw new Error("OTP session not found");
+    if (!otpSnap.exists) {
+      throw new HttpsError("not-found", "OTP session not found");
     }
 
     const otpData = otpSnap.data();

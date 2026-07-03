@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
+import TwoFactorChallengePage from './pages/TwoFactorChallengePage';
 import SuperAdminLogin from './pages/SuperAdminLogin';
 import JobsPage from './pages/JobsPage';
 import WorkersPage from './pages/WorkersPage';
@@ -66,6 +67,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/auth/2fa" element={<TwoFactorChallengePage />} />
                 <Route path="/login" element={<Navigate to="/auth?mode=login" replace />} />
                 <Route path="/super-admin-login" element={<SuperAdminLogin />} />
                 <Route path="/403" element={<ForbiddenPage />} />

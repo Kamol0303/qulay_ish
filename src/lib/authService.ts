@@ -602,87 +602,22 @@ export const authService = {
     role: 'worker' | 'employer';
   }): Promise<AuthResult & { sessionId?: string }> {
     try {
-      // Check if it's phone or email
-      const isPhone = /^(\+|[0-9])/.test(data.phoneOrEmail.trim());
-      const isEmail = data.phoneOrEmail.includes('@');
-
-      if (!isPhone && !isEmail) {
-        return {
-          success: false,
-          error: 'Iltimos, to\'g\'ri telefon raqam yoki email kiriting.',
-        };
+      if (!functions) {
+        return { success: false, error: 'Cloud Functions mavjud emas.' };
       }
 
-      let normalizedIdentifier = data.phoneOrEmail;
-      if (isPhone) {
-        normalizedIdentifier = normalizePhoneNumber(data.phoneOrEmail);
-      }
-
-      // Check if already registered
-      const profilesRef = collection(db, 'profiles');
-      const identifierField = isPhone ? 'phoneNumber' : 'email';
-      const existingQuery = query(profilesRef, where(identifierField, '==', normalizedIdentifier));
-      const existingSnap = await getDocs(existingQuery);
-
-      if (!existingSnap.empty) {
-        return {
-          success: false,
-          error: isPhone ? 'Bu telefon raqam allaqachon ro\'yxatdan o\'tgan' : 'Bu email allaqachon ro\'yxatdan o\'tgan',
-        };
-      }
-
-      // Generate OTP (6 digits)
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const sessionId = `otp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const expiryTime = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-      // Store OTP in Firestore
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      await setDoc(otpRef, {
-        sessionId,
-        identifier: normalizedIdentifier,
-        identifierType: isPhone ? 'phone' : 'email',
-        otp,
-        fullName: data.fullName,
+      const createSession = httpsCallable(functions, 'createOTPRegistrationSession');
+      const result = await createSession({
+        phoneOrEmail: data.phoneOrEmail.trim(),
+        fullName: data.fullName.trim(),
         role: data.role,
-        verified: false,
-        expiryTime,
-        createdAt: serverTimestamp(),
-        attempts: 0,
       });
+      const payload = result.data as { success: boolean; sessionId: string };
 
-      // Send OTP via Cloud Function
-      try {
-        if (functions && isPhone) {
-          const sendOTPSMS = httpsCallable(functions, 'sendOTPSMS');
-          await sendOTPSMS({
-            phoneNumber: normalizedIdentifier,
-            otp,
-            purpose: 'registration',
-          });
-        } else if (functions && isEmail) {
-          const sendOTPEmail = httpsCallable(functions, 'sendOTPEmail');
-          await sendOTPEmail({
-            email: normalizedIdentifier,
-            otp,
-            purpose: 'registration',
-          });
-        }
-      } catch (sendError: any) {
-        debugWarn('OTP Send Error]', sendError);
-        // Don't fail if sending fails - OTP is still stored and can be used
-      }
-
-      return {
-        success: true,
-        sessionId,
-      };
-    } catch (error: any) {
+      return { success: true, sessionId: payload.sessionId };
+    } catch (error) {
       debugError('OTP Request Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+      return { success: false, error: mapFirebaseError(error) };
     }
   },
 
@@ -691,61 +626,17 @@ export const authService = {
    */
   async verifyOTPForRegistration(sessionId: string, otp: string): Promise<AuthResult> {
     try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists()) {
-        return {
-          success: false,
-          error: 'OTP sessiyasi topilmadi. Qayta urinib ko\'ring.',
-        };
+      if (!functions) {
+        return { success: false, error: 'Cloud Functions mavjud emas.' };
       }
 
-      const otpData = otpSnap.data();
+      const verifySession = httpsCallable(functions, 'verifyOTPSession');
+      await verifySession({ sessionId, otp });
 
-      // Check expiry
-      if (Date.now() > otpData.expiryTime) {
-        return {
-          success: false,
-          error: 'OTP kodi eskirib qolgan. Yangi kod so\'rang.',
-        };
-      }
-
-      // Check attempts
-      if (otpData.attempts >= 5) {
-        return {
-          success: false,
-          error: 'Juda ko\'p xato urinish. Qayta o\'rnatish uchun yangi kod so\'rang.',
-        };
-      }
-
-      // Verify OTP
-      if (otp !== otpData.otp) {
-        // Increment attempts
-        await setDoc(otpRef, { attempts: otpData.attempts + 1 }, { merge: true });
-        return {
-          success: false,
-          error: 'OTP kodi noto\'g\'ri.',
-        };
-      }
-
-      // OTP verified - create user account
-      const isPhone = otpData.identifierType === 'phone';
-      
-      // For registration, we need both phone and email
-      // Store temporarily in the OTP session
-      await setDoc(otpRef, { verified: true }, { merge: true });
-
-      return {
-        success: true,
-        needsRoleSelection: false,
-      };
-    } catch (error: any) {
+      return { success: true, needsRoleSelection: false };
+    } catch (error) {
       debugError('OTP Verify Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+      return { success: false, error: mapFirebaseError(error) };
     }
   },
 
@@ -757,78 +648,23 @@ export const authService = {
     phoneNumber?: string;
   }): Promise<AuthResult> {
     try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists() || !otpSnap.data().verified) {
-        return {
-          success: false,
-          error: 'OTP tasdiqlash muvaffaqiyatsiz. Qayta urinib ko\'ring.',
-        };
+      if (!functions) {
+        return { success: false, error: 'Cloud Functions mavjud emas.' };
       }
 
-      const otpData = otpSnap.data();
+      const completeRegistration = httpsCallable(functions, 'completeOTPRegistration');
+      const result = await completeRegistration({
+        sessionId,
+        email: additionalData?.email,
+        phoneNumber: additionalData?.phoneNumber,
+      });
+      const payload = result.data as { customToken: string };
 
-      // Create email for Firebase Auth if we only have phone
-      let email = additionalData?.email || `${otpData.identifier.replace(/\D/g, '')}@qulayish.local`;
-      let phoneNumber = additionalData?.phoneNumber || '';
-
-      if (otpData.identifierType === 'phone') {
-        phoneNumber = otpData.identifier;
-      } else {
-        email = otpData.identifier;
-      }
-
-      // Create temporary password for Firebase (OTP users don't need password)
-      const tempPassword = Math.random().toString(36).substring(2, 15);
-
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, tempPassword);
-
-        // Create profile
-        const profileRef = doc(db, 'profiles', userCredential.user.uid);
-        await setDoc(profileRef, {
-          uid: userCredential.user.uid,
-          fullName: otpData.fullName,
-          email,
-          phoneNumber,
-          role: otpData.role,
-          region: 'Samarqand',
-          district: '',
-          neighborhood: '',
-          bio: '',
-          skills: [],
-          isVerified: true,
-          verificationStatus: 'verified',
-          status: 'active',
-          authMethod: 'otp',
-          rating: 0,
-          reviewCount: 0,
-          completedJobs: 0,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastActive: serverTimestamp(),
-        });
-
-        // Delete OTP session
-        await setDoc(otpRef, { completed: true, completedAt: serverTimestamp() }, { merge: true });
-
-        return { success: true, needsRoleSelection: false };
-      } catch (createError: any) {
-        if (createError.code === 'auth/email-already-in-use') {
-          return {
-            success: false,
-            error: 'Bu email allaqachon ishlatilgan.',
-          };
-        }
-        throw createError;
-      }
-    } catch (error: any) {
+      await signInWithCustomToken(auth, payload.customToken);
+      return { success: true, needsRoleSelection: false };
+    } catch (error) {
       debugError('OTP Completion Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+      return { success: false, error: mapFirebaseError(error) };
     }
   },
 
@@ -837,89 +673,18 @@ export const authService = {
    */
   async requestOTPForLogin(phoneOrEmail: string): Promise<AuthResult & { sessionId?: string }> {
     try {
-      // Check if it's phone or email
-      const isPhone = /^(\+|[0-9])/.test(phoneOrEmail.trim());
-      const isEmail = phoneOrEmail.includes('@');
-
-      if (!isPhone && !isEmail) {
-        return {
-          success: false,
-          error: 'Iltimos, to\'g\'ri telefon raqam yoki email kiriting.',
-        };
+      if (!functions) {
+        return { success: false, error: 'Cloud Functions mavjud emas.' };
       }
 
-      let normalizedIdentifier = phoneOrEmail;
-      if (isPhone) {
-        normalizedIdentifier = normalizePhoneNumber(phoneOrEmail);
-      }
+      const createSession = httpsCallable(functions, 'createOTPLoginSession');
+      const result = await createSession({ phoneOrEmail: phoneOrEmail.trim() });
+      const payload = result.data as { success: boolean; sessionId: string };
 
-      // Check if user exists
-      const profilesRef = collection(db, 'profiles');
-      const identifierField = isPhone ? 'phoneNumber' : 'email';
-      const userQuery = query(profilesRef, where(identifierField, '==', normalizedIdentifier));
-      const userSnap = await getDocs(userQuery);
-
-      if (userSnap.empty) {
-        return {
-          success: false,
-          error: isPhone ? 'Bu telefon raqam ro\'yxatdan o\'tmagan' : 'Bu email ro\'yxatdan o\'tmagan',
-        };
-      }
-
-      // Generate OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const sessionId = `otp_login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const expiryTime = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-      // Store OTP in Firestore
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const userData = userSnap.docs[0].data();
-      
-      await setDoc(otpRef, {
-        sessionId,
-        identifier: normalizedIdentifier,
-        identifierType: isPhone ? 'phone' : 'email',
-        otp,
-        uid: userData.uid,
-        verified: false,
-        expiryTime,
-        createdAt: serverTimestamp(),
-        attempts: 0,
-        purpose: 'login',
-      });
-
-      // Send OTP via Cloud Function
-      try {
-        if (functions && isPhone) {
-          const sendOTPSMS = httpsCallable(functions, 'sendOTPSMS');
-          await sendOTPSMS({
-            phoneNumber: normalizedIdentifier,
-            otp,
-            purpose: 'login',
-          });
-        } else if (functions && isEmail) {
-          const sendOTPEmail = httpsCallable(functions, 'sendOTPEmail');
-          await sendOTPEmail({
-            email: normalizedIdentifier,
-            otp,
-            purpose: 'login',
-          });
-        }
-      } catch (sendError: any) {
-        debugWarn('OTP Send Error]', sendError);
-        // Don't fail if sending fails - OTP is still stored and can be used
-      }
-
-      return {
-        success: true,
-        sessionId,
-      };
-    } catch (error: any) {
+      return { success: true, sessionId: payload.sessionId };
+    } catch (error) {
       debugError('OTP Login Request Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+      return { success: false, error: mapFirebaseError(error) };
     }
   },
 
@@ -928,66 +693,17 @@ export const authService = {
    */
   async verifyOTPForLogin(sessionId: string, otp: string): Promise<AuthResult & { uid?: string }> {
     try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists()) {
-        return {
-          success: false,
-          error: 'OTP sessiyasi topilmadi. Qayta urinib ko\'ring.',
-        };
+      if (!functions) {
+        return { success: false, error: 'Cloud Functions mavjud emas.' };
       }
 
-      const otpData = otpSnap.data();
+      const verifySession = httpsCallable(functions, 'verifyOTPSession');
+      await verifySession({ sessionId, otp });
 
-      // Check purpose
-      if (otpData.purpose !== 'login') {
-        return {
-          success: false,
-          error: 'Noto\'g\'ri OTP turi.',
-        };
-      }
-
-      // Check expiry
-      if (Date.now() > otpData.expiryTime) {
-        return {
-          success: false,
-          error: 'OTP kodi eskirib qolgan. Yangi kod so\'rang.',
-        };
-      }
-
-      // Check attempts
-      if (otpData.attempts >= 5) {
-        return {
-          success: false,
-          error: 'Juda ko\'p xato urinish. Qayta o\'rnatish uchun yangi kod so\'rang.',
-        };
-      }
-
-      // Verify OTP
-      if (otp !== otpData.otp) {
-        // Increment attempts
-        await setDoc(otpRef, { attempts: otpData.attempts + 1 }, { merge: true });
-        return {
-          success: false,
-          error: 'OTP kodi noto\'g\'ri.',
-        };
-      }
-
-      // OTP verified
-      await setDoc(otpRef, { verified: true }, { merge: true });
-
-      return {
-        success: true,
-        needsRoleSelection: false,
-        uid: otpData.uid,
-      };
-    } catch (error: any) {
+      return { success: true, needsRoleSelection: false };
+    } catch (error) {
       debugError('OTP Login Verify Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+      return { success: false, error: mapFirebaseError(error) };
     }
   },
 
@@ -1092,178 +808,62 @@ export const authService = {
   },
 
   /**
-   * TOTP orqali ro'yxatdan o'tish - secret va QR kod generatsiyasi
+   * Optional 2FA: start enrollment (authenticated user).
    */
-  async requestTOTPForRegistration(data: {
-    phoneNumber: string;
-    password: string;
-    fullName: string;
-    role: 'worker' | 'employer';
-    email?: string;
-  }): Promise<AuthResult & { sessionId?: string; otpauthUri?: string; backupCodes?: string[] }> {
-    try {
-      const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
-      const passwordValidation = passwordService.validatePassword(data.password);
-
-      if (!passwordValidation.isValid) {
-        return {
-          success: false,
-          error: passwordValidation.error,
-        };
-      }
-
-      const result = await totpService.generateSecret({
-        phoneNumber: normalizedPhone,
-        password: data.password,
-        fullName: data.fullName.trim(),
-        role: data.role,
-        email: data.email?.trim(),
-      });
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error,
-        };
-      }
-
-      return {
-        success: true,
-        sessionId: result.sessionId,
-        otpauthUri: result.otpauthUri,
-        backupCodes: result.backupCodes,
-      };
-    } catch (error) {
-      debugError('TOTP Registration Request Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+  async startTwoFactorEnrollment(): Promise<AuthResult & {
+    sessionId?: string;
+    qrCodeDataUrl?: string;
+    backupCodes?: string[];
+  }> {
+    const result = await totpService.startEnrollment();
+    if (!result.success) {
+      return { success: false, error: result.error };
     }
+    return {
+      success: true,
+      sessionId: result.sessionId,
+      qrCodeDataUrl: result.qrCodeDataUrl,
+      backupCodes: result.backupCodes,
+    };
   },
 
-  /**
-   * TOTP kodini tasdiqlash va ro'yxatdan o'tishni yakunlash
-   */
-  async verifyTOTPForRegistration(
-    sessionId: string,
-    code: string
-  ): Promise<AuthResult> {
-    try {
-      const result = await totpService.verifyTOTP({ sessionId, code });
-
-      if (!result.success || !result.customToken) {
-        return {
-          success: false,
-          error: result.error || 'TOTP tasdiqlash muvaffaqiyatsiz.',
-        };
-      }
-
-      await signInWithCustomToken(auth, result.customToken);
-      return { success: true, needsRoleSelection: false };
-    } catch (error) {
-      debugError('TOTP Registration Verify Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+  async confirmTwoFactorEnrollment(sessionId: string, code: string): Promise<AuthResult> {
+    const result = await totpService.confirmEnrollment(sessionId, code);
+    if (!result.success) {
+      return { success: false, error: result.error };
     }
+    return { success: true, needsRoleSelection: false };
   },
 
-  /**
-   * TOTP orqali kirish - telefon va parolni tekshirish
-   */
-  async initiateTOTPLogin(data: {
-    phoneNumber: string;
-    password: string;
-  }): Promise<AuthResult & { sessionId?: string }> {
-    try {
-      const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
-      const result = await totpService.initiateLogin({
-        phoneNumber: normalizedPhone,
-        password: data.password,
-      });
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error,
-        };
-      }
-
-      return {
-        success: true,
-        sessionId: result.sessionId,
-      };
-    } catch (error) {
-      debugError('TOTP Login Initiate Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+  async verifyTwoFactorChallenge(code: string): Promise<AuthResult & { verifiedAt?: number }> {
+    const result = await totpService.verifyChallenge(code);
+    if (!result.success) {
+      return { success: false, error: result.error };
     }
+    return { success: true, needsRoleSelection: false, verifiedAt: result.verifiedAt };
   },
 
-  /**
-   * TOTP kodini tasdiqlash va tizimga kirish
-   */
-  async completeTOTPLogin(sessionId: string, code: string): Promise<AuthResult> {
-    try {
-      const result = await totpService.completeLogin({ sessionId, code });
-
-      if (!result.success || !result.customToken) {
-        return {
-          success: false,
-          error: result.error || 'TOTP tasdiqlash muvaffaqiyatsiz.',
-        };
-      }
-
-      await signInWithCustomToken(auth, result.customToken);
-      return { success: true, needsRoleSelection: false };
-    } catch (error) {
-      debugError('TOTP Login Complete Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+  async verifyTwoFactorBackupCode(backupCode: string): Promise<AuthResult & {
+    remainingBackupCodes?: number;
+    verifiedAt?: number;
+  }> {
+    const result = await totpService.useBackupCode(backupCode);
+    if (!result.success) {
+      return { success: false, error: result.error };
     }
+    return {
+      success: true,
+      needsRoleSelection: false,
+      remainingBackupCodes: result.remainingBackupCodes,
+      verifiedAt: result.verifiedAt,
+    };
   },
 
-  /**
-   * Zaxira kod orqali tizimga kirish
-   */
-  async loginWithBackupCode(data: {
-    phoneNumber: string;
-    password: string;
-    backupCode: string;
-  }): Promise<AuthResult & { remainingBackupCodes?: number }> {
-    try {
-      const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
-      const result = await totpService.useBackupCode({
-        phoneNumber: normalizedPhone,
-        password: data.password,
-        backupCode: data.backupCode,
-      });
-
-      if (!result.success || !result.customToken) {
-        return {
-          success: false,
-          error: result.error,
-        };
-      }
-
-      await signInWithCustomToken(auth, result.customToken);
-      return {
-        success: true,
-        needsRoleSelection: false,
-        remainingBackupCodes: result.remainingBackupCodes,
-      };
-    } catch (error) {
-      debugError('Backup Code Login Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+  async disableTwoFactor(code: string): Promise<AuthResult> {
+    const result = await totpService.disable(code);
+    if (!result.success) {
+      return { success: false, error: result.error };
     }
+    return { success: true, needsRoleSelection: false };
   },
 };

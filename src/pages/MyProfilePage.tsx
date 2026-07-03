@@ -13,6 +13,7 @@ import { REGIONS, DISTRICTS } from '../constants/locations';
 import { SKILLS } from '../constants/categories';
 import { getDistrictKey } from '../lib/utils';
 import { validatePhoneNumber, validateEmail, validateFullName, formatPhoneNumber } from '../lib/validation';
+import TwoFactorSettings from '../components/TwoFactorSettings';
 
 export default function MyProfilePage() {
   const { t } = useTranslation();
@@ -768,6 +769,10 @@ export default function MyProfilePage() {
             )}
           </div>
         )}
+
+        <div className="mt-8">
+          <TwoFactorSettings />
+        </div>
       </div>
     </Layout>
   );

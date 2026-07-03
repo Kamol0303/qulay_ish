@@ -5,6 +5,9 @@
 const {setGlobalOptions} = require("firebase-functions");
 
 const {
+  createOTPRegistrationSession,
+  createOTPLoginSession,
+  completeOTPRegistration,
   sendOTPEmail,
   sendOTPSMS,
   verifyOTPSession,
@@ -15,8 +18,7 @@ const {
 const {
   generateSecret,
   verifyTOTP,
-  initiateTOTPLogin,
-  completeTOTPLogin,
+  verifyTwoFactor,
   generateBackupCodes,
   useBackupCode,
   disableTOTP,
@@ -26,6 +28,9 @@ const {
 setGlobalOptions({maxInstances: 10});
 
 // Legacy OTP functions (kept for backward compatibility during migration)
+exports.createOTPRegistrationSession = createOTPRegistrationSession;
+exports.createOTPLoginSession = createOTPLoginSession;
+exports.completeOTPRegistration = completeOTPRegistration;
 exports.sendOTPEmail = sendOTPEmail;
 exports.sendOTPSMS = sendOTPSMS;
 exports.verifyOTPSession = verifyOTPSession;
@@ -35,8 +40,7 @@ exports.createOTPLoginToken = createOTPLoginToken;
 // TOTP authentication functions
 exports.generateSecret = generateSecret;
 exports.verifyTOTP = verifyTOTP;
-exports.initiateTOTPLogin = initiateTOTPLogin;
-exports.completeTOTPLogin = completeTOTPLogin;
+exports.verifyTwoFactor = verifyTwoFactor;
 exports.generateBackupCodes = generateBackupCodes;
 exports.useBackupCode = useBackupCode;
 exports.disableTOTP = disableTOTP;
