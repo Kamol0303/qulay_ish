@@ -45,8 +45,8 @@ export default function Header() {
             <Link to="/" className="flex items-center space-x-3 group">
               <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 overflow-hidden">
                 <img 
-                  src="https://samarkand.uz/templates/dreamzero/img/gerb-flag.png" 
-                  alt="Uzbekistan Gerb" 
+                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Emblem_of_Samarkand.svg/120px-Emblem_of_Samarkand.svg.png" 
+                  alt="Samarqand emblem" 
                   className="w-8 h-8 object-contain"
                   referrerPolicy="no-referrer"
                 />
@@ -54,9 +54,6 @@ export default function Header() {
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider leading-tight">
                   {t('common.branding_top')}
-                </span>
-                <span className="text-[11px] font-bold text-slate-900 leading-tight">
-                  {t('common.branding_bottom')}
                 </span>
               </div>
             </Link>
