@@ -3,6 +3,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
+import { requiresMandatoryTwoFactorSetup } from '../lib/twoFactorStorage';
 
 type RoleProtectedRouteProps = {
   children: React.ReactNode;
@@ -48,6 +49,10 @@ export default function RoleProtectedRoute({
 
   if (requiresTwoFactor && !isTwoFactorVerified) {
     return <Navigate to="/auth/2fa" replace />;
+  }
+
+  if (requiresMandatoryTwoFactorSetup(profile)) {
+    return <Navigate to="/auth/2fa-setup" replace />;
   }
 
   if (!allowedRoles.includes(profile.role)) {

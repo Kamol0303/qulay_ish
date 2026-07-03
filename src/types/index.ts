@@ -3,7 +3,8 @@ export interface Profile {
   fullName: string;
   email: string;
   phoneNumber?: string;
-  passwordHash?: string; // Hashed password for authentication
+  /** @deprecated Moved to private_credentials/{uid} — may exist on legacy profiles */
+  passwordHash?: string;
   role: 'worker' | 'employer' | 'admin' | 'super_admin';
   region: string;
   district?: string;
@@ -34,13 +35,15 @@ export interface Profile {
   // Behavior tracking
   trustScore?: number;
   behaviorFlags?: string[];
-  // TOTP two-factor authentication (optional)
+  // Two-factor authentication (Google Authenticator)
   twoFactorEnabled?: boolean;
-  totpEnabled?: boolean;
-  totpSecretEncrypted?: string;
-  totpVerifiedAt?: any;
-  backupCodes?: string[];
-  authMethod?: 'otp' | 'totp' | 'password' | 'google';
+  totpSecretEncrypted?: string | null;
+  totpPendingSecretEncrypted?: string | null;
+  backupCodesHashed?: string[] | null;
+  twoFactorVerifiedAt?: any;
+  twoFactorFailedAttempts?: number;
+  twoFactorLockedUntil?: number;
+  authMethod?: 'password' | 'google' | 'magic_link';
 }
 
 export interface Job {

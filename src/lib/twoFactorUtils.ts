@@ -1,7 +1,7 @@
 /**
- * Normalize user-entered TOTP code to 6 digits.
+ * Normalize user-entered authenticator code to 6 digits.
  */
-export function normalizeTotpCode(input: string): string {
+export function normalizeAuthCode(input: string): string {
   return input.replace(/\D/g, '').slice(0, 6);
 }
 
@@ -10,8 +10,6 @@ export function normalizeTotpCode(input: string): string {
  */
 export function normalizeBackupCode(input: string): string {
   const cleaned = input.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  if (cleaned.length <= 4) {
-    return cleaned;
-  }
+  if (cleaned.length <= 4) return cleaned;
   return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}`;
 }

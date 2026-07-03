@@ -4,15 +4,15 @@ import { AlertCircle, CheckCircle, Loader, Shield, ArrowLeft } from 'lucide-reac
 import { authService } from '../lib/authService';
 import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
-import { normalizeBackupCode, normalizeTotpCode } from '../lib/totpUtils';
+import { normalizeBackupCode, normalizeAuthCode } from '../lib/twoFactorUtils';
 import { markTwoFactorVerified } from '../lib/twoFactorStorage';
 
-type ChallengeMode = 'totp' | 'backup';
+type ChallengeMode = 'authenticator' | 'backup';
 
 export default function TwoFactorChallengePage() {
   const navigate = useNavigate();
   const { user, profile, userRole, loading, isTwoFactorVerified, signOut } = useAuth();
-  const [mode, setMode] = useState<ChallengeMode>('totp');
+  const [mode, setMode] = useState<ChallengeMode>('authenticator');
   const [code, setCode] = useState('');
   const [backupCode, setBackupCode] = useState('');
   const [loadingAction, setLoadingAction] = useState(false);
@@ -30,7 +30,7 @@ export default function TwoFactorChallengePage() {
     }
   }, [loading, user, profile, isTwoFactorVerified, userRole, navigate]);
 
-  const handleVerifyTotp = useCallback(
+  const handleVerifyAuthenticator = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setError('');
@@ -51,7 +51,7 @@ export default function TwoFactorChallengePage() {
       }
 
       markTwoFactorVerified(user.uid, result.verifiedAt);
-      setSuccess('Tasdiqlandi. Yo\'naltirilmoqda...');
+      setSuccess("Tasdiqlandi. Yo'naltirilmoqda...");
       navigate(getRoleRedirectPath(userRole), { replace: true });
     },
     [code, user, userRole, navigate]
@@ -64,7 +64,7 @@ export default function TwoFactorChallengePage() {
       setSuccess('');
 
       if (!user || backupCode.length < 9) {
-        setError('Zaxira kodni to\'liq kiriting.');
+        setError("Zaxira kodni to'liq kiriting.");
         return;
       }
 
@@ -78,12 +78,7 @@ export default function TwoFactorChallengePage() {
       }
 
       markTwoFactorVerified(user.uid, result.verifiedAt);
-      const remaining = result.remainingBackupCodes ?? 0;
-      setSuccess(
-        remaining > 0
-          ? `Kirish muvaffaqiyatli. Qolgan zaxira kodlar: ${remaining}`
-          : 'Kirish muvaffaqiyatli. Zaxira kodlar tugagan — yangilarini yarating.'
-      );
+      setSuccess('Kirish muvaffaqiyatli.');
       navigate(getRoleRedirectPath(userRole), { replace: true });
     },
     [backupCode, user, userRole, navigate]
@@ -112,8 +107,8 @@ export default function TwoFactorChallengePage() {
             </p>
           </div>
 
-          {mode === 'totp' ? (
-            <form onSubmit={handleVerifyTotp} className="space-y-5">
+          {mode === 'authenticator' ? (
+            <form onSubmit={handleVerifyAuthenticator} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">6 xonali kod</label>
                 <input
@@ -122,7 +117,7 @@ export default function TwoFactorChallengePage() {
                   value={code}
                   onChange={(e) => {
                     setError('');
-                    setCode(normalizeTotpCode(e.target.value));
+                    setCode(normalizeAuthCode(e.target.value));
                   }}
                   placeholder="000000"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900 text-center text-2xl tracking-widest font-mono"
@@ -188,12 +183,12 @@ export default function TwoFactorChallengePage() {
               <button
                 type="button"
                 onClick={() => {
-                  setMode('totp');
+                  setMode('authenticator');
                   setError('');
                 }}
                 className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                  Authenticator kodiga qaytish
+                Authenticator kodiga qaytish
               </button>
             </form>
           )}

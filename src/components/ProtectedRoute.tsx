@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
+import { requiresMandatoryTwoFactorSetup } from '../lib/twoFactorStorage';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, requiresTwoFactor, isTwoFactorVerified } = useAuth();
@@ -37,6 +38,10 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (requiresTwoFactor && !isTwoFactorVerified) {
     return <Navigate to="/auth/2fa" replace />;
+  }
+
+  if (requiresMandatoryTwoFactorSetup(profile)) {
+    return <Navigate to="/auth/2fa-setup" replace />;
   }
 
   return <>{children}</>;

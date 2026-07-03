@@ -30,9 +30,22 @@ service cloud.firestore {
       return isAuthenticated() && getUserRole() == 'super_admin';
     }
 
-    function totpFieldsUnchanged() {
+    function twoFactorFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['twoFactorEnabled', 'totpEnabled', 'totpSecretEncrypted', 'totpVerifiedAt', 'backupCodes']);
+        .hasAny([
+          'twoFactorEnabled',
+          'totpSecretEncrypted',
+          'totpPendingSecretEncrypted',
+          'backupCodesHashed',
+          'twoFactorVerifiedAt',
+          'twoFactorFailedAttempts',
+          'twoFactorLockedUntil',
+          'passwordHash',
+        ]);
+    }
+
+    function passwordHashUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['passwordHash']);
     }
 
     function isWorker() {
@@ -54,9 +67,9 @@ service cloud.firestore {
       allow create: if isDemoUser(uid) || 
                        (isOwner(uid) && isAuthenticated());
       
-      // Update: Demo users OR Owner OR Admin (TOTP fields are server-managed only)
+      // Update: Demo users OR Owner (without 2FA/passwordHash) OR Admin
       allow update: if isDemoUser(uid) ||
-                       (isOwner(uid) && totpFieldsUnchanged()) ||
+                       (isOwner(uid) && twoFactorFieldsUnchanged() && passwordHashUnchanged()) ||
                        isAdmin();
       
       // Delete: Only super_admin can delete profiles
@@ -70,18 +83,17 @@ service cloud.firestore {
       // Read: Public (anyone can view jobs)
       allow read: if true;
       
-      // Create: Authenticated users (typically employers) OR demo mode
-      allow create: if isAuthenticated() || request.auth == null;
+      // Create: Authenticated employers only (employerId must match auth uid)
+      allow create: if isAuthenticated() &&
+        request.resource.data.employerId == request.auth.uid;
       
-      // Update: Job owner or admin OR demo mode
+      // Update: Job owner or admin
       allow update: if isAuthenticated() &&
-        (resource.data.employerId == request.auth.uid || isAdmin())
-        || request.auth == null;
+        (resource.data.employerId == request.auth.uid || isAdmin());
       
-      // Delete: Job owner, admin, or super_admin OR demo mode
+      // Delete: Job owner, admin, or super_admin
       allow delete: if isAuthenticated() &&
-        (resource.data.employerId == request.auth.uid || isAdmin())
-        || request.auth == null;
+        (resource.data.employerId == request.auth.uid || isAdmin());
     }
 
     // ============================================
@@ -370,16 +382,9 @@ service cloud.firestore {
     }
 
     // ============================================
-    // TOTP SESSIONS COLLECTION (server-managed)
+    // PRIVATE CREDENTIALS (server-managed via Cloud Functions)
     // ============================================
-    match /totp_sessions/{sessionId} {
-      allow read, write: if false;
-    }
-
-    // ============================================
-    // LEGACY OTP SESSIONS (server-managed)
-    // ============================================
-    match /otp_sessions/{sessionId} {
+    match /private_credentials/{uid} {
       allow read, write: if false;
     }
 

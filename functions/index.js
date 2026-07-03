@@ -1,47 +1,27 @@
-/**
- * Cloud Functions entry point for Qulay Ish.
- */
-
 const {setGlobalOptions} = require("firebase-functions");
 
 const {
-  createOTPRegistrationSession,
-  createOTPLoginSession,
-  completeOTPRegistration,
-  sendOTPEmail,
-  sendOTPSMS,
-  verifyOTPSession,
-  cleanupExpiredOTP,
-  createOTPLoginToken,
-} = require("./otp");
+  verifyPasswordServerSide,
+  storePasswordCredentials,
+  setSuperAdminClaim,
+} = require("./authSecurity");
 
 const {
-  generateSecret,
-  verifyTOTP,
-  verifyTwoFactor,
-  generateBackupCodes,
-  useBackupCode,
-  disableTOTP,
-  rotateSecret,
-} = require("./totp");
+  initiate2FASetup,
+  confirm2FASetup,
+  verify2FALogin,
+  disable2FA,
+  regenerateBackupCodes,
+} = require("./twoFactorAuth");
 
 setGlobalOptions({maxInstances: 10});
 
-// Legacy OTP functions (kept for backward compatibility during migration)
-exports.createOTPRegistrationSession = createOTPRegistrationSession;
-exports.createOTPLoginSession = createOTPLoginSession;
-exports.completeOTPRegistration = completeOTPRegistration;
-exports.sendOTPEmail = sendOTPEmail;
-exports.sendOTPSMS = sendOTPSMS;
-exports.verifyOTPSession = verifyOTPSession;
-exports.cleanupExpiredOTP = cleanupExpiredOTP;
-exports.createOTPLoginToken = createOTPLoginToken;
+exports.verifyPasswordServerSide = verifyPasswordServerSide;
+exports.storePasswordCredentials = storePasswordCredentials;
+exports.setSuperAdminClaim = setSuperAdminClaim;
 
-// TOTP authentication functions
-exports.generateSecret = generateSecret;
-exports.verifyTOTP = verifyTOTP;
-exports.verifyTwoFactor = verifyTwoFactor;
-exports.generateBackupCodes = generateBackupCodes;
-exports.useBackupCode = useBackupCode;
-exports.disableTOTP = disableTOTP;
-exports.rotateSecret = rotateSecret;
+exports.initiate2FASetup = initiate2FASetup;
+exports.confirm2FASetup = confirm2FASetup;
+exports.verify2FALogin = verify2FALogin;
+exports.disable2FA = disable2FA;
+exports.regenerateBackupCodes = regenerateBackupCodes;

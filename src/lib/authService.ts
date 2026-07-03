@@ -1,16 +1,13 @@
 import { debugLogger } from './debugLogger';
 import {
   GoogleAuthProvider,
-  RecaptchaVerifier,
   isSignInWithEmailLink,
   sendSignInLinkToEmail,
   signInWithEmailLink,
-  signInWithPhoneNumber,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithCustomToken,
-  type ConfirmationResult,
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -18,7 +15,7 @@ import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../firebase';
 import { demoStore } from './demoStore';
 import { passwordService } from './passwordService';
-import { totpService } from './totpService';
+import { twoFactorService } from './twoFactorService';
 
 export interface AuthResult {
   success: boolean;
@@ -49,10 +46,6 @@ export interface UserProfile {
 
 const EMAIL_STORAGE_KEY = 'qulayish_email_for_signin';
 const NAME_STORAGE_KEY = 'qulayish_name_for_signin';
-const PHONE_SESSION_KEY = 'qulayish_phone_session';
-
-let phoneConfirmationResult: ConfirmationResult | null = null;
-let phoneConfirmationTimestamp: number | null = null;
 
 // Debug logger - only in development
 const debugLog = (label: string, data?: unknown) => {
@@ -107,21 +100,7 @@ function mapFirebaseError(error: unknown): string {
 
   switch (code) {
     case 'auth/operation-not-allowed':
-      return "Firebase Phone Authentication yoqilmagan. Firebase Console > Authentication > Sign-in method > Phone ni yoqing.";
-    case 'auth/invalid-phone-number':
-      return "Telefon raqam noto'g'ri formatda. +998XXXXXXXXX ko'rinishida kiriting.";
-    case 'auth/too-many-requests':
-      return "Juda ko'p urinish. 15 daqiqadan keyin qayta urinib ko'ring.";
-    case 'auth/quota-exceeded':
-      return "SMS limiti tugagan. Keyinroq qayta urinib ko'ring.";
-    case 'auth/code-expired':
-      return "Tasdiqlash kodi eskirib qolgan. Yangi kod so'rang.";
-    case 'auth/invalid-verification-code':
-      return "Tasdiqlash kodi noto'g'ri. 6 ta raqamni to'g'ri kiriting.";
-    case 'auth/missing-verification-code':
-      return "Tasdiqlash kodini kiriting.";
-    case 'auth/captcha-check-failed':
-      return "reCAPTCHA tekshiruvi muvaffaqiyatsiz tugadi. Qayta urinib ko'ring.";
+      return "Autentifikatsiya usuli yoqilmagan. Administrator bilan bog'laning.";
     case 'auth/popup-closed-by-user':
       return 'Google oynasi yopib yuborildi.';
     case 'auth/popup-blocked':
@@ -378,67 +357,42 @@ export const authService = {
   },
   */
 
-  async superAdminSignIn(email: string, password: string): Promise<AuthResult> {
+  async superAdminSignIn(phoneNumber: string, password: string): Promise<AuthResult> {
     try {
-      let result;
-      try {
-        result = await signInWithEmailAndPassword(auth, email, password);
-      } catch (signInError: any) {
-        if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
-          // Create super admin account if doesn't exist
-          result = await createUserWithEmailAndPassword(auth, email, password);
-          
-          // Create super admin profile
-          const profileRef = doc(db, 'profiles', result.user.uid);
-          await setDoc(profileRef, {
-            uid: result.user.uid,
-            fullName: 'Super Administrator',
-            email,
-            phoneNumber: '+998900707081',
-            role: 'super_admin',
-            region: 'Samarqand',
-            district: '',
-            neighborhood: '',
-            bio: 'Platform Super Administrator',
-            skills: [],
-            isVerified: true,
-            verificationStatus: 'verified',
-            rating: 0,
-            reviewCount: 0,
-            completedJobs: 0,
-            status: 'active',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            lastActive: serverTimestamp(),
-          });
-        } else {
-          throw signInError;
-        }
+      if (!functions) {
+        return { success: false, error: 'Cloud Functions mavjud emas.' };
       }
-      
-      if (result.user) {
-        const profileRef = doc(db, 'profiles', result.user.uid);
-        const profileSnap = await getDoc(profileRef);
-        
-        if (!profileSnap.exists() || profileSnap.data()?.role !== 'super_admin') {
-          await auth.signOut();
-          return {
-            success: false,
-            error: 'Kirish rad etildi. Faqat Super Admin hisobi bilan kirishingiz mumkin.',
-          };
-        }
 
-        await updateExistingProfile(result.user);
+      const verifyPassword = httpsCallable(functions, 'verifyPasswordServerSide');
+      const result = await verifyPassword({
+        phoneNumber: normalizePhoneNumber(phoneNumber),
+        password,
+      });
+      const payload = result.data as { customToken: string; uid: string };
+
+      await signInWithCustomToken(auth, payload.customToken);
+
+      const profileRef = doc(db, 'profiles', payload.uid);
+      const profileSnap = await getDoc(profileRef);
+      if (!profileSnap.exists() || profileSnap.data()?.role !== 'super_admin') {
+        await auth.signOut();
+        return {
+          success: false,
+          error: 'Kirish rad etildi. Faqat Super Admin hisobi bilan kirishingiz mumkin.',
+        };
+      }
+
+      try {
+        const setClaim = httpsCallable(functions, 'setSuperAdminClaim');
+        await setClaim({ targetUid: payload.uid });
+      } catch (claimError) {
+        debugWarn('Super Admin claim sync warning', claimError);
       }
 
       return { success: true, needsRoleSelection: false };
     } catch (error) {
       debugError('Super Admin Auth Error]', error);
-
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+      return { success: false, error: mapFirebaseError(error) };
     }
   },
 
@@ -465,15 +419,6 @@ export const authService = {
     }
   },
 
-  clearPhoneSession(): void {
-    phoneConfirmationResult = null;
-    phoneConfirmationTimestamp = null;
-    sessionStorage.removeItem(PHONE_SESSION_KEY);
-  },
-
-  /**
-   * Parol bilan ro'yxatdan o'tish
-   */
   async registerWithPassword(data: {
     phoneNumber: string;
     email: string;
@@ -483,44 +428,25 @@ export const authService = {
   }): Promise<AuthResult> {
     try {
       const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
-
-      if (!data.role) {
-        return {
-          success: false,
-          error: 'Iltimos, ro’yhatdan o’tishda rolni tanlang.',
-        };
+      const passwordValidation = passwordService.validatePassword(data.password);
+      if (!passwordValidation.isValid) {
+        return { success: false, error: passwordValidation.error };
       }
 
-      // Check if phone already exists
       const profilesRef = collection(db, 'profiles');
       const phoneQuery = query(profilesRef, where('phoneNumber', '==', normalizedPhone));
       const phoneSnap = await getDocs(phoneQuery);
-
       if (!phoneSnap.empty) {
-        return {
-          success: false,
-          error: 'Bu telefon raqam allaqachon ro\'yxatdan o\'tgan',
-        };
+        return { success: false, error: 'Bu telefon raqam allaqachon ro\'yxatdan o\'tgan' };
       }
 
-      // Hash password
-      const passwordHash = await passwordService.hashPassword(data.password);
-
-      // Create Firebase user with email
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
-
-      // Create profile with passwordHash and role
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const profileRef = doc(db, 'profiles', userCredential.user.uid);
       await setDoc(profileRef, {
         uid: userCredential.user.uid,
         fullName: data.fullName,
         email: data.email,
         phoneNumber: normalizedPhone,
-        passwordHash,
         role: data.role,
         region: 'Samarqand',
         district: '',
@@ -530,6 +456,7 @@ export const authService = {
         isVerified: false,
         verificationStatus: 'pending',
         status: 'active',
+        twoFactorEnabled: false,
         rating: 0,
         reviewCount: 0,
         completedJobs: 0,
@@ -538,332 +465,78 @@ export const authService = {
         lastActive: serverTimestamp(),
       });
 
+      if (functions) {
+        const storeCredentials = httpsCallable(functions, 'storePasswordCredentials');
+        await storeCredentials({ password: data.password });
+      }
+
       return { success: true, needsRoleSelection: false };
-    } catch (error: any) {
+    } catch (error) {
       debugError('Register Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
-    }
-  },
-
-  /**
-   * Parol bilan kirish
-   */
-  async loginWithPassword(data: {
-    phoneNumber: string;
-    password: string;
-  }): Promise<AuthResult> {
-    try {
-      const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
-
-      // Find user by phone number
-      const profilesRef = collection(db, 'profiles');
-      const phoneQuery = query(profilesRef, where('phoneNumber', '==', normalizedPhone));
-      const phoneSnap = await getDocs(phoneQuery);
-
-      if (phoneSnap.empty) {
-        return {
-          success: false,
-          error: 'Telefon raqam topilmadi',
-        };
-      }
-
-      const profileData = phoneSnap.docs[0].data();
-      const email = profileData.email;
-
-      // Sign in with Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        data.password
-      );
-
-      // Update last active
-      await updateExistingProfile(userCredential.user);
-
-      return { success: true, needsRoleSelection: false };
-    } catch (error: any) {
-      debugError('Login Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
-    }
-  },
-
-  /**
-   * OTP orqali ro'yxatdan o'tish uchun OTP kodi jo'natish
-   */
-  async requestOTPForRegistration(data: {
-    phoneOrEmail: string;
-    fullName: string;
-    role: 'worker' | 'employer';
-  }): Promise<AuthResult & { sessionId?: string }> {
-    try {
-      if (!functions) {
-        return { success: false, error: 'Cloud Functions mavjud emas.' };
-      }
-
-      const createSession = httpsCallable(functions, 'createOTPRegistrationSession');
-      const result = await createSession({
-        phoneOrEmail: data.phoneOrEmail.trim(),
-        fullName: data.fullName.trim(),
-        role: data.role,
-      });
-      const payload = result.data as { success: boolean; sessionId: string };
-
-      return { success: true, sessionId: payload.sessionId };
-    } catch (error) {
-      debugError('OTP Request Error]', error);
       return { success: false, error: mapFirebaseError(error) };
     }
   },
 
-  /**
-   * OTP orqali ro'yxatdan o'tish uchun OTP ni tasdiqlash
-   */
-  async verifyOTPForRegistration(sessionId: string, otp: string): Promise<AuthResult> {
+  async loginWithPassword(data: { phoneNumber: string; password: string }): Promise<AuthResult> {
     try {
       if (!functions) {
         return { success: false, error: 'Cloud Functions mavjud emas.' };
       }
 
-      const verifySession = httpsCallable(functions, 'verifyOTPSession');
-      await verifySession({ sessionId, otp });
-
-      return { success: true, needsRoleSelection: false };
-    } catch (error) {
-      debugError('OTP Verify Error]', error);
-      return { success: false, error: mapFirebaseError(error) };
-    }
-  },
-
-  /**
-   * OTP verified sessiyadan user yaratish va kirish
-   */
-  async completeRegistrationWithOTP(sessionId: string, additionalData?: {
-    email?: string;
-    phoneNumber?: string;
-  }): Promise<AuthResult> {
-    try {
-      if (!functions) {
-        return { success: false, error: 'Cloud Functions mavjud emas.' };
-      }
-
-      const completeRegistration = httpsCallable(functions, 'completeOTPRegistration');
-      const result = await completeRegistration({
-        sessionId,
-        email: additionalData?.email,
-        phoneNumber: additionalData?.phoneNumber,
+      const verifyPassword = httpsCallable(functions, 'verifyPasswordServerSide');
+      const result = await verifyPassword({
+        phoneNumber: normalizePhoneNumber(data.phoneNumber),
+        password: data.password,
       });
       const payload = result.data as { customToken: string };
-
       await signInWithCustomToken(auth, payload.customToken);
       return { success: true, needsRoleSelection: false };
     } catch (error) {
-      debugError('OTP Completion Error]', error);
+      debugError('Login Error]', error);
       return { success: false, error: mapFirebaseError(error) };
     }
   },
 
-  /**
-   * OTP orqali kirish uchun OTP kodi jo'natish
-   */
-  async requestOTPForLogin(phoneOrEmail: string): Promise<AuthResult & { sessionId?: string }> {
-    try {
-      if (!functions) {
-        return { success: false, error: 'Cloud Functions mavjud emas.' };
-      }
-
-      const createSession = httpsCallable(functions, 'createOTPLoginSession');
-      const result = await createSession({ phoneOrEmail: phoneOrEmail.trim() });
-      const payload = result.data as { success: boolean; sessionId: string };
-
-      return { success: true, sessionId: payload.sessionId };
-    } catch (error) {
-      debugError('OTP Login Request Error]', error);
-      return { success: false, error: mapFirebaseError(error) };
-    }
-  },
-
-  /**
-   * OTP orqali kirish uchun OTP ni tasdiqlash
-   */
-  async verifyOTPForLogin(sessionId: string, otp: string): Promise<AuthResult & { uid?: string }> {
-    try {
-      if (!functions) {
-        return { success: false, error: 'Cloud Functions mavjud emas.' };
-      }
-
-      const verifySession = httpsCallable(functions, 'verifyOTPSession');
-      await verifySession({ sessionId, otp });
-
-      return { success: true, needsRoleSelection: false };
-    } catch (error) {
-      debugError('OTP Login Verify Error]', error);
-      return { success: false, error: mapFirebaseError(error) };
-    }
-  },
-
-  /**
-   * OTP verified sessiyadan foydalanuvchi kiritish
-   */
-  async completeLoginWithOTP(sessionId: string): Promise<AuthResult> {
-    try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists() || !otpSnap.data().verified) {
-        return {
-          success: false,
-          error: 'OTP tasdiqlash muvaffaqiyatsiz. Qayta urinib ko\'ring.',
-        };
-      }
-
-      // Call Cloud Function to get custom token
-      try {
-        if (functions) {
-          const createOTPLoginToken = httpsCallable(functions, 'createOTPLoginToken');
-          const result = await createOTPLoginToken({sessionId});
-          const tokenData = result.data as { customToken: string };
-          const customToken = tokenData.customToken;
-
-          // Sign in with custom token
-          await signInWithCustomToken(auth, customToken);
-
-          return { success: true, needsRoleSelection: false };
-        } else {
-          // Fallback for development without functions
-          const otpData = otpSnap.data();
-          const uid = otpData.uid;
-
-          // Get user profile
-          const profileRef = doc(db, 'profiles', uid);
-          const profileSnap = await getDoc(profileRef);
-
-          if (!profileSnap.exists()) {
-            return {
-              success: false,
-              error: 'Foydalanuvchi profili topilmadi.',
-            };
-          }
-
-          // Update last active
-          await setDoc(profileRef, { 
-            updatedAt: serverTimestamp(), 
-            lastActive: serverTimestamp() 
-          }, { merge: true });
-
-          // Mark OTP session as completed
-          await setDoc(otpRef, { completed: true, completedAt: serverTimestamp() }, { merge: true });
-
-          // Store OTP login session for demo mode
-          localStorage.setItem('qulay_ish_otp_login_uid', uid);
-          localStorage.setItem('qulay_ish_otp_login_profile', JSON.stringify(profileSnap.data()));
-
-          return { success: true, needsRoleSelection: false };
-        }
-      } catch (tokenError: any) {
-        debugWarn('OTP Token Error]', tokenError);
-        
-        // Fallback: Use local session storage
-        const otpData = otpSnap.data();
-        const uid = otpData.uid;
-
-        // Get user profile
-        const profileRef = doc(db, 'profiles', uid);
-        const profileSnap = await getDoc(profileRef);
-
-        if (!profileSnap.exists()) {
-          return {
-            success: false,
-            error: 'Foydalanuvchi profili topilmadi.',
-          };
-        }
-
-        // Update last active
-        await setDoc(profileRef, { 
-          updatedAt: serverTimestamp(), 
-          lastActive: serverTimestamp() 
-        }, { merge: true });
-
-        // Mark OTP session as completed
-        await setDoc(otpRef, { completed: true, completedAt: serverTimestamp() }, { merge: true });
-
-        // Store OTP login session
-        localStorage.setItem('qulay_ish_otp_login_uid', uid);
-        localStorage.setItem('qulay_ish_otp_login_profile', JSON.stringify(profileSnap.data()));
-
-        return { success: true, needsRoleSelection: false };
-      }
-    } catch (error: any) {
-      debugError('OTP Login Completion Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
-    }
-  },
-
-  /**
-   * Optional 2FA: start enrollment (authenticated user).
-   */
   async startTwoFactorEnrollment(): Promise<AuthResult & {
-    sessionId?: string;
     qrCodeDataUrl?: string;
-    backupCodes?: string[];
+    manualEntryKey?: string;
   }> {
-    const result = await totpService.startEnrollment();
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
+    const result = await twoFactorService.initiateSetup();
+    if (!result.success) return { success: false, error: result.error };
     return {
       success: true,
-      sessionId: result.sessionId,
       qrCodeDataUrl: result.qrCodeDataUrl,
-      backupCodes: result.backupCodes,
+      manualEntryKey: result.manualEntryKey,
     };
   },
 
-  async confirmTwoFactorEnrollment(sessionId: string, code: string): Promise<AuthResult> {
-    const result = await totpService.confirmEnrollment(sessionId, code);
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-    return { success: true, needsRoleSelection: false };
+  async confirmTwoFactorEnrollment(code: string): Promise<AuthResult & { backupCodes?: string[] }> {
+    const result = await twoFactorService.confirmSetup(code);
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true, backupCodes: result.backupCodes };
   },
 
   async verifyTwoFactorChallenge(code: string): Promise<AuthResult & { verifiedAt?: number }> {
-    const result = await totpService.verifyChallenge(code);
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-    return { success: true, needsRoleSelection: false, verifiedAt: result.verifiedAt };
+    const result = await twoFactorService.verifyLogin(code);
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true, verifiedAt: result.verifiedAt };
   },
 
-  async verifyTwoFactorBackupCode(backupCode: string): Promise<AuthResult & {
-    remainingBackupCodes?: number;
-    verifiedAt?: number;
-  }> {
-    const result = await totpService.useBackupCode(backupCode);
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-    return {
-      success: true,
-      needsRoleSelection: false,
-      remainingBackupCodes: result.remainingBackupCodes,
-      verifiedAt: result.verifiedAt,
-    };
+  async verifyTwoFactorBackupCode(backupCode: string): Promise<AuthResult & { verifiedAt?: number }> {
+    const result = await twoFactorService.verifyLogin(undefined, backupCode);
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true, verifiedAt: result.verifiedAt };
   },
 
-  async disableTwoFactor(code: string): Promise<AuthResult> {
-    const result = await totpService.disable(code);
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-    return { success: true, needsRoleSelection: false };
+  async disableTwoFactor(code: string, password?: string): Promise<AuthResult> {
+    const result = await twoFactorService.disable(code, password);
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true };
+  },
+
+  async regenerateTwoFactorBackupCodes(code: string): Promise<AuthResult & { backupCodes?: string[] }> {
+    const result = await twoFactorService.regenerateBackupCodes(code);
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true, backupCodes: result.backupCodes };
   },
 };

@@ -4,15 +4,22 @@ import { getAuth, connectAuthEmulator, setPersistence, browserLocalPersistence }
 import { getFirestore, connectFirestoreEmulator, doc, getDocFromServer } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 
-// Firebase configuration from environment variables
+function requireEnv(name: string): string {
+  const value = import.meta.env[name];
+  if (!value) {
+    throw new Error(`Firebase config env yetishmayapti: ${name}`);
+  }
+  return value;
+}
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCg0p8UOPAoe6WmhCRCbEBntCcL026w25o",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gen-lang-client-0528497200.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gen-lang-client-0528497200",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gen-lang-client-0528497200.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "519605089294",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:519605089294:web:ee4f72e5d340748e8cb85f",
-  firestoreDatabaseId: import.meta.env.VITE_FIRESTORE_DATABASE_ID || "ai-studio-4c1b1226-dd9d-4904-bc52-80793df46787"
+  apiKey: requireEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: requireEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: requireEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: requireEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: requireEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: requireEnv('VITE_FIREBASE_APP_ID'),
+  firestoreDatabaseId: requireEnv('VITE_FIRESTORE_DATABASE_ID'),
 };
 
 export enum OperationType {
@@ -66,15 +73,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Initialize Firebase app (SINGLE SOURCE OF TRUTH)
 const app = initializeApp(firebaseConfig);
 
-// Export auth and db
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-// Initialize functions with error handling
-let functionsInstance: any = null;
+let functionsInstance: ReturnType<typeof getFunctions> | null = null;
 try {
   functionsInstance = getFunctions(app);
 } catch (err) {
@@ -82,10 +86,6 @@ try {
 }
 export const functions = functionsInstance;
 
-// Debug: Log active Firebase project (development only)
-if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
-  // Suppress in production
-}
 if (typeof window !== 'undefined') {
   debugLogger.log(
     '[Firebase] Active Configuration:\n' +
@@ -96,25 +96,19 @@ if (typeof window !== 'undefined') {
   );
 }
 
-// Configure Auth persistence for session management
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   debugLogger.warn('[Firebase] Auth persistence config error:', err);
 });
 
-// EMULATOR CONFIGURATION - Production safe
-// Only connects when explicitly enabled via VITE_USE_EMULATOR=true
-// Prevents auth/network-request-failed errors on localhost without emulators running
-// To use emulators: firebase emulators:start --project=gen-lang-client-0528497200
-
-const USE_EMULATOR = (import.meta as any).env?.VITE_USE_EMULATOR === 'true';
+const USE_EMULATOR = (import.meta as { env?: { VITE_USE_EMULATOR?: string } }).env?.VITE_USE_EMULATOR === 'true';
 
 if (USE_EMULATOR && window.location.hostname === 'localhost') {
   try {
-    if (!(auth as any).emulatorConfig) {
+    if (!(auth as { emulatorConfig?: unknown }).emulatorConfig) {
       debugLogger.log('[Firebase] Connecting to Auth emulator at localhost:9099');
       connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
     }
-    if (!(db as any).emulatorConfig) {
+    if (!(db as { emulatorConfig?: unknown }).emulatorConfig) {
       debugLogger.log('[Firebase] Connecting to Firestore emulator at localhost:8080');
       connectFirestoreEmulator(db, 'localhost', 8080);
     }

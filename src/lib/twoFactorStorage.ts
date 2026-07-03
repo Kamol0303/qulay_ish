@@ -10,8 +10,12 @@ interface TwoFactorSession {
 }
 
 export function isTwoFactorEnabled(profile: Profile | null | undefined): boolean {
+  return !!profile?.twoFactorEnabled;
+}
+
+export function requiresMandatoryTwoFactorSetup(profile: Profile | null | undefined): boolean {
   if (!profile) return false;
-  return !!(profile.twoFactorEnabled || profile.totpEnabled);
+  return profile.role === 'super_admin' && !profile.twoFactorEnabled;
 }
 
 export function getTwoFactorStorageKey(uid: string): string {
@@ -27,12 +31,7 @@ export function markTwoFactorVerified(uid: string, verifiedAt = Date.now()): voi
   sessionStorage.setItem(getTwoFactorStorageKey(uid), JSON.stringify(payload));
 }
 
-export function clearTwoFactorVerification(uid?: string): void {
-  if (uid) {
-    sessionStorage.removeItem(getTwoFactorStorageKey(uid));
-    return;
-  }
-
+export function clearTwoFactorVerification(): void {
   Object.keys(sessionStorage).forEach((key) => {
     if (key.startsWith(STORAGE_PREFIX)) {
       sessionStorage.removeItem(key);
@@ -42,10 +41,8 @@ export function clearTwoFactorVerification(uid?: string): void {
 
 export function isTwoFactorVerifiedForUser(uid: string | undefined): boolean {
   if (!uid) return false;
-
   const raw = sessionStorage.getItem(getTwoFactorStorageKey(uid));
   if (!raw) return false;
-
   try {
     const session = JSON.parse(raw) as TwoFactorSession;
     if (session.uid !== uid) return false;

@@ -10,7 +10,6 @@ import {
   isTwoFactorVerifiedForUser,
 } from '../lib/twoFactorStorage';
 
-// Debug logger - only in development
 const debugWarn = (label: string, data?: unknown) => {
   if (import.meta.env.DEV) {
     debugLogger.warn(`[${label}]`, data);
@@ -34,7 +33,6 @@ interface AuthContextType {
   isDemo: boolean;
   requiresTwoFactor: boolean;
   isTwoFactorVerified: boolean;
-  /** Call after profile is written to Firestore to force a fresh read */
   refreshProfile: () => Promise<void>;
   checkDemoSession: () => void;
 }
@@ -106,44 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const checkOTPLoginSession = useCallback(async () => {
-    const otpLoginUid = localStorage.getItem('qulay_ish_otp_login_uid');
-    const otpLoginProfile = localStorage.getItem('qulay_ish_otp_login_profile');
-    
-    if (otpLoginUid && otpLoginProfile) {
-      try {
-        const profile = JSON.parse(otpLoginProfile);
-        
-        // Create a pseudo-user object for OTP login
-        setUser({
-          uid: otpLoginUid,
-          email: profile.email || '',
-          displayName: profile.fullName || '',
-          phoneNumber: profile.phoneNumber || '',
-          emailVerified: true,
-          isAnonymous: false,
-          metadata: {},
-          providerData: [],
-          reload: async () => {},
-          getIdToken: async () => '',
-          getIdTokenResult: async () => ({} as any),
-          delete: async () => {},
-          toJSON: () => ({}),
-        } as any);
-        
-        setProfile(profile);
-        setLoading(false);
-        return true;
-      } catch (err) {
-        debugWarn('AuthContext] checkOTPLoginSession parsing error:', err);
-        localStorage.removeItem('qulay_ish_otp_login_uid');
-        localStorage.removeItem('qulay_ish_otp_login_profile');
-      }
-    }
-    return false;
-  }, []);
-
-  // Restore auth state on mount
   useEffect(() => {
     const savedDemo = localStorage.getItem('qulay_ish_demo_session');
     if (savedDemo) {
@@ -151,41 +111,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Check for OTP login session
-    const checkOTPSession = async () => {
-      const isOTPLogin = await checkOTPLoginSession();
-      if (isOTPLogin) {
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        if (unsubscribeProfileRef.current) {
+          unsubscribeProfileRef.current();
+          unsubscribeProfileRef.current = null;
+        }
+        profileListenerActiveRef.current = false;
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
         return;
       }
 
-      // Otherwise, use Firebase Auth
-      const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-        if (!firebaseUser) {
-          // Tear down profile listener
-          if (unsubscribeProfileRef.current) {
-            unsubscribeProfileRef.current();
-            unsubscribeProfileRef.current = null;
-          }
-          profileListenerActiveRef.current = false;
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
+      setUser(firebaseUser);
+      attachProfileListener(firebaseUser.uid);
+    });
 
-        // New user signed in — keep loading=true, attach profile listener
-        setUser(firebaseUser);
-        attachProfileListener(firebaseUser.uid);
-      });
-
-      return () => unsubscribeAuth();
-    };
-
-    checkOTPSession();
-  }, [checkDemoSession, checkOTPLoginSession]);
+    return () => unsubscribeAuth();
+  }, [checkDemoSession]);
 
   function attachProfileListener(uid: string) {
-    // Tear down any existing listener first
     if (unsubscribeProfileRef.current) {
       unsubscribeProfileRef.current();
       unsubscribeProfileRef.current = null;
@@ -230,11 +176,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }
 
-  /**
-   * Force-read the profile from Firestore once.
-   * Use this right after writing a new profile so the UI doesn't wait for the
-   * snapshot to propagate (which can take a moment and cause a redirect loop).
-   */
   const refreshProfile = useCallback(async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -255,11 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     profileListenerActiveRef.current = false;
 
-    // Clear demo session if any
     localStorage.removeItem('qulay_ish_demo_session');
-    // Clear OTP login session if any
-    localStorage.removeItem('qulay_ish_otp_login_uid');
-    localStorage.removeItem('qulay_ish_otp_login_profile');
     clearTwoFactorVerification();
 
     try {
@@ -267,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       debugWarn('Auth] Firebase signOut error (may already be signed out):', err);
     }
-    
+
     setUser(null);
     setProfile(null);
     setLoading(false);
@@ -275,7 +212,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signOut, userRole, isDemo, requiresTwoFactor, isTwoFactorVerified, refreshProfile, checkDemoSession }}
+      value={{
+        user,
+        profile,
+        loading,
+        signOut,
+        userRole,
+        isDemo,
+        requiresTwoFactor,
+        isTwoFactorVerified,
+        refreshProfile,
+        checkDemoSession,
+      }}
     >
       {children}
     </AuthContext.Provider>
