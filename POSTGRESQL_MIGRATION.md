@@ -53,7 +53,7 @@ Bu qadam faqat eski ma'lumotlarni ko'chirish uchun. Keyin Firebase o'chiriladi.
 
 ```env
 FIREBASE_PROJECT_ID=gen-lang-client-0528497200
-FIRESTORE_DATABASE_ID=ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787
+FIRESTORE_DATABASE_ID=ai-studio-4c1b1226-dd9d-4904-bc52-80793df46787
 FIREBASE_SERVICE_ACCOUNT_PATH=./secrets/firebase-service-account.json
 ```
 

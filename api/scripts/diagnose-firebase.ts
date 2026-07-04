@@ -109,7 +109,7 @@ async function main() {
   const { Firestore } = await import('@google-cloud/firestore');
   const probeIds = [
     ...(await listDatabasesRest(envProjectId, serviceAccount)).map((d) => d.name?.split('/').pop() ?? ''),
-    'ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
+    'ai-studio-4c1b1226-dd9d-4904-bc52-80793df46787',
     '(default)',
   ].filter((id, i, arr) => Boolean(id) && arr.indexOf(id) === i);
 

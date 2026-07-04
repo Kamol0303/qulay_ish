@@ -129,7 +129,7 @@ async function resolveDatabaseId(
     ...new Set([
       preferredId?.trim(),
       ...listed,
-      'ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
+      'ai-studio-4c1b1226-dd9d-4904-bc52-80793df46787',
       '(default)',
     ].filter((id): id is string => Boolean(id))),
   ];
