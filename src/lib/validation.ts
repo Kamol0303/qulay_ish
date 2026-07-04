@@ -5,6 +5,60 @@ export interface ValidationError {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_PATTERN = /^[\p{L}\s\-']{2,100}$/u;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_UZ_PHONE_DIGITS = 12; // 998 + 9 ta raqam
+
+export function isEmailInput(value: string): boolean {
+  return value.includes('@');
+}
+
+/**
+ * Telefon yoki email maydonini kiritishda tozalaydi va uzunlikni cheklaydi.
+ * Telefon: faqat raqam (+ boshida bo'lishi mumkin), maks 12 raqam.
+ * Email: @ bo'lsa email formatiga ruxsat.
+ */
+export function sanitizePhoneOrEmailInput(value: string): string {
+  if (isEmailInput(value)) {
+    return value.replace(/[^\w.@+-]/g, '').slice(0, MAX_EMAIL_LENGTH);
+  }
+
+  const hasPlus = value.trimStart().startsWith('+');
+  const digits = value.replace(/\D/g, '').slice(0, MAX_UZ_PHONE_DIGITS);
+
+  if (!digits) {
+    return hasPlus ? '+' : '';
+  }
+
+  return formatPhoneNumber(hasPlus || digits.startsWith('998') ? `+${digits}` : digits);
+}
+
+export function validatePhoneOrEmail(value: string): ValidationError {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return { isValid: false, error: 'Telefon raqam yoki emailni kiriting' };
+  }
+
+  if (isEmailInput(trimmed)) {
+    return validateEmail(trimmed);
+  }
+
+  return validatePhoneNumber(trimmed);
+}
+
+/**
+ * Faqat telefon raqami uchun (qo'shimcha telefon maydonlari).
+ */
+export function sanitizePhoneInput(value: string): string {
+  const hasPlus = value.trimStart().startsWith('+');
+  const digits = value.replace(/\D/g, '').slice(0, MAX_UZ_PHONE_DIGITS);
+
+  if (!digits) {
+    return hasPlus ? '+' : '';
+  }
+
+  return formatPhoneNumber(hasPlus || digits.startsWith('998') ? `+${digits}` : digits);
+}
 
 /**
  * Har qanday kiritilgan telefonni normalize qiladi

@@ -6,7 +6,7 @@ import { AlertCircle, CheckCircle, Loader, Mail, User, ArrowLeft } from 'lucide-
 import { authService } from '../lib/authService';
 import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
-import { validatePhoneNumber, validateEmail, validateFullName, formatPhoneNumber } from '../lib/validation';
+import { validateFullName, sanitizePhoneOrEmailInput, sanitizePhoneInput, validatePhoneOrEmail } from '../lib/validation';
 
 // Debug logger - only in development
 const debugError = (label: string, error?: unknown) => {
@@ -101,8 +101,9 @@ export default function AuthPage() {
       clearMessages();
 
       const phoneOrEmail = state.phoneOrEmail.trim();
-      if (!phoneOrEmail) {
-        setPartialState({ error: 'Iltimos, telefon raqam yoki emailni kiriting.' });
+      const identifierValidation = validatePhoneOrEmail(phoneOrEmail);
+      if (!identifierValidation.isValid) {
+        setPartialState({ error: identifierValidation.error || 'Iltimos, telefon raqam yoki emailni kiriting.' });
         return;
       }
 
@@ -319,15 +320,23 @@ export default function AuthPage() {
                   </label>
                   <input
                     type="text"
+                    inputMode={state.phoneOrEmail.includes('@') ? 'email' : 'tel'}
                     value={state.phoneOrEmail}
                     onChange={(e) => {
                       clearMessages();
-                      setPartialState({ phoneOrEmail: e.target.value });
+                      setPartialState({ phoneOrEmail: sanitizePhoneOrEmailInput(e.target.value) });
                     }}
                     placeholder="+998 90 123 45 67 yoki example@email.com"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
                     disabled={state.loading}
+                    maxLength={state.phoneOrEmail.includes('@') ? 254 : 17}
+                    autoComplete={state.phoneOrEmail.includes('@') ? 'email' : 'tel'}
                   />
+                  {!state.phoneOrEmail.includes('@') && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Faqat raqam: +998 va 9 ta raqam (masalan +998 90 123 45 67)
+                    </p>
+                  )}
                 </div>
 
                 {mode === 'register' && (
@@ -463,14 +472,17 @@ export default function AuthPage() {
                     </label>
                     <input
                       type="tel"
+                      inputMode="tel"
                       value={state.additionalPhone || ''}
                       onChange={(e) => {
                         clearMessages();
-                        setPartialState({ additionalPhone: formatPhoneNumber(e.target.value) });
+                        setPartialState({ additionalPhone: sanitizePhoneInput(e.target.value) });
                       }}
                       placeholder="+998 90 123 45 67"
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
                       disabled={state.loading}
+                      maxLength={17}
+                      autoComplete="tel"
                     />
                   </div>
                 )}
