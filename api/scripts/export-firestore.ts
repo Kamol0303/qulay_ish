@@ -88,23 +88,114 @@ function loadServiceAccount(): Record<string, unknown> {
   );
 }
 
+async function listFirestoreDatabases(
+  projectId: string,
+  serviceAccount: Record<string, unknown>,
+): Promise<string[]> {
+  try {
+    const { v1 } = await import('@google-cloud/firestore');
+    const client = new v1.FirestoreAdminClient({
+      credentials: serviceAccount,
+      projectId,
+    });
+    const [databases] = await client.listDatabases({ parent: `projects/${projectId}` });
+    return databases
+      .map((db) => db.name?.split('/').pop())
+      .filter((id): id is string => Boolean(id));
+  } catch (err) {
+    console.warn('Could not list Firestore databases:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+async function probeDatabase(
+  getFirestore: typeof import('firebase-admin/firestore').getFirestore,
+  databaseId: string,
+): Promise<boolean> {
+  try {
+    const db = databaseId === '(default)' ? getFirestore() : getFirestore(undefined, databaseId);
+    await db.collection('profiles').limit(1).get();
+    return true;
+  } catch (err) {
+    const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : '';
+    console.warn(`  Database "${databaseId}" unavailable (${code || 'error'})`);
+    return false;
+  }
+}
+
+async function resolveDatabaseId(
+  getFirestore: typeof import('firebase-admin/firestore').getFirestore,
+  projectId: string,
+  serviceAccount: Record<string, unknown>,
+  preferredId?: string,
+): Promise<string> {
+  const fromEnv = preferredId?.trim();
+  const knownIds = [
+    fromEnv,
+    'ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
+    '(default)',
+  ].filter((id): id is string => Boolean(id));
+
+  const listed = await listFirestoreDatabases(projectId, serviceAccount);
+  if (listed.length) {
+    console.log('Available Firestore databases:', listed.join(', '));
+  }
+
+  const candidates = [...new Set([...knownIds, ...listed])];
+  console.log('Trying databases:', candidates.join(', '));
+
+  for (const databaseId of candidates) {
+    console.log(`Probing "${databaseId}"...`);
+    if (await probeDatabase(getFirestore, databaseId)) {
+      console.log(`Using Firestore database: ${databaseId}`);
+      return databaseId;
+    }
+  }
+
+  throw new Error(
+    [
+      'Firestore database topilmadi (NOT_FOUND).',
+      '',
+      `Project: ${projectId}`,
+      fromEnv ? `So\'ralgan database: ${fromEnv}` : 'FIRESTORE_DATABASE_ID .env da ko\'rsatilmagan',
+      listed.length ? `Mavjud databaselar: ${listed.join(', ')}` : 'Database ro\'yxati olinmadi — Firebase Console → Firestore → Database ID ni tekshiring',
+      '',
+      'api/.env ga to\'g\'ri ID qo\'ying, masalan:',
+      'FIRESTORE_DATABASE_ID=(default)',
+      'yoki',
+      'FIRESTORE_DATABASE_ID=ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
+    ].join('\n')
+  );
+}
+
 async function main() {
   const admin = await import('firebase-admin');
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-  const databaseId = process.env.FIRESTORE_DATABASE_ID || process.env.VITE_FIRESTORE_DATABASE_ID;
+  const serviceAccount = loadServiceAccount();
+  const projectId =
+    process.env.FIREBASE_PROJECT_ID ||
+    process.env.VITE_FIREBASE_PROJECT_ID ||
+    String(serviceAccount.project_id || '');
+  const preferredDatabaseId =
+    process.env.FIRESTORE_DATABASE_ID || process.env.VITE_FIRESTORE_DATABASE_ID;
 
-  if (!projectId || !databaseId) {
-    throw new Error('FIREBASE_PROJECT_ID and FIRESTORE_DATABASE_ID must be set in .env');
+  if (!projectId) {
+    throw new Error('FIREBASE_PROJECT_ID yoki service account project_id kerak');
+  }
+
+  console.log(`Firebase project: ${projectId}`);
+  if (preferredDatabaseId) {
+    console.log(`Requested database: ${preferredDatabaseId}`);
   }
 
   if (!admin.apps.length) {
     admin.initializeApp({
-      credential: admin.credential.cert(loadServiceAccount() as ServiceAccount),
+      credential: admin.credential.cert(serviceAccount as ServiceAccount),
       projectId,
     });
   }
 
   const { getFirestore } = await import('firebase-admin/firestore');
+  const databaseId = await resolveDatabaseId(getFirestore, projectId, serviceAccount, preferredDatabaseId);
   const db = databaseId === '(default)' ? getFirestore() : getFirestore(undefined, databaseId);
 
   fs.mkdirSync(EXPORT_DIR, { recursive: true });
@@ -179,6 +270,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Export failed:', err.message);
+  console.error('Export failed:', err instanceof Error ? err.message : err);
   process.exit(1);
 });
