@@ -54,9 +54,11 @@ export default function AdminDashboard() {
     async function fetchAdminData() {
       if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
         setError(t('errors.no_permission'));
+        setLoading(false);
         return;
       }
 
+      setLoading(true);
       try {
         const counts = await performanceUtils.getStatsCounts();
         const [verifications, disputes, users, jobs, verificationsList] = await Promise.all([

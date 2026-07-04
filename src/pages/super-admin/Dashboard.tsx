@@ -33,16 +33,14 @@ export default function SuperAdminDashboard() {
     monthlyRevenue: 0
   });
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchSuperAdminStats() {
-      if (!profile?.uid || profile.role !== 'super_admin') {
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
+      setApiError(null);
+
       try {
         const counts = await api.stats.counts();
         const results = await Promise.allSettled([
@@ -97,8 +95,9 @@ export default function SuperAdminDashboard() {
         });
 
         setRecentActivity((recentLogs as unknown[]).slice(0, 10));
-
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'API xatosi';
+        setApiError(message);
         debugLogger.error('Error fetching super admin stats:', error);
       } finally {
         setLoading(false);
@@ -106,7 +105,7 @@ export default function SuperAdminDashboard() {
     }
 
     fetchSuperAdminStats();
-  }, [profile]);
+  }, []);
 
   const statCards = [
     {
@@ -224,6 +223,12 @@ export default function SuperAdminDashboard() {
             </span>
           </div>
         </div>
+
+        {apiError && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm font-medium">
+            API ulanmadi: {apiError}. API ishlayaptimi? (npm run api:dev) — VITE_API_URL=/api yoki http://localhost:4000/api
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

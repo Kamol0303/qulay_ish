@@ -12,7 +12,16 @@ export function clearAccessToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+export function resolveApiBase(): string {
+  const raw = (import.meta.env.VITE_API_URL || '/api').trim();
+  if (raw.startsWith('/')) {
+    return raw.replace(/\/$/, '') || '/api';
+  }
+  const withoutTrailing = raw.replace(/\/$/, '');
+  return withoutTrailing.endsWith('/api') ? withoutTrailing : `${withoutTrailing}/api`;
+}
+
+export const API_BASE = resolveApiBase();
 
 export class ApiError extends Error {
   constructor(

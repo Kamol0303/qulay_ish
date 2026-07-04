@@ -93,29 +93,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [setSession]);
 
   useEffect(() => {
+    const token = getAccessToken();
+    if (token) {
+      api.auth
+        .me()
+        .then((p) => setSession(p))
+        .catch(() => {
+          api.auth.logout();
+          setUser(null);
+          setProfile(null);
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+
     const savedDemo = localStorage.getItem('qulay_ish_demo_session');
     if (savedDemo) {
       checkDemoSession();
       return;
     }
 
-    const token = getAccessToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    api.auth
-      .me()
-      .then((p) => {
-        setSession(p);
-      })
-      .catch(() => {
-        api.auth.logout();
-        setUser(null);
-        setProfile(null);
-      })
-      .finally(() => setLoading(false));
+    setLoading(false);
   }, [checkDemoSession, setSession]);
 
   const signOut = async () => {

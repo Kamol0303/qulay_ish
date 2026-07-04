@@ -37,6 +37,7 @@ export default function SuperAdminLogin() {
     }
 
     try {
+      localStorage.removeItem('qulay_ish_demo_session');
       const result = await api.auth.superAdminLogin(SUPER_ADMIN_EMAIL, password);
       setAuthProfile(result.user);
       navigate('/super-admin/dashboard');
