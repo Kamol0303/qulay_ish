@@ -69,6 +69,34 @@ export const api = {
     logout() {
       clearAccessToken();
     },
+    async requestOtp(phoneOrEmail: string, purpose: 'login' | 'register', fullName?: string, role?: Profile['role']) {
+      return apiRequest<{ sessionId: string }>('/auth/otp/request', {
+        method: 'POST',
+        body: JSON.stringify({ phoneOrEmail, purpose, fullName, role }),
+      }, false);
+    },
+    async verifyOtp(sessionId: string, otp: string) {
+      return apiRequest('/auth/otp/verify', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, otp }),
+      }, false);
+    },
+    async completeRegistration(sessionId: string, data?: { email?: string; phoneNumber?: string }) {
+      const res = await apiRequest<AuthResponse>('/auth/otp/complete-registration', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, ...data }),
+      }, false);
+      setAccessToken(res.accessToken);
+      return { ...res, user: mapUser(res.user as unknown as Record<string, unknown>) };
+    },
+    async completeLogin(sessionId: string) {
+      const res = await apiRequest<AuthResponse>('/auth/otp/complete-login', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId }),
+      }, false);
+      setAccessToken(res.accessToken);
+      return { ...res, user: mapUser(res.user as unknown as Record<string, unknown>) };
+    },
   },
 
   users: {

@@ -2,8 +2,7 @@ import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { ChatMessage, Profile } from '../types';
 import { Send, ChevronLeft, Phone, MessageSquare, Check, CheckCheck, AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout';
@@ -55,18 +54,12 @@ export default function ChatPage() {
     const fetchPartner = async () => {
       try {
         debugLogger.log('Fetching partner:', withUserId);
-        const docSnap = await getDoc(doc(db, 'profiles', withUserId));
-        if (docSnap.exists()) {
-          const partnerData = docSnap.data() as Profile;
-          debugLogger.log('Partner found:', partnerData);
-          setChatPartner(partnerData);
-          // check contact visibility
-          if (user) {
-            const ok = await relationshipService.canViewContact(user.uid, partnerData.uid);
-            setCanViewPhone(!!ok);
-          }
-        } else {
-          debugLogger.log('Partner not found');
+        const partnerData = await api.users.get(withUserId);
+        debugLogger.log('Partner found:', partnerData);
+        setChatPartner(partnerData);
+        if (user) {
+          const ok = await relationshipService.canViewContact(user.uid, partnerData.uid);
+          setCanViewPhone(!!ok);
         }
       } catch (err) {
         debugLogger.error('Error fetching partner:', err);
@@ -74,51 +67,30 @@ export default function ChatPage() {
     };
     fetchPartner();
 
-    // Listen to messages
-    debugLogger.log('Setting up message listener');
-    const q = query(
-      collection(db, 'chat_messages'),
-      where('participants', 'array-contains', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        debugLogger.log('Messages snapshot received:', snapshot.size, 'docs');
-        const allMsgs = snapshot.docs.map(doc => ({ 
-          id: doc.id, 
-          ...doc.data() 
-        } as ChatMessage));
-        
-        debugLogger.log('All messages:', allMsgs);
-        
+    const loadMessages = async () => {
+      try {
+        const allMsgs = await api.chatMessages.list(user.uid, withUserId);
         const filteredMsgs = allMsgs
-          .filter(m => 
-            (m.senderId === user.uid && m.receiverId === withUserId) || 
-            (m.senderId === withUserId && m.receiverId === user.uid)
-          )
           .sort((a, b) => {
-            const timeA = a.createdAt?.seconds || 0;
-            const timeB = b.createdAt?.seconds || 0;
+            const timeA = new Date(a.createdAt as string).getTime() || 0;
+            const timeB = new Date(b.createdAt as string).getTime() || 0;
             return timeA - timeB;
           });
-        
-        debugLogger.log('Filtered messages:', filteredMsgs);
         setMessages(filteredMsgs);
         setLoading(false);
-        
-        setTimeout(() => {
-          scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      },
-      (err) => {
-        debugLogger.error('Message listener error:', err);
+        setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      } catch (err) {
+        debugLogger.error('Message load error:', err);
         setLoading(false);
       }
-    );
+    };
+
+    loadMessages();
+    const interval = setInterval(loadMessages, 5000);
 
     return () => {
       debugLogger.log('Cleaning up message listener');
-      unsubscribe();
+      clearInterval(interval);
     };
   }, [user, withUserId, navigate]);
 
@@ -166,7 +138,7 @@ export default function ChatPage() {
       }
 
       debugLogger.log('Sending message:', { text, from: user.uid, to: withUserId });
-      await addDoc(collection(db, 'chat_messages'), {
+      await api.chatMessages.create({
         senderId: user.uid,
         receiverId: withUserId,
         text,
@@ -174,7 +146,6 @@ export default function ChatPage() {
         read: false,
         delivered: false,
         status: 'sent',
-        createdAt: serverTimestamp()
       });
       debugLogger.log('Message sent successfully');
     } catch (error) {
@@ -266,7 +237,7 @@ export default function ChatPage() {
                       <div className="flex items-center justify-between mt-1">
                         {msg.createdAt && (
                           <div className="text-[9px] font-bold uppercase text-gray-500">
-                            {new Date(msg.createdAt.seconds * 1000).toLocaleTimeString('uz-UZ', { 
+                            {new Date(msg.createdAt as string).toLocaleTimeString('uz-UZ', { 
                               hour: '2-digit', 
                               minute: '2-digit' 
                             })}

@@ -2,8 +2,9 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { applicationService } from '../../services/applicationService';
+import { jobService } from '../../services/jobService';
 import { Application, Job, Profile } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Briefcase, Clock, MapPin, CheckCircle, XCircle, MessageSquare, ChevronRight } from 'lucide-react';
@@ -36,33 +37,25 @@ export default function WorkerApplications() {
       return;
     }
 
-    const q = query(
-      collection(db, 'applications'),
-      where('workerId', '==', profile.uid),
-      orderBy('createdAt', 'desc')
-    );
+    const load = async () => {
+      try {
+        const appsData = await applicationService.getByWorker(profile.uid);
+        const combined = await Promise.all(appsData.map(async (app) => {
+          const job = await jobService.getById(app.jobId).catch(() => undefined);
+          const employer = await api.users.get(app.employerId).catch(() => undefined);
+          return { ...app, job, employer };
+        }));
+        setApplications(combined);
+      } catch (error) {
+        debugLogger.error('Error fetching my applications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      const appsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Application));
-
-      const combined = await Promise.all(appsData.map(async (app) => {
-        const jobSnap = await getDocs(query(collection(db, 'jobs'), where('__name__', '==', app.jobId)));
-        const job = jobSnap.docs[0]?.data() as Job;
-
-        const employerSnap = await getDocs(query(collection(db, 'profiles'), where('uid', '==', app.employerId)));
-        const employer = employerSnap.docs[0]?.data() as Profile;
-
-        return { ...app, job, employer };
-      }));
-
-      setApplications(combined);
-      setLoading(false);
-    }, (error) => {
-      debugLogger.error('Error fetching my applications:', error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [profile, isDemo]);
 
   return (

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { debugLogger } from '../../lib/debugLogger';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { collection, query, getDocs, orderBy, doc, updateDoc, where } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { contractService } from '../../services/contractService';
+import { jobService } from '../../services/jobService';
 import { Contract, Profile, Job } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -90,29 +92,20 @@ export default function AdminContracts() {
       }
 
       try {
-        const q = query(collection(db, 'contracts'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        const contractsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Contract));
+        const contractsData = await contractService.list();
 
         const combined = await Promise.all(contractsData.map(async (contract) => {
-          const [employerSnap, workerSnap, jobSnap] = await Promise.all([
-            getDocs(query(collection(db, 'profiles'), where('uid', '==', contract.employerId))),
-            getDocs(query(collection(db, 'profiles'), where('uid', '==', contract.workerId))),
-            contract.jobId
-              ? getDocs(query(collection(db, 'jobs'), where('__name__', '==', contract.jobId)))
-              : Promise.resolve({ docs: [] } as any)
+          const [employer, worker, job] = await Promise.all([
+            api.users.get(contract.employerId).catch(() => undefined),
+            api.users.get(contract.workerId).catch(() => undefined),
+            contract.jobId ? jobService.getById(contract.jobId).catch(() => undefined) : Promise.resolve(undefined),
           ]);
-          return {
-            ...contract,
-            employer: employerSnap.docs[0]?.data() as Profile | undefined,
-            worker: workerSnap.docs[0]?.data() as Profile | undefined,
-            job: jobSnap.docs[0]?.data() as Job | undefined
-          };
+          return { ...contract, employer, worker, job };
         }));
 
         setContracts(combined);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'contracts');
+        debugLogger.error('Error loading contracts:', error);
         showToast(t('common.error'), 'error');
       } finally {
         setLoading(false);
@@ -126,17 +119,16 @@ export default function AdminContracts() {
     setActionLoading(contractId);
     setConfirm(null);
     try {
-      await updateDoc(doc(db, 'contracts', contractId), {
+      await api.contracts.update(contractId, {
         adminApproved: true,
         status: 'active',
-        approvedAt: new Date().toISOString()
       });
       setContracts(prev => prev.map(c =>
         c.id === contractId ? { ...c, adminApproved: true, status: 'active' } : c
       ));
       showToast(t('common.success'), 'success');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `contracts/${contractId}`);
+      debugLogger.error('Error approving contract:', error);
       showToast(t('common.error'), 'error');
     } finally {
       setActionLoading(null);
@@ -147,17 +139,16 @@ export default function AdminContracts() {
     setActionLoading(contractId);
     setConfirm(null);
     try {
-      await updateDoc(doc(db, 'contracts', contractId), {
+      await api.contracts.update(contractId, {
         adminApproved: false,
         status: 'cancelled',
-        rejectedAt: new Date().toISOString()
       });
       setContracts(prev => prev.map(c =>
         c.id === contractId ? { ...c, adminApproved: false, status: 'cancelled' } : c
       ));
       showToast(t('common.success'), 'success');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `contracts/${contractId}`);
+      debugLogger.error('Error approving contract:', error);
       showToast(t('common.error'), 'error');
     } finally {
       setActionLoading(null);

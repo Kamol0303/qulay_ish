@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../firebase';
-import { doc, getDoc, updateDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
+import { contractService } from '../services/contractService';
+import { notificationService } from '../services/notificationService';
+import { api } from '../lib/api';
+import { jobService } from '../services/jobService';
 import { Contract, Job, Profile } from '../types';
 import { 
   FileText, 
@@ -46,26 +48,22 @@ export default function ContractPage() {
       if (!contractId) return;
 
       try {
-        const contractSnap = await getDoc(doc(db, 'contracts', contractId));
-        if (!contractSnap.exists()) {
+        const contractData = await contractService.getById(contractId);
+        if (!contractData) {
           navigate('/dashboard');
           return;
         }
-
-        const contractData = { id: contractSnap.id, ...contractSnap.data() } as Contract;
         setContract(contractData);
 
-        // Fetch related data
-        const jobId = contractData.jobId;
-        const [jobSnap, workerSnap, employerSnap] = await Promise.all([
-          jobId ? getDoc(doc(db, 'jobs', jobId)) : Promise.resolve(null),
-          getDoc(doc(db, 'profiles', contractData.workerId)),
-          getDoc(doc(db, 'profiles', contractData.employerId))
+        const [jobData, workerData, employerData] = await Promise.all([
+          contractData.jobId ? jobService.getById(contractData.jobId) : Promise.resolve(null),
+          api.users.get(contractData.workerId).catch(() => null),
+          api.users.get(contractData.employerId).catch(() => null),
         ]);
 
-        if (jobSnap) setJob(jobSnap.data() as Job);
-        setWorker(workerSnap.data() as Profile);
-        setEmployer(employerSnap.data() as Profile);
+        if (jobData) setJob(jobData);
+        if (workerData) setWorker(workerData);
+        if (employerData) setEmployer(employerData);
 
       } catch (error) {
         debugLogger.error('Error fetching contract data:', error);
@@ -82,29 +80,25 @@ export default function ContractPage() {
     setSigning(true);
 
     try {
-      const updates: any = {};
+      const updates: Partial<Contract> = {};
       if (profile.role === 'worker') updates.workerSigned = true;
       if (profile.role === 'employer') updates.employerSigned = true;
 
-      // If both signed, move to signed status
-      if ((profile.role === 'worker' && contract.employerSigned) || 
+      if ((profile.role === 'worker' && contract.employerSigned) ||
           (profile.role === 'employer' && contract.workerSigned)) {
         updates.status = 'signed';
       }
 
-      await updateDoc(doc(db, 'contracts', contract.id), updates);
+      await api.contracts.update(contract.id, updates);
       setContract(prev => prev ? { ...prev, ...updates } : null);
 
-      // Create notification for other party
       const otherPartyId = profile.role === 'worker' ? contract.employerId : contract.workerId;
-      await addDoc(collection(db, 'notifications'), {
+      await notificationService.create({
         userId: otherPartyId,
         title: t('contract.notification_signed_title'),
         message: t('contract.notification_signed_message', { name: profile.fullName, jobTitle: job?.title }),
         type: 'contract',
         link: `/contracts/${contract.id}`,
-        read: false,
-        createdAt: serverTimestamp()
       });
 
     } catch (error) {
@@ -119,31 +113,20 @@ export default function ContractPage() {
     setSigning(true);
 
     try {
-      await updateDoc(doc(db, 'contracts', contract.id), {
-        adminApproved: true,
-        status: 'active'
-      });
-
-      // Update job status
-      await updateDoc(doc(db, 'jobs', contract.jobId), {
-        status: 'in-progress'
-      });
+      await api.contracts.update(contract.id, { adminApproved: true, status: 'active' });
+      if (contract.jobId) await jobService.update(contract.jobId, { status: 'active' });
 
       setContract(prev => prev ? { ...prev, adminApproved: true, status: 'active' } : null);
 
-      // Notify both parties
-      const notifications = [contract.workerId, contract.employerId].map(uid => 
-        addDoc(collection(db, 'notifications'), {
+      await Promise.all([contract.workerId, contract.employerId].map(uid =>
+        notificationService.create({
           userId: uid,
           title: t('contract.notification_approved_title'),
           message: t('contract.notification_approved_message', { jobTitle: job?.title }),
           type: 'contract',
           link: `/contracts/${contract.id}`,
-          read: false,
-          createdAt: serverTimestamp()
         })
-      );
-      await Promise.all(notifications);
+      ));
 
     } catch (error) {
       debugLogger.error('Error approving contract:', error);

@@ -1,7 +1,8 @@
 import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { jobService } from '../services/jobService';
+import { applicationService } from '../services/applicationService';
+import { api } from '../lib/api';
 import { Job, Application } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Briefcase, Users, CheckCircle, XCircle, Trash2, Image as ImageIcon, X } from 'lucide-react';
@@ -31,21 +32,29 @@ export default function EmployerDashboard() {
 
   React.useEffect(() => {
     if (!user) return;
+    let cancelled = false;
 
-    const qJobs = query(collection(db, 'jobs'), where('employerId', '==', user.uid));
-    const unsubscribeJobs = onSnapshot(qJobs, (snapshot) => {
-      setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job)));
-    });
+    const load = async () => {
+      try {
+        const [jobRows, appRows] = await Promise.all([
+          jobService.getByEmployer(user.uid),
+          api.applications.list({ status: 'pending' }),
+        ]);
+        if (cancelled) return;
+        setJobs(jobRows);
+        setApplications(appRows.filter(a => jobRows.some(j => j.id === a.jobId)));
+      } catch (error) {
+        debugLogger.error('Employer dashboard load error:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-    const qApps = query(collection(db, 'applications'), where('status', '==', 'pending'));
-    const unsubscribeApps = onSnapshot(qApps, (snapshot) => {
-      setApplications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Application)));
-    });
-
-    setLoading(false);
+    load();
+    const interval = setInterval(load, 5000);
     return () => {
-      unsubscribeJobs();
-      unsubscribeApps();
+      cancelled = true;
+      clearInterval(interval);
     };
   }, [user]);
 
@@ -54,14 +63,13 @@ export default function EmployerDashboard() {
     if (!user) return;
 
     try {
-      await addDoc(collection(db, 'jobs'), {
+      await jobService.create({
         ...newJob,
         employerId: user.uid,
         price: Number(newJob.price),
         status: 'open',
-        createdAt: serverTimestamp(),
-        images: []
-      });
+        images: [],
+      } as Parameters<typeof jobService.create>[0]);
       setIsPosting(false);
       setNewJob({
         title: '',
@@ -79,12 +87,12 @@ export default function EmployerDashboard() {
 
   const handleDeleteJob = async (jobId: string) => {
     if (window.confirm(t('employer.dashboard.delete_job_confirm'))) {
-      await deleteDoc(doc(db, 'jobs', jobId));
+      await jobService.delete(jobId);
     }
   };
 
   const handleUpdateAppStatus = async (appId: string, status: 'accepted' | 'rejected') => {
-    await updateDoc(doc(db, 'applications', appId), { status });
+    await applicationService.updateStatus(appId, status);
   };
 
   return (

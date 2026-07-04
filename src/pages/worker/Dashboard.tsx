@@ -2,8 +2,10 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, where, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { applicationService } from '../../services/applicationService';
+import { contractService } from '../../services/contractService';
+import { jobService } from '../../services/jobService';
 import { Job, Application, Contract } from '../../types';
 import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Star, Users, MessageSquare, User } from 'lucide-react';
 import { format } from 'date-fns';
@@ -48,57 +50,33 @@ export default function WorkerDashboard() {
       return;
     }
 
-    const appsQuery = query(collection(db, 'applications'), where('workerId', '==', profile.uid));
-    const unsubscribeApps = onSnapshot(appsQuery, (snapshot) => {
-      const apps = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Application));
-      setRecentApplications(apps.slice(0, 5));
-      setStats(prev => ({
-        ...prev,
-        activeApplications: apps.filter(d => d.status === 'pending').length
-      }));
-    }, (error) => {
-      debugLogger.error('Error fetching applications:', error);
-    });
+    const load = async () => {
+      try {
+        const [apps, contracts, jobs] = await Promise.all([
+          applicationService.getByWorker(profile.uid),
+          contractService.getByWorker(profile.uid),
+          jobService.list({ region: 'Samarqand viloyati', status: 'open' }),
+        ]);
 
-    const contractsQuery = query(collection(db, 'contracts'), where('workerId', '==', profile.uid));
-    const unsubscribeContracts = onSnapshot(contractsQuery, (snapshot) => {
-      const contracts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Contract));
-      const completedContracts = contracts.filter(d => d.status === 'completed');
-      const activeContracts = contracts.filter(d => d.status === 'active');
-      const totalEarnings = completedContracts.reduce((acc, d) => acc + (d.amount || 0), 0);
-
-      setStats(prev => ({
-        ...prev,
-        completedJobs: completedContracts.length,
-        activeContracts: activeContracts.length,
-        earnings: totalEarnings
-      }));
-    }, (error) => {
-      debugLogger.error('Error fetching contracts:', error);
-    });
-
-    // Fetch recent jobs in Samarkand
-    const jobsQuery = query(
-      collection(db, 'jobs'),
-      where('region', '==', 'Samarqand viloyati'),
-      where('status', '==', 'open'),
-      orderBy('createdAt', 'desc'),
-      limit(5)
-    );
-    const unsubscribeJobs = onSnapshot(jobsQuery, (snapshot) => {
-      const firestoreJobs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Job));
-      setRecentJobs(firestoreJobs);
-      setLoading(false);
-    }, (error) => {
-      debugLogger.error('Error fetching jobs:', error);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeApps();
-      unsubscribeContracts();
-      unsubscribeJobs();
+        setRecentApplications(apps.slice(0, 5));
+        setStats(prev => ({
+          ...prev,
+          activeApplications: apps.filter(d => d.status === 'pending').length,
+          completedJobs: contracts.filter(d => d.status === 'completed').length,
+          activeContracts: contracts.filter(d => d.status === 'active').length,
+          earnings: contracts.filter(d => d.status === 'completed').reduce((acc, d) => acc + (d.amount || 0), 0),
+        }));
+        setRecentJobs(jobs.slice(0, 5));
+        setLoading(false);
+      } catch (error) {
+        debugLogger.error('Worker dashboard load error:', error);
+        setLoading(false);
+      }
     };
+
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [profile, isDemo]);
 
   const getDateLocale = () => {

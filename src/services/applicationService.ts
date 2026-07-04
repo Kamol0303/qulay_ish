@@ -82,7 +82,9 @@ export const applicationService = {
     coverLetter?: string;
     workerName?: string;
     workerEmail?: string;
+    workerPhone?: string;
     jobTitle?: string;
+    expectedSalary?: string;
   }): Promise<string | null> {
     const result = await this.createWithRateLimit(applicationData);
     return result.success ? result.applicationId ?? null : null;

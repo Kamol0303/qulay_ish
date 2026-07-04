@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { debugLogger } from '../lib/debugLogger';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, QueryConstraint } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { Job } from '../types';
 import { useTranslation } from 'react-i18next';
 import { Search, MapPin, Briefcase, Heart, Loader } from 'lucide-react';
@@ -26,47 +26,40 @@ export default function QualayIshPage() {
 
   // Fetch all jobs
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
 
-    const constraints: QueryConstraint[] = [
-      where('status', '==', 'open'),
-      orderBy('createdAt', 'desc')
-    ];
+    const loadJobs = async () => {
+      try {
+        const jobsData = await api.jobs.list({ status: 'open' });
+        if (cancelled) return;
 
-    try {
-      const q = query(collection(db, 'jobs'), ...constraints);
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const jobsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Job[];
+        const sorted = jobsData.sort((a, b) =>
+          new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
+        );
+        setJobs(sorted);
 
-        setJobs(jobsData);
-
-        // Generate recommendations if user has profile
         if (profile && !isDemo) {
-          const scores = jobsData.map(job =>
+          const scores = sorted.map(job =>
             jobRecommendationService.calculateMatchScore(profile, job)
           );
-          const topRecommendations = scores
-            .filter(s => s.score >= 40)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 5);
-
-          setRecommendations(topRecommendations);
+          setRecommendations(
+            scores.filter(s => s.score >= 40).sort((a, b) => b.score - a.score).slice(0, 5)
+          );
         }
+      } catch (error) {
+        debugLogger.error('Error fetching jobs:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-        setLoading(false);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'jobs');
-        setLoading(false);
-      });
-
-      return () => unsubscribe();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'jobs');
-      setLoading(false);
-    }
+    loadJobs();
+    const interval = setInterval(loadJobs, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [profile, isDemo]);
 
   // Filter and search logic
@@ -248,6 +241,7 @@ export default function QualayIshPage() {
       <ApplyModal
         job={selectedJob}
         isOpen={isApplyModalOpen}
+        profile={profile}
         onClose={() => {
           setIsApplyModalOpen(false);
           setSelectedJob(null);

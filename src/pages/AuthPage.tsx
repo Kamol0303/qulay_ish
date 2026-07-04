@@ -53,7 +53,7 @@ const initialState: AuthState = {
 export default function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, loading: authLoading, userRole } = useAuth();
+  const { user, profile, loading: authLoading, userRole, setAuthProfile } = useAuth();
   const { t } = useTranslation();
 
   const mode = useMemo(() => {
@@ -197,23 +197,22 @@ export default function AuthPage() {
             return;
           }
 
+          if (loginResult.user) {
+            setAuthProfile(loginResult.user);
+          }
+
           setPartialState({
             loading: false,
             success: 'Tizimga muvaffaqiyatli kirdingiz.',
           });
           setStep('complete');
-
-          // Redirect after a short delay
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
         }
       } catch (err) {
         debugError('OTP Verify Error]', err);
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.otp, state.sessionId, mode, clearMessages, setPartialState, t]
+    [state.otp, state.sessionId, mode, clearMessages, setPartialState, setAuthProfile, t]
   );
 
   // Step 3: Complete Registration
@@ -241,22 +240,21 @@ export default function AuthPage() {
           return;
         }
 
+        if (result.user) {
+          setAuthProfile(result.user);
+        }
+
         setPartialState({
           loading: false,
           success: 'Ro\'yxatdan o\'tish muvaffaqiyatli. Tizimga kirayapman...',
         });
         setStep('complete');
-
-        // Redirect after a short delay
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
       } catch (err) {
         debugError('Registration Complete Error]', err);
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.fullName, state.additionalEmail, state.additionalPhone, state.sessionId, clearMessages, setPartialState, t]
+    [state.fullName, state.additionalEmail, state.additionalPhone, state.sessionId, clearMessages, setPartialState, setAuthProfile, t]
   );
 
   const showDebugBanner = import.meta.env.VITE_SHOW_DEBUG_BANNER === 'true';

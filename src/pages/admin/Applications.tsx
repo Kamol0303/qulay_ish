@@ -1,14 +1,14 @@
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
-import { db } from '../../firebase';
-import { collection, query, orderBy, getDocs, onSnapshot, doc, updateDoc, where } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { applicationService } from '../../services/applicationService';
+import { jobService } from '../../services/jobService';
 import { Application, Profile, Job } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle, XCircle, FileText, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { notificationService } from '../../services/notificationService';
-import { applicationService } from '../../services/applicationService';
 
 export default function AdminApplications() {
   const { t } = useTranslation();
@@ -16,36 +16,45 @@ export default function AdminApplications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'applications'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      const apps = snap.docs.map(d => ({ id: d.id, ...d.data() } as Application));
-      // fetch minimal related data
-      const combined = await Promise.all(apps.map(async (app) => {
-        const workerSnap = await getDocs(query(collection(db, 'profiles'), where('__name__', '==', app.workerId)));
-        const jobSnap = await getDocs(query(collection(db, 'jobs'), where('__name__', '==', app.jobId)));
-        return { ...app, worker: workerSnap.docs[0]?.data() as Profile, job: jobSnap.docs[0]?.data() as Job };
-      }));
-      setApplications(combined);
-      setLoading(false);
-    }, (err) => {
-      debugLogger.error('Admin applications listener', err);
-      setLoading(false);
-    });
+    let cancelled = false;
 
-    return () => unsubscribe();
+    const load = async () => {
+      try {
+        const apps = await api.applications.list();
+        const combined = await Promise.all(apps.map(async (app) => {
+          const worker = await api.users.get(app.workerId).catch(() => undefined);
+          const job = await jobService.getById(app.jobId).catch(() => undefined);
+          return { ...app, worker, job };
+        }));
+        if (!cancelled) setApplications(combined);
+      } catch (err) {
+        debugLogger.error('Admin applications load', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    const interval = setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
-  const handleReview = async (appId: string, action: 'accepted' | 'rejected', reason?: string) => {
+  const handleReview = async (appId: string, action: 'accepted' | 'rejected', _reason?: string) => {
     try {
-      const snap = await getDocs(query(collection(db, 'applications'), where('__name__', '==', appId)));
-      const app = snap.docs[0]?.data() as any;
-      const workerId = app?.workerId || '';
-      const jobTitle = app?.jobTitle || app?.job?.title || '';
-      await applicationService.updateStatus(appId, action as any, workerId, jobTitle, { reviewedBy: 'super_admin', reason });
+      const app = applications.find(a => a.id === appId);
+      if (!app) return;
+      if (action === 'accepted') {
+        await applicationService.approve(appId);
+      } else {
+        await applicationService.reject(appId);
+      }
     } catch (err) {
       debugLogger.error('Review error', err);
     }
-  }
+  };
 
   return (
     <DashboardLayout>

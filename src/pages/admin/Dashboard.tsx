@@ -2,8 +2,8 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { performanceUtils } from '../../lib/performance';
 import { Job, Profile, Contract, VerificationRequest } from '../../types';
 import {
   Users,
@@ -21,7 +21,6 @@ import { uz, ru, enUS } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { performanceUtils } from '../../lib/performance';
 import {
   BarChart,
   Bar,
@@ -59,42 +58,26 @@ export default function AdminDashboard() {
       }
 
       try {
-        const [
-          usersCount,
-          jobsCount,
-          contractsCount,
-          verificationsCount,
-          disputesCount
-        ] = await Promise.all([
-          performanceUtils.getCollectionCount(collection(db, 'profiles')),
-          performanceUtils.getCollectionCount(collection(db, 'jobs')),
-          performanceUtils.getCollectionCount(collection(db, 'contracts')),
-          performanceUtils.getCollectionCount(query(collection(db, 'verification_requests'), where('status', '==', 'pending'))),
-          performanceUtils.getCollectionCount(query(collection(db, 'disputes'), where('status', '==', 'pending')))
+        const counts = await performanceUtils.getStatsCounts();
+        const [verifications, disputes, users, jobs, verificationsList] = await Promise.all([
+          api.verificationRequests.list({ status: 'pending' }),
+          api.disputes.list(),
+          api.users.list(),
+          api.jobs.list(),
+          api.verificationRequests.list({ status: 'pending' }),
         ]);
 
         setStats({
-          totalUsers: usersCount,
-          totalJobs: jobsCount,
-          totalContracts: contractsCount,
-          pendingVerifications: verificationsCount,
-          activeDisputes: disputesCount
+          totalUsers: counts.users,
+          totalJobs: counts.jobs,
+          totalContracts: counts.contracts,
+          pendingVerifications: verifications.length,
+          activeDisputes: disputes.filter(d => d.status === 'pending').length,
         });
 
-        const usersSnap = await getDocs(
-          query(collection(db, 'profiles'), orderBy('createdAt', 'desc'), limit(5))
-        );
-        setRecentUsers(usersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as Profile)));
-
-        const jobsSnap = await getDocs(
-          query(collection(db, 'jobs'), orderBy('createdAt', 'desc'), limit(5))
-        );
-        setRecentJobs(jobsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Job)));
-
-        const verificationsSnap = await getDocs(
-          query(collection(db, 'verification_requests'), where('status', '==', 'pending'), orderBy('createdAt', 'desc'), limit(5))
-        );
-        setPendingVerifications(verificationsSnap.docs.map(d => ({ id: d.id, ...d.data() } as VerificationRequest)));
+        setRecentUsers(performanceUtils.sortByCreatedAtDesc(users).slice(0, 5));
+        setRecentJobs(performanceUtils.sortByCreatedAtDesc(jobs).slice(0, 5));
+        setPendingVerifications(verificationsList.slice(0, 5));
 
         setLoading(false);
       } catch (err) {

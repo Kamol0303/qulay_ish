@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { debugLogger } from '../../lib/debugLogger';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { collection, query, getDocs, orderBy, doc, updateDoc, where, getDoc } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { contractService } from '../../services/contractService';
 import { Dispute, Profile, Contract } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -77,25 +78,19 @@ export default function AdminDisputes() {
       }
 
       try {
-        const q = query(collection(db, 'disputes'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        const disputesData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dispute));
+        const disputesData = await api.disputes.list();
 
         const combined = await Promise.all(disputesData.map(async (dispute) => {
-          const [userSnap, contractSnap] = await Promise.all([
-            getDocs(query(collection(db, 'profiles'), where('uid', '==', dispute.openedById))),
-            getDoc(doc(db, 'contracts', dispute.contractId))
+          const [openedBy, contract] = await Promise.all([
+            api.users.get(dispute.openedById).catch(() => undefined),
+            contractService.getById(dispute.contractId).catch(() => undefined),
           ]);
-          return {
-            ...dispute,
-            openedBy: userSnap.docs[0]?.data() as Profile | undefined,
-            contract: contractSnap.exists() ? (contractSnap.data() as Contract) : undefined
-          };
+          return { ...dispute, openedBy, contract };
         }));
 
         setDisputes(combined);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'disputes');
+        debugLogger.error('Error loading disputes:', error);
         showToast(t('common.error'), 'error');
       } finally {
         setLoading(false);
@@ -108,14 +103,14 @@ export default function AdminDisputes() {
   async function handleResolve(disputeId: string, status: 'resolved' | 'rejected') {
     setActionLoading(disputeId);
     try {
-      await updateDoc(doc(db, 'disputes', disputeId), {
+      await api.disputes.update(disputeId, {
         status,
-        resolvedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
       setDisputes(prev => prev.map(d => d.id === disputeId ? { ...d, status } : d));
       showToast(t('common.success'), 'success');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `disputes/${disputeId}`);
+      debugLogger.error('Error resolving dispute:', error);
       showToast(t('common.error'), 'error');
     } finally {
       setActionLoading(null);

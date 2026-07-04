@@ -1,7 +1,6 @@
 import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, QueryConstraint } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { Job } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, MapPin, Filter, X, ChevronDown, SlidersHorizontal, Briefcase, Clock, DollarSign, ArrowLeft } from 'lucide-react';
@@ -39,124 +38,79 @@ export default function JobsPage() {
    * Triggers whenever any filter state or search query changes
    */
   React.useEffect(() => {
+    let cancelled = false;
     setIsLoading(true);
-    
-    // Build dynamic Firestore query constraints
-    const constraints: QueryConstraint[] = [
-      where('status', '==', 'open'),
-      where('region', '==', selectedRegion)
-    ];
 
-    // Add district filter only if a specific district is selected
-    if (selectedDistrict) {
-      constraints.push(where('district', '==', selectedDistrict));
-    }
+    const toMillis = (val: unknown) => {
+      if (!val) return 0;
+      if (typeof val === 'object' && val !== null && 'seconds' in val) {
+        return Number((val as { seconds: number }).seconds) * 1000;
+      }
+      return new Date(val as string | number | Date).getTime() || 0;
+    };
 
-    // Add category filter only if a specific category is selected
-    if (selectedCategory) {
-      constraints.push(where('category', '==', selectedCategory));
-    }
+    const loadJobs = async () => {
+      try {
+        const params: Record<string, string> = {
+          status: 'open',
+          region: selectedRegion,
+        };
+        if (selectedDistrict) params.district = selectedDistrict;
+        if (selectedCategory) params.category = selectedCategory;
 
-    // Add ordering - always sort by createdAt in descending order for "newest"
-    if (sortBy === 'newest') {
-      constraints.push(orderBy('createdAt', 'desc'));
-    }
+        const apiJobs = await api.jobs.list(params);
+        if (cancelled) return;
 
-    try {
-      const firestoreQuery = query(collection(db, 'jobs'), ...constraints);
+        const mergedJobs = demoStore.mergeJobs([...DEMO_JOBS, ...apiJobs]);
 
-      const unsubscribe = onSnapshot(
-        firestoreQuery,
-        (snapshot) => {
-          try {
-            const firestoreJobs = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            } as Job));
+        let filtered = mergedJobs.filter((job: Job) =>
+          job.status === 'open' && job.region === selectedRegion
+        );
 
-            // Merge with demo jobs from localStorage to show employer-created jobs immediately
-            const mergedJobs = demoStore.mergeJobs([...DEMO_JOBS, ...firestoreJobs]);
-
-            // Step 1: Filter by open status and region (already filtered by Firestore)
-            let filtered = mergedJobs.filter((job: Job) => 
-              job.status === 'open' && job.region === selectedRegion
-            );
-
-            // Step 2: Apply district filter if needed (redundant with Firestore but ensures consistency)
-            if (selectedDistrict) {
-              filtered = filtered.filter((job: Job) => job.district === selectedDistrict);
-            }
-
-            // Step 3: Apply category filter if needed (redundant with Firestore but ensures consistency)
-            if (selectedCategory) {
-              filtered = filtered.filter((job: Job) => job.category === selectedCategory);
-            }
-
-            // Step 4: Apply client-side search against job title and description
-            if (searchQuery.trim()) {
-              const searchLower = searchQuery.toLowerCase().trim();
-              filtered = filtered.filter((job: Job) => {
-                const titleMatch = job.title?.toLowerCase().includes(searchLower);
-                const descMatch = job.description?.toLowerCase().includes(searchLower);
-                return titleMatch || descMatch;
-              });
-            }
-
-            // Step 5: Apply sorting (client-side for flexibility)
-            if (sortBy === 'price-low') {
-              filtered.sort((a: Job, b: Job) => (a.price || 0) - (b.price || 0));
-            } else if (sortBy === 'price-high') {
-              filtered.sort((a: Job, b: Job) => (b.price || 0) - (a.price || 0));
-            } else if (sortBy === 'newest') {
-              // Ensure newest is first
-              filtered.sort((a: Job, b: Job) => {
-                const dateA = a.createdAt?.seconds || a.createdAt || 0;
-                const dateB = b.createdAt?.seconds || b.createdAt || 0;
-                return dateB - dateA;
-              });
-            }
-
-            setJobs(filtered);
-          } catch (filterError) {
-            debugLogger.error('Error processing jobs:', filterError);
-            setJobs([]);
-          } finally {
-            // Always stop loading when data arrives, regardless of processing
-            setIsLoading(false);
-          }
-        },
-        (error) => {
-          debugLogger.error('Error fetching jobs from Firestore:', error);
-          handleFirestoreError(error, OperationType.LIST, 'jobs');
-
-          // Fallback to demo jobs only
-          try {
-            let fallbackJobs = demoStore.mergeJobs(DEMO_JOBS)
-              .filter((j: Job) => j.status === 'open' && j.region === selectedRegion) as Job[];
-
-            if (selectedDistrict) {
-              fallbackJobs = fallbackJobs.filter((j: Job) => j.district === selectedDistrict);
-            }
-            if (selectedCategory) {
-              fallbackJobs = fallbackJobs.filter((j: Job) => j.category === selectedCategory);
-            }
-
-            setJobs(fallbackJobs);
-          } catch (e) {
-            debugLogger.error('Error using fallback jobs:', e);
-            setJobs([]);
-          } finally {
-            setIsLoading(false);
-          }
+        if (selectedDistrict) {
+          filtered = filtered.filter((job: Job) => job.district === selectedDistrict);
         }
-      );
+        if (selectedCategory) {
+          filtered = filtered.filter((job: Job) => job.category === selectedCategory);
+        }
+        if (searchQuery.trim()) {
+          const searchLower = searchQuery.toLowerCase().trim();
+          filtered = filtered.filter((job: Job) => {
+            const titleMatch = job.title?.toLowerCase().includes(searchLower);
+            const descMatch = job.description?.toLowerCase().includes(searchLower);
+            return titleMatch || descMatch;
+          });
+        }
 
-      return () => unsubscribe();
-    } catch (error) {
-      debugLogger.error('Error building Firestore query:', error);
-      setIsLoading(false);
-      setJobs([]);
-    }
+        if (sortBy === 'price-low') {
+          filtered.sort((a: Job, b: Job) => (a.price || 0) - (b.price || 0));
+        } else if (sortBy === 'price-high') {
+          filtered.sort((a: Job, b: Job) => (b.price || 0) - (a.price || 0));
+        } else if (sortBy === 'newest') {
+          filtered.sort((a: Job, b: Job) => toMillis(b.createdAt) - toMillis(a.createdAt));
+        }
+
+        setJobs(filtered);
+      } catch (error) {
+        debugLogger.error('Error fetching jobs:', error);
+        if (!cancelled) {
+          let fallbackJobs = demoStore.mergeJobs(DEMO_JOBS)
+            .filter((j: Job) => j.status === 'open' && j.region === selectedRegion) as Job[];
+          if (selectedDistrict) fallbackJobs = fallbackJobs.filter((j: Job) => j.district === selectedDistrict);
+          if (selectedCategory) fallbackJobs = fallbackJobs.filter((j: Job) => j.category === selectedCategory);
+          setJobs(fallbackJobs);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadJobs();
+    const interval = setInterval(loadJobs, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [selectedRegion, selectedDistrict, selectedCategory, sortBy, searchQuery]);
 
   /**

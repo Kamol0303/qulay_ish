@@ -1,7 +1,6 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { api } from '../lib/api';
 import { Profile } from '../types';
 
 export default function ResumeView() {
@@ -11,8 +10,12 @@ export default function ResumeView() {
   React.useEffect(() => {
     if (!userId) return;
     const fetch = async () => {
-      const snap = await getDoc(doc(db, 'profiles', userId));
-      if (snap.exists()) setProfile(snap.data() as Profile);
+      try {
+        const user = await api.users.get(userId);
+        setProfile(user);
+      } catch {
+        setProfile(null);
+      }
     };
     fetch();
   }, [userId]);

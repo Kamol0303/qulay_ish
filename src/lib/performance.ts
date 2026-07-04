@@ -1,79 +1,48 @@
 import { debugLogger } from './debugLogger';
-import { 
-  query, 
-  collection, 
-  where, 
-  orderBy, 
-  limit, 
-  getDocs, 
-  QueryConstraint,
-  Query,
-  DocumentData,
-  onSnapshot,
-  getCountFromServer,
-  startAfter,
-  QueryDocumentSnapshot
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { api } from './api';
 
 /**
- * Performance & Scale Utilities for QULAY ISH
- * 
- * Strategy for 100K+ users:
- * 1. Denormalization: Store essential info (name, photo) on related docs to avoid joins.
- * 2. Pagination: Never fetch all docs; always use limit() and startAfter().
- * 3. Indexing: Ensure all compound queries have corresponding Firestore indexes.
- * 4. Caching: Use local state and potentially IndexedDB for offline-first and speed.
+ * Performance & scale utilities backed by the REST API.
  */
-
 export const performanceUtils = {
-  /**
-   * Optimized query builder with mandatory limits for scale.
-   */
-  createPaginatedQuery(
-    collectionName: string, 
-    constraints: QueryConstraint[], 
-    pageSize: number = 20,
-    lastDoc?: QueryDocumentSnapshot<DocumentData>
-  ): Query<DocumentData> {
-    const baseConstraints = [...constraints, limit(pageSize)];
-    if (lastDoc) {
-      baseConstraints.push(startAfter(lastDoc));
-    }
-    return query(
-      collection(db, collectionName),
-      ...baseConstraints
-    );
+  async getStatsCounts() {
+    return api.stats.counts();
   },
 
-  /**
-   * Efficiently get the total count of documents in a collection or query.
-   * Uses Firestore's getCountFromServer which is much cheaper and faster than fetching all docs.
-   */
-  async getCollectionCount(q: Query<DocumentData>): Promise<number> {
+  async getCollectionCount(
+    resource: 'users' | 'jobs' | 'applications' | 'contracts',
+    params?: Record<string, string>,
+  ): Promise<number> {
     try {
-      const snapshot = await getCountFromServer(q);
-      return snapshot.data().count;
+      switch (resource) {
+        case 'users':
+          return (await api.users.list(params)).length;
+        case 'jobs':
+          return (await api.jobs.list(params)).length;
+        case 'applications':
+          return (await api.applications.list(params)).length;
+        case 'contracts':
+          return (await api.contracts.list(params)).length;
+        default:
+          return 0;
+      }
     } catch (error) {
       debugLogger.error('Error getting collection count:', error);
       return 0;
     }
   },
 
-  /**
-   * Real-time listener with error handling and cleanup.
-   */
-  listenToCollection(
-    q: Query<DocumentData>,
-    onData: (data: any[]) => void,
-    onError?: (error: any) => void
-  ) {
-    return onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      onData(data);
-    }, (error) => {
-      debugLogger.error('Firestore subscription error:', error);
-      if (onError) onError(error);
+  sortByCreatedAtDesc<T extends { createdAt?: unknown }>(items: T[]): T[] {
+    return [...items].sort((a, b) => {
+      const ta = new Date(a.createdAt as string | number | Date ?? 0).getTime();
+      const tb = new Date(b.createdAt as string | number | Date ?? 0).getTime();
+      return tb - ta;
     });
-  }
+  },
+
+  paginate<T>(items: T[], pageSize: number, page: number): { items: T[]; hasMore: boolean } {
+    const start = page * pageSize;
+    const slice = items.slice(start, start + pageSize);
+    return { items: slice, hasMore: start + pageSize < items.length };
+  },
 };

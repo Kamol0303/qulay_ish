@@ -2,8 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, getDocs, where, orderBy, limit } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { 
   Shield, Users, Briefcase, FileText, AlertTriangle, 
   TrendingUp, Activity, Database, Settings, BarChart3,
@@ -43,49 +42,29 @@ export default function SuperAdminDashboard() {
       setLoading(true);
       try {
         // Fetch all stats in parallel
-        const [
-          usersSnap,
-          jobsSnap,
-          applicationsSnap,
-          contractsSnap,
-          servicePostsSnap,
-          verificationsSnap
-        ] = await Promise.all([
-          getDocs(collection(db, 'profiles')),
-          getDocs(collection(db, 'jobs')),
-          getDocs(collection(db, 'applications')),
-          getDocs(collection(db, 'contracts')),
-          getDocs(collection(db, 'service_posts')),
-          getDocs(query(collection(db, 'verification_requests'), where('status', '==', 'pending')))
+        const [users, jobs, applications, contracts, servicePosts, verifications, recentLogs] = await Promise.all([
+          api.users.list(),
+          api.jobs.list(),
+          api.applications.list(),
+          api.contracts.list(),
+          api.servicePosts.list(),
+          api.verificationRequests.list({ status: 'pending' }),
+          api.systemLogs.list(),
         ]);
 
-        // Calculate user stats
-        const users = usersSnap.docs.map(d => d.data());
         const workers = users.filter(u => u.role === 'worker');
         const employers = users.filter(u => u.role === 'employer');
         const admins = users.filter(u => u.role === 'admin' || u.role === 'super_admin');
-
-        // Calculate job stats
-        const jobs = jobsSnap.docs.map(d => d.data());
         const activeJobs = jobs.filter(j => j.status === 'open');
-
-        // Calculate application stats
-        const applications = applicationsSnap.docs.map(d => d.data());
         const pendingApps = applications.filter(a => a.status === 'pending');
-
-        // Calculate contract stats
-        const contracts = contractsSnap.docs.map(d => d.data());
         const activeContracts = contracts.filter(c => c.status === 'active');
         const completedContracts = contracts.filter(c => c.status === 'completed');
-        
-        // Calculate revenue (from completed contracts)
+
         const totalRevenue = completedContracts.reduce((sum, c) => sum + (c.amount || 0), 0);
-        
-        // Calculate monthly revenue (last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const monthlyRevenue = completedContracts
-          .filter(c => c.updatedAt?.toDate?.() > thirtyDaysAgo)
+          .filter(c => new Date(c.updatedAt as string) > thirtyDaysAgo)
           .reduce((sum, c) => sum + (c.amount || 0), 0);
 
         setStats({
@@ -100,17 +79,13 @@ export default function SuperAdminDashboard() {
           totalContracts: contracts.length,
           activeContracts: activeContracts.length,
           completedContracts: completedContracts.length,
-          totalServicePosts: servicePostsSnap.size,
-          pendingVerifications: verificationsSnap.size,
+          totalServicePosts: servicePosts.length,
+          pendingVerifications: verifications.length,
           totalRevenue,
-          monthlyRevenue
+          monthlyRevenue,
         });
 
-        // Fetch recent activity (last 10 system logs or recent items)
-        const recentLogsSnap = await getDocs(
-          query(collection(db, 'system_logs'), orderBy('createdAt', 'desc'), limit(10))
-        );
-        setRecentActivity(recentLogsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setRecentActivity((recentLogs as unknown[]).slice(0, 10));
 
       } catch (error) {
         debugLogger.error('Error fetching super admin stats:', error);

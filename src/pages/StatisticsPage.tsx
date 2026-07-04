@@ -1,8 +1,7 @@
 import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { Profile } from '../types';
 import { motion } from 'motion/react';
 import { TrendingUp, Users, MapPin, BarChart2, ArrowLeft } from 'lucide-react';
@@ -26,14 +25,7 @@ export default function StatisticsPage() {
   React.useEffect(() => {
     const fetchDistrictStats = async () => {
       try {
-        const profilesQuery = query(
-          collection(db, 'profiles'),
-          where('role', '==', 'worker'),
-          where('region', '==', 'Samarqand viloyati')
-        );
-        
-        const profilesSnapshot = await getDocs(profilesQuery);
-        const profiles = profilesSnapshot.docs.map(doc => doc.data() as Profile);
+        const profiles = await api.users.list({ role: 'worker', region: 'Samarqand viloyati' });
         
         const districtCounts: Record<string, number> = {};
         profiles.forEach(profile => {

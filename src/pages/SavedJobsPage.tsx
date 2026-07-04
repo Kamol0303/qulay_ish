@@ -165,6 +165,7 @@ export default function SavedJobsPage() {
         {/* Apply Modal */}
         <ApplyModal
           job={selectedJob}
+          profile={profile}
           isOpen={isApplyModalOpen}
           onClose={() => {
             setIsApplyModalOpen(false);

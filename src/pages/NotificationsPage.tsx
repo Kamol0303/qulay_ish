@@ -3,8 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { notificationService } from '../services/notificationService';
 import { Notification } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -32,24 +31,35 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     if (!profile?.uid) return;
+    let cancelled = false;
 
-    const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', profile.uid),
-      orderBy('createdAt', 'desc')
-    );
+    const load = async () => {
+      try {
+        const rows = await notificationService.list(profile.uid);
+        if (!cancelled) {
+          setNotifications(rows.sort((a, b) =>
+            new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
+          ));
+        }
+      } catch (error) {
+        debugLogger.error('Error loading notifications:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() } as Notification)));
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [profile]);
+    load();
+    const interval = setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [profile?.uid]);
 
   const markAsRead = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'notifications', id), { read: true });
+      await notificationService.markRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     } catch (error) {
       debugLogger.error('Error marking notification as read:', error);
     }
@@ -58,20 +68,12 @@ export default function NotificationsPage() {
   const markAllAsRead = async () => {
     const unread = notifications.filter(n => !n.read);
     if (unread.length === 0) return;
-
-    const batch = writeBatch(db);
-    unread.forEach(n => {
-      batch.update(doc(db, 'notifications', n.id), { read: true });
-    });
-    await batch.commit();
+    await Promise.all(unread.map(n => notificationService.markRead(n.id)));
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   const deleteNotification = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'notifications', id));
-    } catch (error) {
-      debugLogger.error('Error deleting notification:', error);
-    }
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const getIcon = (type: string) => {

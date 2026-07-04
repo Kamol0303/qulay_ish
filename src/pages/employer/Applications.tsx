@@ -2,8 +2,9 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { applicationService } from '../../services/applicationService';
+import { jobService } from '../../services/jobService';
 import { Application, Profile, Job } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Briefcase, MessageSquare, CheckCircle, XCircle, Clock, MapPin, Phone, Star } from 'lucide-react';
@@ -12,7 +13,6 @@ import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
-import { applicationService } from '../../services/applicationService';
 
 export default function EmployerApplications() {
   const { t, i18n } = useTranslation();
@@ -31,38 +31,37 @@ export default function EmployerApplications() {
       return;
     }
 
-    const q = query(
-      collection(db, 'applications'),
-      where('employerId', '==', profile.uid),
-      orderBy('createdAt', 'desc')
-    );
+    const load = async () => {
+      try {
+        const appsData = await applicationService.getByEmployer(profile.uid);
+        const combined = await Promise.all(appsData.map(async (app) => {
+          const worker = await api.users.get(app.workerId).catch(() => undefined);
+          const job = await jobService.getById(app.jobId).catch(() => undefined);
+          return { ...app, worker, job };
+        }));
+        setApplications(combined);
+      } catch (error) {
+        debugLogger.error('Error fetching applications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      const appsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Application));
-
-      const combined = await Promise.all(appsData.map(async (app) => {
-        const workerSnap = await getDocs(query(collection(db, 'profiles'), where('uid', '==', app.workerId)));
-        const worker = workerSnap.docs[0]?.data() as Profile;
-
-        const jobSnap = await getDocs(query(collection(db, 'jobs'), where('__name__', '==', app.jobId)));
-        const job = jobSnap.docs[0]?.data() as Job;
-
-        return { ...app, worker, job };
-      }));
-
-      setApplications(combined);
-      setLoading(false);
-    }, (error) => {
-      debugLogger.error('Error fetching applications:', error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [profile, isDemo]);
 
   const handleStatusUpdate = async (appId: string, newStatus: string, workerId: string, jobTitle: string) => {
     try {
-      const success = await applicationService.updateStatus(appId, newStatus as any, workerId, jobTitle);
+      let success = false;
+      if (newStatus === 'accepted') {
+        success = await applicationService.approve(appId);
+      } else if (newStatus === 'rejected') {
+        success = await applicationService.reject(appId);
+      } else {
+        success = await applicationService.updateStatus(appId, newStatus as Application['status']);
+      }
       if (success) {
         setApplications(prev => prev.map(app => app.id === appId ? { ...app, status: newStatus as any } : app));
       }

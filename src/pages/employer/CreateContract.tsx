@@ -3,8 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { applicationService } from '../../services/applicationService';
+import { contractService } from '../../services/contractService';
+import { jobService } from '../../services/jobService';
 import { Application, Job, Profile } from '../../types';
 import { motion } from 'motion/react';
 import { 
@@ -44,43 +46,21 @@ export default function CreateContract() {
     async function fetchData() {
       if (!appId || !profile?.uid) return;
       try {
-        let appSnap;
-        try {
-          appSnap = await getDoc(doc(db, 'applications', appId));
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `applications/${appId}`);
-        }
-
-        if (!appSnap || !appSnap.exists()) {
+        const appData = await applicationService.getById(appId);
+        if (!appData) {
           navigate('/employer/applicants');
           return;
         }
-        const appData = { id: appSnap.id, ...appSnap.data() } as Application;
         setApplication(appData);
 
-        let jobSnap;
-        try {
-          jobSnap = await getDoc(doc(db, 'jobs', appData.jobId));
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `jobs/${appData.jobId}`);
-        }
-
-        if (jobSnap && jobSnap.exists()) {
-          const jobData = jobSnap.data() as Job;
+        const jobData = await jobService.getById(appData.jobId);
+        if (jobData) {
           setJob(jobData);
           setFormData(prev => ({ ...prev, amount: jobData.price }));
         }
 
-        let workerSnap;
-        try {
-          workerSnap = await getDoc(doc(db, 'profiles', appData.workerId));
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `profiles/${appData.workerId}`);
-        }
-
-        if (workerSnap && workerSnap.exists()) {
-          setWorker(workerSnap.data() as Profile);
-        }
+        const workerData = await api.users.get(appData.workerId).catch(() => null);
+        if (workerData) setWorker(workerData);
       } catch (error) {
         debugLogger.error('Error fetching data:', error);
       } finally {
@@ -95,25 +75,14 @@ export default function CreateContract() {
     if (!application || !profile) return;
     setSubmitting(true);
     try {
-      try {
-        await addDoc(collection(db, 'contracts'), {
-          jobId: application.jobId,
-          workerId: application.workerId,
-          employerId: profile.uid,
-          applicationId: application.id,
-          amount: formData.amount,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          terms: formData.terms,
-          employerSigned: true,
-          workerSigned: false,
-          adminApproved: false,
-          status: 'draft',
-          createdAt: serverTimestamp()
-        });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, 'contracts');
-      }
+      await contractService.create({
+        jobId: application.jobId,
+        workerId: application.workerId,
+        employerId: profile.uid,
+        title: job?.title || application.jobTitle || 'Shartnoma',
+        amount: formData.amount,
+        terms: formData.terms,
+      });
       navigate('/employer/dashboard');
     } catch (error) {
       debugLogger.error('Error creating contract:', error);

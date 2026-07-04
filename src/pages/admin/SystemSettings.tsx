@@ -2,8 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { Settings, Save, Globe, Shield, Database, CheckCircle2, AlertCircle, Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -64,9 +63,9 @@ export default function SystemSettings() {
     if (isDemo) { setLoading(false); return; }
     (async () => {
       try {
-        const snap = await getDoc(doc(db, 'system_config', 'settings'));
-        if (snap.exists()) {
-          setSettings({ ...DEFAULTS, ...(snap.data() as SystemSettingsData) });
+        const data = await api.settings.getGlobal();
+        if (data) {
+          setSettings({ ...DEFAULTS, ...(data as SystemSettingsData) });
         }
       } catch (err) {
         debugLogger.error('Error loading settings:', err);
@@ -100,7 +99,7 @@ export default function SystemSettings() {
 
     setSaving(true);
     try {
-      await setDoc(doc(db, 'system_config', 'settings'), settings);
+      await api.settings.updateGlobal(settings as unknown as Record<string, unknown>);
       showToast(t('admin.settings.save_success'), 'success');
     } catch (err) {
       debugLogger.error('Error saving settings:', err);
