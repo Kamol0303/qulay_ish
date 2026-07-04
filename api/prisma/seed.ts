@@ -32,6 +32,41 @@ const existingUserIds = new Set<string>();
 const existingJobIds = new Set<string>();
 const existingContractIds = new Set<string>();
 
+function sanitizePhone(value: unknown): string | null {
+  const phone = asString(value).trim();
+  return phone || null;
+}
+
+async function loadUsedPhones(): Promise<Map<string, string>> {
+  const rows = await prisma.user.findMany({
+    where: { phoneNumber: { not: null } },
+    select: { id: true, phoneNumber: true },
+  });
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (row.phoneNumber) map.set(row.phoneNumber, row.id);
+  }
+  return map;
+}
+
+function claimPhone(
+  phonesByNumber: Map<string, string>,
+  userId: string,
+  rawPhone: unknown,
+): string | null {
+  const phone = sanitizePhone(rawPhone);
+  if (!phone) return null;
+
+  const owner = phonesByNumber.get(phone);
+  if (owner && owner !== userId) {
+    console.warn(`[seed] duplicate phone ${phone} for user ${userId} (owned by ${owner}), storing without phone`);
+    return null;
+  }
+
+  phonesByNumber.set(phone, userId);
+  return phone;
+}
+
 async function seedUsers() {
   const profiles = readExportFile(EXPORT_DIR, 'profiles');
   let authUsers: Array<Record<string, unknown>> = [];
@@ -41,6 +76,7 @@ async function seedUsers() {
   }
 
   const authByUid = new Map(authUsers.map((u) => [asString(u.uid), u]));
+  const phonesByNumber = await loadUsedPhones();
 
   for (const doc of profiles) {
     const d = doc.data;
@@ -48,12 +84,18 @@ async function seedUsers() {
     if (!id) continue;
 
     const auth = authByUid.get(id);
+    const phoneNumber = claimPhone(
+      phonesByNumber,
+      id,
+      asString(d.phoneNumber) || asString(auth?.phoneNumber),
+    );
+
     await prisma.user.upsert({
       where: { id },
       create: {
         id,
         email: asString(d.email) || asString(auth?.email) || null,
-        phoneNumber: asString(d.phoneNumber) || asString(auth?.phoneNumber) || null,
+        phoneNumber,
         passwordHash: asString(d.passwordHash) || null,
         fullName: asString(d.fullName, 'User'),
         role: mapEnum(d.role, userRoles, UserRole.worker),
@@ -94,11 +136,12 @@ async function seedUsers() {
   for (const auth of authUsers) {
     const id = asString(auth.uid);
     if (!id || existingUserIds.has(id)) continue;
+    const phoneNumber = claimPhone(phonesByNumber, id, auth.phoneNumber);
     await prisma.user.create({
       data: {
         id,
         email: asString(auth.email) || null,
-        phoneNumber: asString(auth.phoneNumber) || null,
+        phoneNumber,
         fullName: asString(auth.displayName, 'User'),
         role: UserRole.worker,
         region: '',
