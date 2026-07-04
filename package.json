@@ -13,7 +13,7 @@
     "migrate:passwords": "tsx scripts/migratePasswords.ts",
     "db:up": "sh -c 'docker compose up -d postgres 2>/dev/null || docker-compose up -d postgres'",
     "db:down": "sh -c 'docker compose down 2>/dev/null || docker-compose down'",
-    "api:install": "cd api && npm install",
+    "api:install": "cd api && npm install && npx prisma migrate deploy && npx prisma generate",
     "api:dev": "cd api && npm run start:dev",
     "api:build": "cd api && npm run build",
     "db:migrate": "cd api && npx prisma migrate dev",

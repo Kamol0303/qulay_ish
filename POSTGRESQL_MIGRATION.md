@@ -41,6 +41,7 @@ OTP_DEV_RETURN=false
 npm run db:up
 npm run api:install
 cd api && npx prisma migrate deploy
+cd api && npx prisma generate
 ```
 
 ## 3. Firebase dan ma'lumot ko'chirish (bir martalik)
