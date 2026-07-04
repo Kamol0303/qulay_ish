@@ -289,7 +289,11 @@ export const api = {
 
   stats: {
     counts() {
-      return apiRequest<{ users: number; jobs: number; applications: number; contracts: number }>('/stats/counts');
+      return apiRequest<{ users: number; jobs: number; applications: number; contracts: number }>(
+        '/stats/counts',
+        {},
+        false,
+      );
     },
   },
 };

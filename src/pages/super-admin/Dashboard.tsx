@@ -37,12 +37,15 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     async function fetchSuperAdminStats() {
-      if (!profile?.uid || profile.role !== 'super_admin') return;
-      
+      if (!profile?.uid || profile.role !== 'super_admin') {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        // Fetch all stats in parallel
-        const [users, jobs, applications, contracts, servicePosts, verifications, recentLogs] = await Promise.all([
+        const counts = await api.stats.counts();
+        const results = await Promise.allSettled([
           api.users.list(),
           api.jobs.list(),
           api.applications.list(),
@@ -51,6 +54,14 @@ export default function SuperAdminDashboard() {
           api.verificationRequests.list({ status: 'pending' }),
           api.systemLogs.list(),
         ]);
+
+        const users = results[0].status === 'fulfilled' ? results[0].value : [];
+        const jobs = results[1].status === 'fulfilled' ? results[1].value : [];
+        const applications = results[2].status === 'fulfilled' ? results[2].value : [];
+        const contracts = results[3].status === 'fulfilled' ? results[3].value : [];
+        const servicePosts = results[4].status === 'fulfilled' ? results[4].value : [];
+        const verifications = results[5].status === 'fulfilled' ? results[5].value : [];
+        const recentLogs = results[6].status === 'fulfilled' ? results[6].value : [];
 
         const workers = users.filter(u => u.role === 'worker');
         const employers = users.filter(u => u.role === 'employer');
@@ -68,15 +79,15 @@ export default function SuperAdminDashboard() {
           .reduce((sum, c) => sum + (c.amount || 0), 0);
 
         setStats({
-          totalUsers: users.length,
+          totalUsers: counts.users || users.length,
           totalWorkers: workers.length,
           totalEmployers: employers.length,
           totalAdmins: admins.length,
-          totalJobs: jobs.length,
+          totalJobs: counts.jobs || jobs.length,
           activeJobs: activeJobs.length,
-          totalApplications: applications.length,
+          totalApplications: counts.applications || applications.length,
           pendingApplications: pendingApps.length,
-          totalContracts: contracts.length,
+          totalContracts: counts.contracts || contracts.length,
           activeContracts: activeContracts.length,
           completedContracts: completedContracts.length,
           totalServicePosts: servicePosts.length,
