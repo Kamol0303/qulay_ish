@@ -31,3 +31,21 @@ export const getDistrictKey = (district?: string) => {
   };
   return map[district] || district.toLowerCase().replace(/ʻ/g, '').replace(/ /g, '_');
 };
+
+/** Demo/imported profiles often have empty or alternate Samarkand region labels. */
+export function isSamarkandRegion(region?: string | null): boolean {
+  if (!region || !region.trim()) return true;
+  const value = region.trim().toLowerCase();
+  return value.includes('samarqand') || value.includes('samarkand');
+}
+
+export function filterWorkersForSamarkand<T extends { region?: string | null; district?: string | null }>(
+  workers: T[],
+  options?: { district?: string },
+): T[] {
+  return workers.filter((worker) => {
+    if (!isSamarkandRegion(worker.region)) return false;
+    if (options?.district && worker.district !== options.district) return false;
+    return true;
+  });
+}

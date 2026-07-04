@@ -8,11 +8,16 @@ export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  async list(@Query('role') role?: string, @Query('region') region?: string) {
+  async list(
+    @Query('role') role?: string,
+    @Query('region') region?: string,
+    @Query('district') district?: string,
+  ) {
     return this.prisma.user.findMany({
       where: {
         ...(role ? { role: role as any } : {}),
         ...(region ? { region } : {}),
+        ...(district ? { district } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });

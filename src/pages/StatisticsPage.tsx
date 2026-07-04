@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import { TrendingUp, Users, MapPin, BarChart2, ArrowLeft } from 'lucide-react';
 import Layout from '../components/Layout';
 import { DISTRICTS } from '../constants/locations';
-import { getDistrictKey } from '../lib/utils';
+import { getDistrictKey, filterWorkersForSamarkand } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 interface DistrictStat {
@@ -25,7 +25,9 @@ export default function StatisticsPage() {
   React.useEffect(() => {
     const fetchDistrictStats = async () => {
       try {
-        const profiles = await api.users.list({ role: 'worker', region: 'Samarqand viloyati' });
+        const profiles = filterWorkersForSamarkand(
+          await api.users.list({ role: 'worker' }),
+        );
         
         const districtCounts: Record<string, number> = {};
         profiles.forEach(profile => {

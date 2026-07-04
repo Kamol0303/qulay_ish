@@ -8,7 +8,7 @@ import { SKILLS } from '../constants/categories';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
 import { useAuth } from '../hooks/useAuth';
-import { getDistrictKey, cn } from '../lib/utils';
+import { getDistrictKey, cn, filterWorkersForSamarkand } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 import { useTranslation } from 'react-i18next';
@@ -68,14 +68,12 @@ export default function WorkersPage() {
 
     const loadWorkers = async () => {
       try {
-        const params: { role: string; region: string; district?: string } = {
-          role: 'worker',
-          region: 'Samarqand viloyati',
-        };
-        if (filters.district) params.district = filters.district;
-
-        let workersData = await api.users.list(params);
+        let workersData = await api.users.list({ role: 'worker' });
         if (cancelled) return;
+
+        workersData = filterWorkersForSamarkand(workersData, {
+          district: filters.district || undefined,
+        });
 
         if (filters.skill) {
           workersData = workersData.filter(w => w.skills?.includes(filters.skill));
