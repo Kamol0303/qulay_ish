@@ -93,13 +93,15 @@ async function listFirestoreDatabases(
   serviceAccount: Record<string, unknown>,
 ): Promise<string[]> {
   try {
-    const { v1 } = await import('@google-cloud/firestore');
-    const client = new v1.FirestoreAdminClient({
+    const { GoogleAuth } = await import('google-auth-library');
+    const auth = new GoogleAuth({
       credentials: serviceAccount,
-      projectId,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
     });
-    const [databases] = await client.listDatabases({ parent: `projects/${projectId}` });
-    return databases
+    const client = await auth.getClient();
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases`;
+    const res = await client.request<{ databases?: Array<{ name: string }> }>({ url });
+    return (res.data.databases ?? [])
       .map((db) => db.name?.split('/').pop())
       .filter((id): id is string => Boolean(id));
   } catch (err) {

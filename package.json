@@ -18,7 +18,8 @@
     "api:build": "cd api && npm run build",
     "db:migrate": "cd api && npx prisma migrate dev",
     "db:seed": "cd api && npm run prisma:seed",
-    "export:firestore": "cd api && npm run export:firestore"
+    "export:firestore": "cd api && npm run export:firestore",
+    "diagnose:firebase": "cd api && npm run diagnose:firebase"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",

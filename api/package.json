@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "export:firestore": "tsx scripts/export-firestore.ts"
+    "export:firestore": "tsx scripts/export-firestore.ts",
+    "diagnose:firebase": "tsx scripts/diagnose-firebase.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
