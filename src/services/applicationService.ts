@@ -96,8 +96,9 @@ export const applicationService = {
         // Notify employer
         await notificationService.notifyNewApplication(
           applicationData.employerId,
-          worker,
-          job
+          worker.fullName,
+          job.title,
+          docRef.id
         );
       }
 
@@ -161,8 +162,9 @@ export const applicationService = {
         // Notify employer
         await notificationService.notifyNewApplication(
           applicationData.employerId,
-          worker,
-          job
+          worker.fullName,
+          job.title,
+          docRef.id
         );
       }
 
@@ -239,10 +241,41 @@ export const applicationService = {
   },
 
   async approve(applicationId: string): Promise<boolean> {
-    return this.update(applicationId, { status: 'approved' });
+    return this.update(applicationId, { status: 'accepted' });
   },
 
   async reject(applicationId: string): Promise<boolean> {
     return this.update(applicationId, { status: 'rejected' });
-  }
+  },
+
+  async updateStatus(
+    applicationId: string,
+    status: Application['status'],
+    workerId: string,
+    jobTitle: string,
+    meta?: { reviewedBy?: string; reason?: string }
+  ): Promise<boolean> {
+    try {
+      const updates: Partial<Application> & Record<string, unknown> = {
+        status,
+        updatedAt: serverTimestamp(),
+      };
+      if (meta?.reviewedBy) updates.reviewedBy = meta.reviewedBy;
+      if (meta?.reason) updates.reviewNote = meta.reason;
+
+      await updateDoc(doc(db, 'applications', applicationId), updates);
+
+      if (status === 'accepted') {
+        await notificationService.notifyApplicationAccepted(workerId, jobTitle);
+      } else if (status === 'rejected') {
+        await notificationService.notifyApplicationRejected(workerId, jobTitle);
+      }
+
+      return true;
+    } catch (error) {
+      debugLogger.error('Error updating application status:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `applications/${applicationId}`);
+      return false;
+    }
+  },
 };

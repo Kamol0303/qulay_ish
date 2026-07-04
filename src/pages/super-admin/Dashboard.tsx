@@ -108,7 +108,7 @@ export default function SuperAdminDashboard() {
 
         // Fetch recent activity (last 10 system logs or recent items)
         const recentLogsSnap = await getDocs(
-          query(collection(db, 'system_logs'), orderBy('createdAt', 'desc'), limit(10))
+          query(collection(db, 'system_logs'), orderBy('timestamp', 'desc'), limit(10))
         );
         setRecentActivity(recentLogsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 

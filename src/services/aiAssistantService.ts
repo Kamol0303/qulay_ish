@@ -1,8 +1,9 @@
-// ============================================
 // AI ASSISTANT SERVICE
 // Secure foundation for AI-powered platform assistance
 // NO API KEYS HARDCODED - Uses environment variables only
 // ============================================
+
+import { debugLogger } from '../lib/debugLogger';
 
 export type AIAssistantRole = 'worker' | 'employer' | 'admin' | 'general';
 export type AILanguage = 'uz' | 'ru' | 'en';

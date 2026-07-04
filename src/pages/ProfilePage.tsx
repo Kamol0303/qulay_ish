@@ -17,7 +17,7 @@ import { SKILLS } from '../constants/categories';
 export default function ProfilePage() {
   const { t, i18n } = useTranslation();
   const { userId } = useParams();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, profile: currentProfile } = useAuth();
   const [worker, setWorker] = React.useState<Profile | null>(null);
   const [canViewPhone, setCanViewPhone] = React.useState(false);
   const [reviews, setReviews] = React.useState<Review[]>([]);
@@ -35,7 +35,7 @@ export default function ProfilePage() {
         // determine if current user can view phone
         if (currentUser && userId) {
           const ok = await relationshipService.canViewContact(currentUser.uid, userId);
-          setCanViewPhone(!!ok || currentUser?.role === 'super_admin');
+          setCanViewPhone(!!ok || currentProfile?.role === 'super_admin');
         }
       }
       setLoading(false);
@@ -55,7 +55,7 @@ export default function ProfilePage() {
       navigate('/auth');
       return;
     }
-    if (!canViewPhone && currentUser?.role !== 'super_admin') {
+    if (!canViewPhone && currentProfile?.role !== 'super_admin') {
       window.alert(t('chat.restricted_before_approval', 'Chat available after application approval.'));
       return;
     }

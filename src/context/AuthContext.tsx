@@ -90,6 +90,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkOTPLoginSession = useCallback(async () => {
+    const allowLocalOtpSession =
+      import.meta.env.DEV && import.meta.env.VITE_ALLOW_OTP_LOCAL_SESSION === 'true';
+
+    if (!allowLocalOtpSession) {
+      localStorage.removeItem('qulay_ish_otp_login_uid');
+      localStorage.removeItem('qulay_ish_otp_login_profile');
+      return false;
+    }
+
     const otpLoginUid = localStorage.getItem('qulay_ish_otp_login_uid');
     const otpLoginProfile = localStorage.getItem('qulay_ish_otp_login_profile');
     

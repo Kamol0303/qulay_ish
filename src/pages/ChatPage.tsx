@@ -83,7 +83,7 @@ export default function ChatPage() {
 
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
-        debugLogger.log('Messages snapshot received:', snapshot.size, 'docs');
+        debugLogger.log('Messages snapshot received:', { size: snapshot.size });
         const allMsgs = snapshot.docs.map(doc => ({ 
           id: doc.id, 
           ...doc.data() 

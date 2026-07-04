@@ -37,7 +37,7 @@ exports.createOTPLoginToken = onCall({
     const otpRef = db.collection("otp_sessions").doc(sessionId);
     const otpSnap = await otpRef.get();
 
-    if (!otpSnap.exists()) {
+    if (!otpSnap.exists) {
       throw new Error("OTP session not found");
     }
 
@@ -207,6 +207,8 @@ exports.verifyOTPSession = onCall({
     return {
       success: true,
       message: "OTP verified successfully",
+      uid: otpData.uid || null,
+      purpose: otpData.purpose || null,
     };
   } catch (error) {
     logger.error("Error verifying OTP:", error);

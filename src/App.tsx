@@ -38,6 +38,7 @@ import ForbiddenPage from './pages/ForbiddenPage';
 import EmployerApplications from './pages/employer/Applications';
 import EmployerJobDetails from './pages/employer/JobDetails';
 import CreateContract from './pages/employer/CreateContract';
+import EmployerContracts from './pages/employer/Contracts';
 import WorkerApplications from './pages/worker/Applications';
 import WorkerContracts from './pages/worker/Contracts';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -102,7 +103,7 @@ export default function App() {
         <Route path="/employer/dashboard" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerDashboard /></RoleProtectedRoute>} />
         <Route path="/employer/jobs" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerDashboard /></RoleProtectedRoute>} />
         <Route path="/employer/applicants" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerApplications /></RoleProtectedRoute>} />
-        <Route path="/employer/contracts" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerApplications /></RoleProtectedRoute>} />
+        <Route path="/employer/contracts" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerContracts /></RoleProtectedRoute>} />
         <Route path="/employer/create-contract" element={<RoleProtectedRoute allowedRoles={['employer']}><CreateContract /></RoleProtectedRoute>} />
         <Route path="/employer/jobs/:jobId" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerJobDetails /></RoleProtectedRoute>} />
         <Route path="/employer/create-job" element={<RoleProtectedRoute allowedRoles={['employer']}><CreateJob /></RoleProtectedRoute>} />

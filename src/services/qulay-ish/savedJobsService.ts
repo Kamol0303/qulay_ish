@@ -101,15 +101,15 @@ export const savedJobsService = {
 
       const savedJobs: SavedJob[] = [];
 
-      for (const doc of docs.docs) {
-        const data = doc.data();
+      for (const savedDoc of docs.docs) {
+        const data = savedDoc.data();
         
         // Fetch the actual job details
         try {
           const jobDoc = await getDoc(doc(db, 'jobs', data.jobId));
           if (jobDoc.exists()) {
             savedJobs.push({
-              id: doc.id,
+              id: savedDoc.id,
               userId: data.userId,
               jobId: data.jobId,
               job: { id: jobDoc.id, ...jobDoc.data() } as Job,

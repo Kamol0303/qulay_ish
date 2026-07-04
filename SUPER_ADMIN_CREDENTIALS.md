@@ -10,18 +10,17 @@ http://localhost:3000/super-admin-login
 ## 📱 Credentials (DO NOT SHARE)
 
 ```
-Phone Number: +998900707081
-Password:     Hur_135642
-Email:        superadmin@qulay-ish.local
+Phone Number: (set via VITE_SUPER_ADMIN_PHONE)
+Password:     (set via VITE_SUPER_ADMIN_PASSWORD)
+Email:        (set via VITE_SUPER_ADMIN_EMAIL)
 ```
 
 ## ✅ How to Login as Super Admin
 
 1. Open: http://localhost:3000/super-admin-login
-2. Enter Phone: **+998900707081**
-3. Enter Password: **Hur_135642**
-4. Click **Login**
-5. You'll be redirected to: http://localhost:3000/super-admin/dashboard
+2. Enter Phone and Password from your `.env` file (`VITE_SUPER_ADMIN_PHONE`, `VITE_SUPER_ADMIN_PASSWORD`)
+3. Click **Login**
+4. You'll be redirected to: http://localhost:3000/super-admin/dashboard
 
 ## 🔐 Changing Credentials
 
@@ -30,7 +29,7 @@ Email:        superadmin@qulay-ish.local
 **Option 1: Local Development**
 Edit `.env`:
 ```
-VITE_SUPER_ADMIN_PHONE="+998900707081"
+VITE_SUPER_ADMIN_PHONE="+998XXXXXXXXX"
 VITE_SUPER_ADMIN_PASSWORD="NewPassword123"
 VITE_SUPER_ADMIN_EMAIL="superadmin@qulay-ish.local"
 ```
@@ -40,7 +39,7 @@ Then restart: `npm run dev`
 **Option 2: Production**
 Edit `.env.production`:
 ```
-VITE_SUPER_ADMIN_PHONE="+998900707081"
+VITE_SUPER_ADMIN_PHONE="+998XXXXXXXXX"
 VITE_SUPER_ADMIN_PASSWORD="NewPassword123"
 VITE_SUPER_ADMIN_EMAIL="superadmin@qulay-ish.local"
 ```
@@ -121,7 +120,7 @@ After logging in, you have access to:
 - **Solution:** Check that .env has all three variables: VITE_SUPER_ADMIN_PHONE, VITE_SUPER_ADMIN_PASSWORD, VITE_SUPER_ADMIN_EMAIL
 
 **Problem:** "Telefon raqam yoki parol noto'g'ri"
-- **Solution:** Check that you entered exactly: +998900707081 and Hur_135642 (case-sensitive)
+- **Solution:** Check that `VITE_SUPER_ADMIN_PHONE` and `VITE_SUPER_ADMIN_PASSWORD` match your `.env` values (case-sensitive)
 
 **Problem:** "Kirish rad etildi. Faqat Super Admin hisobi bilan kirishingiz mumkin."
 - **Solution:** Super admin profile doesn't exist in Firestore yet. First login will create it automatically.

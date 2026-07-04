@@ -139,7 +139,7 @@ export async function demoRegister(data: {
     return { success: true, uid };
   } catch (error: any) {
     debugLogger.error('[DEMO] Registration error:', error);
-    debugLogger.error('[DEMO] Error details:', error.message, error.code);
+    debugLogger.error('[DEMO] Error details:', { message: error.message, code: error.code });
     return {
       success: false,
       error: `Firestore error: ${error.message || 'Unknown error'}`,

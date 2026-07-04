@@ -4,15 +4,22 @@ import { getAuth, connectAuthEmulator, setPersistence, browserLocalPersistence }
 import { getFirestore, connectFirestoreEmulator, doc, getDocFromServer } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 
-// Firebase configuration from environment variables
+function envOrEmpty(value: string | undefined, name: string): string {
+  if (!value && import.meta.env.DEV) {
+    debugLogger.warn(`[Firebase] Missing environment variable: ${name}`);
+  }
+  return value || '';
+}
+
+// Firebase configuration from environment variables (see .env.example)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCg0p8UOPAoe6WmhCRCbEBntCcL026w25o",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gen-lang-client-0528497200.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gen-lang-client-0528497200",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gen-lang-client-0528497200.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "519605089294",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:519605089294:web:ee4f72e5d340748e8cb85f",
-  firestoreDatabaseId: import.meta.env.VITE_FIRESTORE_DATABASE_ID || "ai-studio-4c1b1226-dd9d-4904-bc52-80793df46787"
+  apiKey: envOrEmpty(import.meta.env.VITE_FIREBASE_API_KEY, 'VITE_FIREBASE_API_KEY'),
+  authDomain: envOrEmpty(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, 'VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: envOrEmpty(import.meta.env.VITE_FIREBASE_PROJECT_ID, 'VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: envOrEmpty(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, 'VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: envOrEmpty(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID, 'VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: envOrEmpty(import.meta.env.VITE_FIREBASE_APP_ID, 'VITE_FIREBASE_APP_ID'),
+  firestoreDatabaseId: envOrEmpty(import.meta.env.VITE_FIRESTORE_DATABASE_ID, 'VITE_FIRESTORE_DATABASE_ID'),
 };
 
 export enum OperationType {
@@ -83,15 +90,11 @@ try {
 export const functions = functionsInstance;
 
 // Debug: Log active Firebase project (development only)
-if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
-  // Suppress in production
-}
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV && firebaseConfig.projectId) {
   debugLogger.log(
     '[Firebase] Active Configuration:\n' +
     `  Project: ${firebaseConfig.projectId}\n` +
     `  Auth Domain: ${firebaseConfig.authDomain}\n` +
-    `  API Key: ${firebaseConfig.apiKey.substring(0, 20)}...\n` +
     `  Database: ${firebaseConfig.firestoreDatabaseId}`
   );
 }

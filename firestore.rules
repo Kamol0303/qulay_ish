@@ -65,42 +65,37 @@ service cloud.firestore {
       // Read: Public (anyone can view jobs)
       allow read: if true;
       
-      // Create: Authenticated users (typically employers) OR demo mode
-      allow create: if isAuthenticated() || request.auth == null;
+      // Create: Authenticated users (typically employers)
+      allow create: if isAuthenticated();
       
-      // Update: Job owner or admin OR demo mode
+      // Update: Job owner or admin
       allow update: if isAuthenticated() &&
-        (resource.data.employerId == request.auth.uid || isAdmin())
-        || request.auth == null;
+        (resource.data.employerId == request.auth.uid || isAdmin());
       
-      // Delete: Job owner, admin, or super_admin OR demo mode
+      // Delete: Job owner, admin, or super_admin
       allow delete: if isAuthenticated() &&
-        (resource.data.employerId == request.auth.uid || isAdmin())
-        || request.auth == null;
+        (resource.data.employerId == request.auth.uid || isAdmin());
     }
 
     // ============================================
     // APPLICATIONS COLLECTION
     // ============================================
     match /applications/{applicationId} {
-      // Read: Worker, employer involved, or admin OR demo mode
+      // Read: Worker, employer involved, or admin
       allow read: if isAuthenticated() &&
         (resource.data.workerId == request.auth.uid ||
          resource.data.employerId == request.auth.uid ||
-         isAdmin())
-        || request.auth == null;
+         isAdmin());
       
-      // Create: Authenticated users (workers applying) OR demo mode
+      // Create: Authenticated workers applying
       allow create: if isAuthenticated() &&
-        request.resource.data.workerId == request.auth.uid
-        || request.auth == null;
+        request.resource.data.workerId == request.auth.uid;
       
-      // Update: Worker or employer involved, or admin OR demo mode
+      // Update: Worker or employer involved, or admin
       allow update: if isAuthenticated() &&
         (resource.data.workerId == request.auth.uid ||
          resource.data.employerId == request.auth.uid ||
-         isAdmin())
-        || request.auth == null;
+         isAdmin());
       
       // Delete: Admin or super_admin only
       allow delete: if isAdmin();
@@ -199,11 +194,11 @@ service cloud.firestore {
     match /disputes/{disputeId} {
       // Read: Dispute raiser or admin
       allow read: if isAuthenticated() &&
-        (resource.data.raisedBy == request.auth.uid || isAdmin());
+        (resource.data.openedById == request.auth.uid || isAdmin());
       
       // Create: Authenticated users
       allow create: if isAuthenticated() &&
-        request.resource.data.raisedBy == request.auth.uid;
+        request.resource.data.openedById == request.auth.uid;
       
       // Update: Admin only (for resolution)
       allow update: if isAdmin();
@@ -362,6 +357,40 @@ service cloud.firestore {
       // Delete: User can remove their own saved jobs, or admin can delete
       allow delete: if isAuthenticated() &&
         (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ============================================
+    // OTP SESSIONS COLLECTION
+    // ============================================
+    match /otp_sessions/{sessionId} {
+      allow create: if request.resource.data.sessionId == sessionId;
+      allow get, update: if true;
+      allow list, delete: if isAdmin();
+    }
+
+    // ============================================
+    // VIOLATIONS COLLECTION
+    // ============================================
+    match /violations/{violationId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // ============================================
+    // GLOBAL SETTINGS COLLECTION
+    // ============================================
+    match /settings/{configId} {
+      allow read: if isAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    // ============================================
+    // SYSTEM STATS COLLECTION
+    // ============================================
+    match /system_stats/{statId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
 
     // ============================================

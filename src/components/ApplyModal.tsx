@@ -6,17 +6,20 @@ import { Job, Profile } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { applicationService } from '../services/applicationService';
+import { useAuth } from '../hooks/useAuth';
 
 interface ApplyModalProps {
   isOpen: boolean;
   onClose: () => void;
   job: Job | null;
-  profile: Profile | null;
+  profile?: Profile | null;
 }
 
-export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModalProps) {
+export default function ApplyModal({ isOpen, onClose, job, profile: profileProp }: ApplyModalProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { profile: authProfile } = useAuth();
+  const profile = profileProp ?? authProfile;
   const [message, setMessage] = React.useState('');
   const [coverLetter, setCoverLetter] = React.useState('');
   const [expectedSalary, setExpectedSalary] = React.useState(job?.price ? String(job.price) : '');
@@ -38,6 +41,10 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profile?.uid) {
+      setError(t('errors.no_permission'));
+      return;
+    }
     setLoading(true);
     setError(null);
 

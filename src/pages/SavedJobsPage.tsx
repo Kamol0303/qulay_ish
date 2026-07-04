@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { debugLogger } from '../lib/debugLogger';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
@@ -29,7 +30,7 @@ export default function SavedJobsPage() {
         const saved = await savedJobsService.getSavedJobs(profile.uid);
         setSavedJobs(saved);
       } catch (error) {
-        console.error('Error loading saved jobs:', error);
+        debugLogger.error('Error loading saved jobs:', error);
       } finally {
         setLoading(false);
       }

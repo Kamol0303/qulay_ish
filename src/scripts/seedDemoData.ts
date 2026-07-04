@@ -1,4 +1,4 @@
-import { debugLogger } from '../../lib/debugLogger';
+import { debugLogger } from '../lib/debugLogger';
 import { db } from '../firebase';
 import { collection, addDoc, setDoc, doc, Timestamp } from 'firebase/firestore';
 

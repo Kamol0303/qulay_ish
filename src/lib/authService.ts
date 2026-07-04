@@ -19,6 +19,32 @@ import { auth, db, functions } from '../firebase';
 import { demoStore } from './demoStore';
 import { passwordService } from './passwordService';
 
+import { REGIONS } from '../constants/locations';
+
+const DEFAULT_REGION = REGIONS[0];
+const ALLOW_OTP_LOCAL_SESSION =
+  import.meta.env.DEV && import.meta.env.VITE_ALLOW_OTP_LOCAL_SESSION === 'true';
+
+async function verifyOTPViaCallable(sessionId: string, otp: string): Promise<AuthResult> {
+  if (!functions) {
+    return { success: false, error: 'OTP tasdiqlash serveri mavjud emas.' };
+  }
+
+  try {
+    const verifyOTPSession = httpsCallable<{ sessionId: string; otp: string }, { success: boolean }>(
+      functions,
+      'verifyOTPSession'
+    );
+    await verifyOTPSession({ sessionId, otp });
+    return { success: true, needsRoleSelection: false };
+  } catch (error) {
+    return {
+      success: false,
+      error: mapFirebaseError(error),
+    };
+  }
+}
+
 export interface AuthResult {
   success: boolean;
   error?: string;
@@ -187,7 +213,7 @@ export async function createProfileWithRole(
     email: user.email || '',
     phoneNumber: user.phoneNumber || '',
     role,
-    region: 'Samarqand',
+    region: DEFAULT_REGION,
     district: '',
     neighborhood: '',
     bio: '',
@@ -210,7 +236,7 @@ export async function createProfileWithRole(
     email: user.email || '',
     phoneNumber: user.phoneNumber || '',
     role,
-    region: 'Samarqand',
+    region: DEFAULT_REGION,
     isVerified: false,
     verificationStatus: 'pending',
     status: 'active',
@@ -346,7 +372,7 @@ export const authService = {
             email: credentials.email,
             phoneNumber: '',
             role: normalizedRole,
-            region: 'Samarqand',
+            region: DEFAULT_REGION,
             district: '',
             neighborhood: '',
             bio: '',
@@ -395,7 +421,7 @@ export const authService = {
             email,
             phoneNumber: '+998900707081',
             role: 'super_admin',
-            region: 'Samarqand',
+            region: DEFAULT_REGION,
             district: '',
             neighborhood: '',
             bio: 'Platform Super Administrator',
@@ -521,7 +547,7 @@ export const authService = {
         phoneNumber: normalizedPhone,
         passwordHash,
         role: data.role,
-        region: 'Samarqand',
+        region: DEFAULT_REGION,
         district: '',
         neighborhood: '',
         bio: '',
@@ -690,6 +716,17 @@ export const authService = {
    */
   async verifyOTPForRegistration(sessionId: string, otp: string): Promise<AuthResult> {
     try {
+      if (functions) {
+        return verifyOTPViaCallable(sessionId, otp);
+      }
+
+      if (!import.meta.env.DEV) {
+        return {
+          success: false,
+          error: 'OTP tasdiqlash serveri mavjud emas.',
+        };
+      }
+
       const otpRef = doc(db, 'otp_sessions', sessionId);
       const otpSnap = await getDoc(otpRef);
 
@@ -792,7 +829,7 @@ export const authService = {
           email,
           phoneNumber,
           role: otpData.role,
-          region: 'Samarqand',
+          region: DEFAULT_REGION,
           district: '',
           neighborhood: '',
           bio: '',
@@ -927,6 +964,25 @@ export const authService = {
    */
   async verifyOTPForLogin(sessionId: string, otp: string): Promise<AuthResult & { uid?: string }> {
     try {
+      if (functions) {
+        const result = await verifyOTPViaCallable(sessionId, otp);
+        if (!result.success) {
+          return result;
+        }
+
+        return {
+          success: true,
+          needsRoleSelection: false,
+        };
+      }
+
+      if (!import.meta.env.DEV) {
+        return {
+          success: false,
+          error: 'OTP tasdiqlash serveri mavjud emas.',
+        };
+      }
+
       const otpRef = doc(db, 'otp_sessions', sessionId);
       const otpSnap = await getDoc(otpRef);
 
@@ -1008,16 +1064,21 @@ export const authService = {
       // Call Cloud Function to get custom token
       try {
         if (functions) {
-          const createOTPLoginToken = httpsCallable(functions, 'createOTPLoginToken');
-          const result = await createOTPLoginToken({sessionId});
-          const customToken = result.data.customToken;
+          const createOTPLoginToken = httpsCallable<{ sessionId: string }, { customToken: string }>(
+            functions,
+            'createOTPLoginToken'
+          );
+          const result = await createOTPLoginToken({ sessionId });
+          const customToken = result.data?.customToken;
 
-          // Sign in with custom token
+          if (!customToken) {
+            throw new Error('Custom token olinmadi.');
+          }
+
           await signInWithCustomToken(auth, customToken);
 
           return { success: true, needsRoleSelection: false };
-        } else {
-          // Fallback for development without functions
+        } else if (ALLOW_OTP_LOCAL_SESSION) {
           const otpData = otpSnap.data();
           const uid = otpData.uid;
 
@@ -1047,10 +1108,22 @@ export const authService = {
 
           return { success: true, needsRoleSelection: false };
         }
+
+        return {
+          success: false,
+          error: 'OTP kirish uchun Cloud Functions yoqilishi kerak.',
+        };
       } catch (tokenError: any) {
         debugWarn('OTP Token Error]', tokenError);
-        
-        // Fallback: Use local session storage
+
+        if (!ALLOW_OTP_LOCAL_SESSION) {
+          return {
+            success: false,
+            error: mapFirebaseError(tokenError),
+          };
+        }
+
+        // Development-only fallback when custom token is unavailable
         const otpData = otpSnap.data();
         const uid = otpData.uid;
 
