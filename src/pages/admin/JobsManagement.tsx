@@ -17,7 +17,7 @@ import { performanceUtils } from '../../lib/performance';
 import { demoStore } from '../../lib/demoStore';
 import { DEMO_JOBS } from '../../constants/demoData';
 
-// Safe date parser — handles Firestore Timestamp, { seconds, nanoseconds }, ISO string, Date
+// Safe date parser — handles export timestamps, ISO string, Date
 function safeDate(val: any): Date | null {
   if (!val) return null;
   try {
@@ -170,7 +170,7 @@ export default function JobsManagement() {
     // Update local state + localStorage immediately (optimistic)
     demoStore.updateJob(jobId, { status: newStatus });
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus as any } : j));
-    // Try Firestore (non-blocking for demo jobs)
+    // Try API (non-blocking for demo jobs)
     try {
       await jobService.update(jobId, { status: newStatus as Job['status'] });
     } catch {

@@ -124,10 +124,10 @@ export const demoStore = {
   },
 
   /**
-   * Merge Firestore contracts with localStorage demo contracts.
+   * Merge API contracts with localStorage demo contracts.
    * localStorage wins for audit/approval status fields when newer.
    */
-  mergeContracts(firestoreContracts: any[]): any[] {
+  mergeContracts(remoteContracts: any[]): any[] {
     const local = readJSON<any>(CONTRACTS_KEY);
     const localMap = new Map<string, any>();
     for (const c of local) localMap.set(c.id, c);
@@ -137,7 +137,7 @@ export const demoStore = {
                           'adminApprovedAt', 'rejectedReason', 'rejectedAt',
                           'status', 'updatedAt'];
 
-    for (const fc of firestoreContracts) {
+    for (const fc of remoteContracts) {
       const lc = localMap.get(fc.id);
       if (!lc) {
         result.set(fc.id, fc);
@@ -168,34 +168,34 @@ export const demoStore = {
   // ── Merge helpers ──────────────────────────────────────────────────────────
 
   /**
-   * Merge Firestore results with localStorage demo data.
+   * Merge API results with localStorage demo data.
    *
    * Priority rules:
-   * - If a user exists ONLY in Firestore → use Firestore record.
+   * - If a user exists ONLY on the server → use server record.
    * - If a user exists ONLY in localStorage → use localStorage record.
    * - If a user exists in BOTH:
-   *   - Use Firestore for identity fields (fullName, email, phoneNumber, role, region).
+   *   - Use server for identity fields (fullName, email, phoneNumber, role, region).
    *   - Use localStorage for status fields (isVerified, isBlocked, status,
    *     verificationStatus, blockedAt, unblockedAt, updatedAt) ONLY when the
-   *     localStorage record has a newer updatedAt than Firestore.
+   *     localStorage record has a newer updatedAt than the server record.
    *   This ensures Super Admin actions (saved to localStorage) are never
-   *   overwritten by stale Firestore data on the next page load.
+   *   overwritten by stale server data on the next page load.
    */
-  mergeUsers(firestoreUsers: any[]): any[] {
+  mergeUsers(remoteUsers: any[]): any[] {
     const local = readJSON<any>(USERS_KEY);
     const localMap = new Map<string, any>();
     for (const u of local) localMap.set(u.uid, u);
 
     const result = new Map<string, any>();
 
-    // Start with all Firestore users
-    for (const fu of firestoreUsers) {
+    // Start with all remote users
+    for (const fu of remoteUsers) {
       const lu = localMap.get(fu.uid);
       if (!lu) {
-        // Only in Firestore — use as-is
+        // Only on server — use as-is
         result.set(fu.uid, fu);
       } else {
-        // In both — merge: Firestore identity + localStorage status (if newer)
+        // In both — merge: server identity + localStorage status (if newer)
         const fsUpdated = fu.updatedAt
           ? (typeof fu.updatedAt.toDate === 'function'
               ? fu.updatedAt.toDate().getTime()
@@ -214,15 +214,15 @@ export const demoStore = {
           }
           result.set(fu.uid, merged);
         } else {
-          // Firestore is newer — use Firestore entirely, but sync to localStorage
+          // Server is newer — use server entirely, but sync to localStorage
           result.set(fu.uid, fu);
-          // Update localStorage to match Firestore
+          // Update localStorage to match server
           localMap.set(fu.uid, { ...lu, ...fu });
         }
       }
     }
 
-    // Add localStorage-only users (not in Firestore)
+    // Add localStorage-only users (not on server)
     for (const lu of local) {
       if (!result.has(lu.uid)) {
         result.set(lu.uid, lu);
@@ -240,14 +240,14 @@ export const demoStore = {
   },
 
   /**
-   * Merge Firestore jobs with localStorage demo jobs.
-   * Firestore records take precedence.
+   * Merge API jobs with localStorage demo jobs.
+   * Server records take precedence.
    */
-  mergeJobs(firestoreJobs: any[]): any[] {
+  mergeJobs(remoteJobs: any[]): any[] {
     const local = readJSON<any>(JOBS_KEY);
     const map = new Map<string, any>();
     for (const j of local) map.set(j.id, j);
-    for (const j of firestoreJobs) map.set(j.id, j);
+    for (const j of remoteJobs) map.set(j.id, j);
     return Array.from(map.values()).sort((a, b) => {
       const ta = a.createdAt?.seconds ?? (a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0);
       const tb = b.createdAt?.seconds ?? (b.createdAt ? new Date(b.createdAt).getTime() / 1000 : 0);

@@ -9,17 +9,13 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "seed:workers": "tsx scripts/addWorkerProfiles.ts",
-    "migrate:passwords": "tsx scripts/migratePasswords.ts",
     "db:up": "sh -c 'docker compose up -d postgres 2>/dev/null || docker-compose up -d postgres'",
     "db:down": "sh -c 'docker compose down 2>/dev/null || docker-compose down'",
     "api:install": "cd api && npm install && npx prisma migrate deploy && npx prisma generate",
     "api:dev": "cd api && npm run start:dev",
     "api:build": "cd api && npm run build",
     "db:migrate": "cd api && npx prisma migrate dev",
-    "db:seed": "cd api && npm run prisma:seed",
-    "export:firestore": "cd api && npm run export:firestore",
-    "diagnose:firebase": "cd api && npm run diagnose:firebase"
+    "db:seed": "cd api && npm run prisma:seed"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",

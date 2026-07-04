@@ -52,16 +52,16 @@ export default function EmployerDashboard() {
 
     const load = async () => {
       try {
-        const [firestoreJobs, apps, contracts] = await Promise.all([
+        const [employerJobs, apps, contracts] = await Promise.all([
           jobService.getByEmployer(profile.uid),
           applicationService.getByEmployer(profile.uid),
           contractService.getByEmployer(profile.uid),
         ]);
 
-        setMyJobs(firestoreJobs.slice(0, 5));
+        setMyJobs(employerJobs.slice(0, 5));
         setStats(prev => ({
           ...prev,
-          activeJobs: firestoreJobs.filter(j => j.status === 'open').length,
+          activeJobs: employerJobs.filter(j => j.status === 'open').length,
           totalApplicants: apps.length,
           activeContracts: contracts.filter(c => c.status === 'active').length,
           totalSpent: contracts.filter(c => c.status === 'completed').reduce((acc, c) => acc + (c.amount || 0), 0),

@@ -31,7 +31,7 @@ export default function RoleSelectionModal({ onComplete }: RoleSelectionModalPro
       window.localStorage.removeItem('qulayish_name_for_signin');
 
       // Force-read the freshly written profile into context before navigating.
-      // This prevents the race where onComplete() fires before the Firestore
+      // This prevents the race where onComplete() fires before the profile
       // snapshot propagates, causing AuthPage to see user+noProfile and loop.
       await refreshProfile();
 

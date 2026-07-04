@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export type FirestoreTimestamp = {
+export type ExportTimestamp = {
   _seconds?: number;
   _nanoseconds?: number;
 };
@@ -14,7 +14,7 @@ export function toDate(value: unknown): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
   if (typeof value === 'object' && value !== null) {
-    const ts = value as FirestoreTimestamp & { toDate?: () => Date };
+    const ts = value as ExportTimestamp & { toDate?: () => Date };
     if (typeof ts.toDate === 'function') return ts.toDate();
     if (typeof ts._seconds === 'number') return new Date(ts._seconds * 1000);
   }

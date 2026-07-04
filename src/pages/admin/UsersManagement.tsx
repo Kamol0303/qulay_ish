@@ -259,7 +259,7 @@ export default function UsersManagement() {
     }
   }
 
-  /** Apply a patch to a user in all state layers: local state, selectedUser, demoStore, Firestore */
+  /** Apply a patch to a user in all state layers: local state, selectedUser, demoStore, API */
   const applyUserPatch = useCallback(async (uid: string, patch: Partial<Profile> & Record<string, any>) => {
     const now = new Date().toISOString();
     const patchWithTime = { ...patch, updatedAt: now };
@@ -277,7 +277,7 @@ export default function UsersManagement() {
       demoStore.updateUser(uid, patchWithTime);
     }
 
-    // 3. Try Firestore (best-effort — fails silently for demo users without write permission)
+    // 3. Try API (best-effort — fails silently for demo users)
     try {
       await api.users.update(uid, patchWithTime as Parameters<typeof api.users.update>[1]);
     } catch (err) {

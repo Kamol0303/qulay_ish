@@ -34,7 +34,7 @@ export default function JobsPage() {
   const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
 
   /**
-   * Main effect: Fetch and filter jobs from Firestore
+   * Main effect: Fetch and filter jobs from API
    * Triggers whenever any filter state or search query changes
    */
   React.useEffect(() => {

@@ -15,7 +15,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const prisma = new PrismaClient();
-const EXPORT_DIR = path.resolve(__dirname, '../../data/firestore-export');
+const IMPORT_DIRS = [
+  path.resolve(__dirname, '../../data/import'),
+  path.resolve(__dirname, '../../data/firestore-export'),
+];
+
+let cachedImportDir: string | null = null;
+
+function getImportDir(): string {
+  if (cachedImportDir) return cachedImportDir;
+  for (const dir of IMPORT_DIRS) {
+    if (fs.existsSync(path.join(dir, 'profiles.json'))) {
+      cachedImportDir = dir;
+      return dir;
+    }
+  }
+  cachedImportDir = IMPORT_DIRS[0];
+  return cachedImportDir;
+}
 
 const userRoles = ['worker', 'employer', 'admin', 'super_admin'] as const;
 const verificationStatuses = ['none', 'pending', 'verified', 'rejected'] as const;
@@ -68,9 +85,9 @@ function claimPhone(
 }
 
 async function seedUsers() {
-  const profiles = readExportFile(EXPORT_DIR, 'profiles');
+  const profiles = readExportFile(getImportDir(), 'profiles');
   let authUsers: Array<Record<string, unknown>> = [];
-  const authPath = path.join(EXPORT_DIR, 'auth_users.json');
+  const authPath = path.join(getImportDir(), 'auth_users.json');
   if (fs.existsSync(authPath)) {
     authUsers = (JSON.parse(fs.readFileSync(authPath, 'utf8')) as { users: Array<Record<string, unknown>> }).users;
   }
@@ -157,7 +174,7 @@ async function seedUsers() {
 }
 
 async function seedJobs() {
-  const docs = readExportFile(EXPORT_DIR, 'jobs');
+  const docs = readExportFile(getImportDir(), 'jobs');
   for (const doc of docs) {
     const d = doc.data;
     if (!existingUserIds.has(asString(d.employerId))) continue;
@@ -192,7 +209,7 @@ async function seedJobs() {
 }
 
 async function seedServicePosts() {
-  const docs = readExportFile(EXPORT_DIR, 'service_posts');
+  const docs = readExportFile(getImportDir(), 'service_posts');
   for (const doc of docs) {
     const d = doc.data;
     if (!existingUserIds.has(asString(d.workerId))) continue;
@@ -222,7 +239,7 @@ async function seedServicePosts() {
 }
 
 async function seedApplications() {
-  const docs = readExportFile(EXPORT_DIR, 'applications');
+  const docs = readExportFile(getImportDir(), 'applications');
   let count = 0;
   for (const doc of docs) {
     const d = doc.data;
@@ -253,7 +270,7 @@ async function seedApplications() {
 }
 
 async function seedContracts() {
-  const docs = readExportFile(EXPORT_DIR, 'contracts');
+  const docs = readExportFile(getImportDir(), 'contracts');
   for (const doc of docs) {
     const d = doc.data;
     const workerId = asString(d.workerId);
@@ -291,7 +308,7 @@ async function seedContracts() {
 }
 
 async function seedDisputes() {
-  const docs = readExportFile(EXPORT_DIR, 'disputes');
+  const docs = readExportFile(getImportDir(), 'disputes');
   for (const doc of docs) {
     const d = doc.data;
     const contractId = asString(d.contractId);
@@ -315,7 +332,7 @@ async function seedDisputes() {
 }
 
 async function seedVerificationRequests() {
-  const docs = readExportFile(EXPORT_DIR, 'verification_requests');
+  const docs = readExportFile(getImportDir(), 'verification_requests');
   for (const doc of docs) {
     const d = doc.data;
     const userId = asString(d.userId);
@@ -342,7 +359,7 @@ async function seedVerificationRequests() {
 }
 
 async function seedReviews() {
-  const docs = readExportFile(EXPORT_DIR, 'reviews');
+  const docs = readExportFile(getImportDir(), 'reviews');
   for (const doc of docs) {
     const d = doc.data;
     const reviewerId = asString(d.reviewerId);
@@ -366,7 +383,7 @@ async function seedReviews() {
 }
 
 async function seedSavedJobs() {
-  const docs = readExportFile(EXPORT_DIR, 'savedJobs');
+  const docs = readExportFile(getImportDir(), 'savedJobs');
   for (const doc of docs) {
     const d = doc.data;
     const userId = asString(d.userId);
@@ -386,7 +403,7 @@ async function seedSavedJobs() {
 }
 
 async function seedNotifications() {
-  const docs = readExportFile(EXPORT_DIR, 'notifications');
+  const docs = readExportFile(getImportDir(), 'notifications');
   for (const doc of docs) {
     const d = doc.data;
     const userId = asString(d.userId);
@@ -409,7 +426,7 @@ async function seedNotifications() {
 }
 
 async function seedChatMessages() {
-  const docs = readExportFile(EXPORT_DIR, 'chat_messages');
+  const docs = readExportFile(getImportDir(), 'chat_messages');
   for (const doc of docs) {
     const d = doc.data;
     const senderId = asString(d.senderId);
@@ -437,7 +454,7 @@ async function seedChatMessages() {
 }
 
 async function seedPayments() {
-  const docs = readExportFile(EXPORT_DIR, 'payments');
+  const docs = readExportFile(getImportDir(), 'payments');
   for (const doc of docs) {
     const d = doc.data;
     const userId = asString(d.userId);
@@ -463,7 +480,7 @@ async function seedPayments() {
 }
 
 async function seedViolations() {
-  const docs = readExportFile(EXPORT_DIR, 'violations');
+  const docs = readExportFile(getImportDir(), 'violations');
   for (const doc of docs) {
     const d = doc.data;
     const userId = asString(d.userId);
@@ -484,7 +501,7 @@ async function seedViolations() {
 }
 
 async function seedActivityLogs() {
-  const docs = readExportFile(EXPORT_DIR, 'activity_logs');
+  const docs = readExportFile(getImportDir(), 'activity_logs');
   for (const doc of docs) {
     const d = doc.data;
     const userId = asString(d.userId) || null;
@@ -504,7 +521,7 @@ async function seedActivityLogs() {
 }
 
 async function seedSystemLogs() {
-  const docs = readExportFile(EXPORT_DIR, 'system_logs');
+  const docs = readExportFile(getImportDir(), 'system_logs');
   for (const doc of docs) {
     const d = doc.data;
     await prisma.systemLog.upsert({
@@ -524,7 +541,7 @@ async function seedSystemLogs() {
 }
 
 async function seedSettings() {
-  const data = readSingleDocExport(EXPORT_DIR, 'settings', 'global_config');
+  const data = readSingleDocExport(getImportDir(), 'settings', 'global_config');
   if (!data) return;
   await prisma.globalSettings.upsert({
     where: { id: 'global_config' },
@@ -543,7 +560,7 @@ async function seedSettings() {
 }
 
 async function seedSystemStats() {
-  const data = readSingleDocExport(EXPORT_DIR, 'system_stats', 'revenue');
+  const data = readSingleDocExport(getImportDir(), 'system_stats', 'revenue');
   if (!data) return;
   await prisma.systemStats.upsert({
     where: { id: 'revenue' },
@@ -557,8 +574,9 @@ async function seedSystemStats() {
 }
 
 async function main() {
-  if (!fs.existsSync(EXPORT_DIR)) {
-    console.warn('[seed] No export data found. Run: npm run export:firestore');
+  const importDir = getImportDir();
+  if (!fs.existsSync(importDir) || !fs.existsSync(path.join(importDir, 'profiles.json'))) {
+    console.warn('[seed] No import data in data/import/ or data/firestore-export/.');
     console.warn('[seed] Creating empty global settings only.');
     await prisma.globalSettings.upsert({
       where: { id: 'global_config' },

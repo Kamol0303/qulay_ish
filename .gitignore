@@ -10,10 +10,6 @@ dist/
 .env.*.local
 secrets/
 
-# Firebase service account keys
-*-firebase-adminsdk-*.json
-firebase-service-account.json
-
 # Logs
 *.log
 npm-debug.log*
@@ -23,7 +19,8 @@ npm-debug.log*
 .idea/
 .vscode/
 
-# Export data (can contain user data)
+# Import data (can contain user data)
+data/import/
 data/firestore-export/
 
 # API env
