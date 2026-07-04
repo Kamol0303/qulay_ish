@@ -1,9 +1,10 @@
+import { toUserMessage } from '../../lib/api/errors';
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
-import { 
+import {
   Shield, Users, Briefcase, FileText, AlertTriangle, 
   TrendingUp, Activity, Database, Settings, BarChart3,
   CheckCircle, Clock, XCircle, DollarSign
@@ -96,8 +97,7 @@ export default function SuperAdminDashboard() {
 
         setRecentActivity((recentLogs as unknown[]).slice(0, 10));
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'API xatosi';
-        setApiError(message);
+        setApiError(toUserMessage(error, t('errors.unexpected')));
         debugLogger.error('Error fetching super admin stats:', error);
       } finally {
         setLoading(false);
@@ -226,7 +226,7 @@ export default function SuperAdminDashboard() {
 
         {apiError && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm font-medium">
-            API ulanmadi: {apiError}. API ishlayaptimi? (npm run api:dev) — VITE_API_URL=/api yoki http://localhost:4000/api
+            {apiError}
           </div>
         )}
 

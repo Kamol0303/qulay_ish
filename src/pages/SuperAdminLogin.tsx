@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Shield, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { api } from '../lib/api';
+import { toUserMessage } from '../lib/api/errors';
 import { useAuth } from '../hooks/useAuth';
 
 const SUPER_ADMIN_PHONE = import.meta.env.VITE_SUPER_ADMIN_PHONE || '';
@@ -42,8 +43,7 @@ export default function SuperAdminLogin() {
       setAuthProfile(result.user);
       navigate('/super-admin/dashboard');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed';
-      setError(`Kirish muvaffaqiyatsiz: ${message}. API ishlayaptimi? (npm run api:dev)`);
+      setError(toUserMessage(err, "Kirish muvaffaqiyatsiz. Ma'lumotlarni tekshirib qayta urinib ko'ring."));
     } finally {
       setLoading(false);
     }

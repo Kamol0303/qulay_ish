@@ -10,7 +10,7 @@ import Layout from '../components/Layout';
 import JobCard from '../components/JobCard';
 import { useAuth } from '../context/AuthContext';
 import ApplyModal from '../components/ApplyModal';
-import { getDistrictKey } from '../lib/utils';
+import { getDistrictKey, filterJobsForSamarkand } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { demoStore } from '../lib/demoStore';
@@ -51,25 +51,15 @@ export default function JobsPage() {
 
     const loadJobs = async () => {
       try {
-        const params: Record<string, string> = {
-          status: 'open',
-          region: selectedRegion,
-        };
-        if (selectedDistrict) params.district = selectedDistrict;
-        if (selectedCategory) params.category = selectedCategory;
-
-        const apiJobs = await api.jobs.list(params);
+        const apiJobs = await api.jobs.list({ status: 'open' });
         if (cancelled) return;
 
-        const mergedJobs = demoStore.mergeJobs([...DEMO_JOBS, ...apiJobs]);
+        const mergedJobs = isDemo ? demoStore.mergeJobs([...DEMO_JOBS, ...apiJobs]) : apiJobs;
 
-        let filtered = mergedJobs.filter((job: Job) =>
-          job.status === 'open' && job.region === selectedRegion
-        );
-
-        if (selectedDistrict) {
-          filtered = filtered.filter((job: Job) => job.district === selectedDistrict);
-        }
+        let filtered = filterJobsForSamarkand(mergedJobs, {
+          status: 'open',
+          district: selectedDistrict || undefined,
+        });
         if (selectedCategory) {
           filtered = filtered.filter((job: Job) => job.category === selectedCategory);
         }

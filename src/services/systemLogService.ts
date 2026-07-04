@@ -65,7 +65,7 @@ class SystemLogService {
 
   async getGlobalSettings(): Promise<GlobalSettings> {
     try {
-      const data = (await api.settings.getGlobal()) as GlobalSettings;
+      const data = (await api.settings.getGlobal()) as unknown as GlobalSettings;
       return { ...DEFAULT_SETTINGS, ...data };
     } catch {
       return DEFAULT_SETTINGS;

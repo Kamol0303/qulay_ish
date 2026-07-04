@@ -65,7 +65,7 @@ export default function SystemSettings() {
       try {
         const data = await api.settings.getGlobal();
         if (data) {
-          setSettings({ ...DEFAULTS, ...(data as SystemSettingsData) });
+          setSettings({ ...DEFAULTS, ...(data as unknown as SystemSettingsData) });
         }
       } catch (err) {
         debugLogger.error('Error loading settings:', err);
