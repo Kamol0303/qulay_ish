@@ -21,6 +21,7 @@ interface AuthContextType {
   userRole: UserRole | null;
   isDemo: boolean;
   refreshProfile: () => Promise<void>;
+  setAuthProfile: (profile: Profile) => void;
   checkDemoSession: () => void;
 }
 
@@ -77,6 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [setSession]);
 
+  const setAuthProfile = useCallback((p: Profile) => {
+    setSession(p);
+    setLoading(false);
+  }, [setSession]);
+
   const refreshProfile = useCallback(async () => {
     try {
       const p = await api.auth.me();
@@ -123,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, userRole, isDemo, refreshProfile, checkDemoSession }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut, userRole, isDemo, refreshProfile, setAuthProfile, checkDemoSession }}>
       {children}
     </AuthContext.Provider>
   );

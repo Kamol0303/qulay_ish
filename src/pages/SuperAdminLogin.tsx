@@ -11,7 +11,7 @@ const SUPER_ADMIN_EMAIL = import.meta.env.VITE_SUPER_ADMIN_EMAIL || '';
 
 export default function SuperAdminLogin() {
   const navigate = useNavigate();
-  const { refreshProfile } = useAuth();
+  const { setAuthProfile } = useAuth();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -37,11 +37,12 @@ export default function SuperAdminLogin() {
     }
 
     try {
-      await api.auth.superAdminLogin(SUPER_ADMIN_EMAIL, password);
-      await refreshProfile();
+      const result = await api.auth.superAdminLogin(SUPER_ADMIN_EMAIL, password);
+      setAuthProfile(result.user);
       navigate('/super-admin/dashboard');
     } catch (err) {
-      setError("Tizimda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.");
+      const message = err instanceof Error ? err.message : 'Login failed';
+      setError(`Kirish muvaffaqiyatsiz: ${message}. API ishlayaptimi? (npm run api:dev)`);
     } finally {
       setLoading(false);
     }
