@@ -105,20 +105,39 @@ async function main() {
     }
   }
 
-  console.log('\n--- Firestore Admin SDK probe ---');
-  const { getFirestore } = await import('firebase-admin/firestore');
-  for (const dbId of [
-    envDatabaseId !== '(not set)' ? envDatabaseId : null,
+  console.log('\n--- Firestore @google-cloud/firestore probe ---');
+  const { Firestore } = await import('@google-cloud/firestore');
+  const probeIds = [
+    ...(await listDatabasesRest(envProjectId, serviceAccount)).map((d) => d.name?.split('/').pop() ?? ''),
     'ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
     '(default)',
-  ].filter((id): id is string => Boolean(id))) {
+  ].filter((id, i, arr) => Boolean(id) && arr.indexOf(id) === i);
+
+  for (const dbId of probeIds) {
     try {
-      const db = dbId === '(default)' ? getFirestore() : getFirestore(undefined, dbId);
+      const db = new Firestore({
+        projectId: envProjectId,
+        databaseId: dbId,
+        credentials: serviceAccount,
+      });
       const snap = await db.collection('profiles').limit(1).get();
-      console.log(`✅ "${dbId}" ishlayapti (profiles: ${snap.size} hujjat sample)`);
+      console.log(`✅ "${dbId}" ishlayapti (profiles sample: ${snap.size})`);
     } catch (err) {
       const code = err && typeof err === 'object' && 'code' in err ? (err as { code: unknown }).code : '';
       console.log(`❌ "${dbId}": ${code || (err instanceof Error ? err.message : err)}`);
+    }
+  }
+
+  console.log('\n--- Firestore Admin SDK probe (eski usul) ---');
+  const { getFirestore } = await import('firebase-admin/firestore');
+  for (const dbId of probeIds.slice(0, 2)) {
+    try {
+      const db = dbId === '(default)' ? getFirestore() : getFirestore(undefined, dbId);
+      const snap = await db.collection('profiles').limit(1).get();
+      console.log(`✅ admin SDK "${dbId}": ${snap.size}`);
+    } catch (err) {
+      const code = err && typeof err === 'object' && 'code' in err ? (err as { code: unknown }).code : '';
+      console.log(`❌ admin SDK "${dbId}": ${code}`);
     }
   }
 

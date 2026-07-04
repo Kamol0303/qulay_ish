@@ -1,14 +1,10 @@
 /**
  * Export all Firestore collections + Firebase Auth users to data/firestore-export/
- *
- * Requires:
- *   FIREBASE_SERVICE_ACCOUNT — full JSON string (GitHub/Cursor secret)
- *   FIREBASE_PROJECT_ID
- *   FIRESTORE_DATABASE_ID
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { config } from 'dotenv';
+import { Firestore } from '@google-cloud/firestore';
 import type { ServiceAccount } from 'firebase-admin/app';
 
 config({ path: path.resolve(__dirname, '../../.env') });
@@ -66,26 +62,19 @@ function loadServiceAccount(): Record<string, unknown> {
     }
   }
 
-  const checked = [...new Set(candidates)].map((p) => `  - ${p}`).join('\n');
-  throw new Error(
-    [
-      'Firebase service account topilmadi.',
-      '',
-      '1-variant (tavsiya): JSON fayl yarating:',
-      `   mkdir -p ${path.join(ROOT_DIR, 'secrets')}`,
-      `   # Firebase Console → Project Settings → Service accounts → Generate new private key`,
-      `   # Faylni shu joyga saqlang: ${path.join(ROOT_DIR, 'secrets/firebase-service-account.json')}`,
-      '',
-      '2-variant: root .env yoki api/.env ga qo\'shing:',
-      '   FIREBASE_SERVICE_ACCOUNT_PATH=./secrets/firebase-service-account.json',
-      '',
-      '3-variant: to\'liq JSON string:',
-      '   FIREBASE_SERVICE_ACCOUNT={"type":"service_account",...}',
-      '',
-      'Tekshirilgan yo\'llar:',
-      checked,
-    ].join('\n')
-  );
+  throw new Error('Firebase service account topilmadi. secrets/firebase-service-account.json yarating.');
+}
+
+function createFirestoreClient(
+  projectId: string,
+  databaseId: string,
+  serviceAccount: Record<string, unknown>,
+): Firestore {
+  return new Firestore({
+    projectId,
+    databaseId,
+    credentials: serviceAccount,
+  });
 }
 
 async function listFirestoreDatabases(
@@ -111,11 +100,12 @@ async function listFirestoreDatabases(
 }
 
 async function probeDatabase(
-  getFirestore: typeof import('firebase-admin/firestore').getFirestore,
+  projectId: string,
   databaseId: string,
+  serviceAccount: Record<string, unknown>,
 ): Promise<boolean> {
   try {
-    const db = databaseId === '(default)' ? getFirestore() : getFirestore(undefined, databaseId);
+    const db = createFirestoreClient(projectId, databaseId, serviceAccount);
     await db.collection('profiles').limit(1).get();
     return true;
   } catch (err) {
@@ -126,29 +116,29 @@ async function probeDatabase(
 }
 
 async function resolveDatabaseId(
-  getFirestore: typeof import('firebase-admin/firestore').getFirestore,
   projectId: string,
   serviceAccount: Record<string, unknown>,
   preferredId?: string,
 ): Promise<string> {
-  const fromEnv = preferredId?.trim();
-  const knownIds = [
-    fromEnv,
-    'ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
-    '(default)',
-  ].filter((id): id is string => Boolean(id));
-
   const listed = await listFirestoreDatabases(projectId, serviceAccount);
   if (listed.length) {
     console.log('Available Firestore databases:', listed.join(', '));
   }
 
-  const candidates = [...new Set([...knownIds, ...listed])];
+  const candidates = [
+    ...new Set([
+      preferredId?.trim(),
+      ...listed,
+      'ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
+      '(default)',
+    ].filter((id): id is string => Boolean(id))),
+  ];
+
   console.log('Trying databases:', candidates.join(', '));
 
   for (const databaseId of candidates) {
     console.log(`Probing "${databaseId}"...`);
-    if (await probeDatabase(getFirestore, databaseId)) {
+    if (await probeDatabase(projectId, databaseId, serviceAccount)) {
       console.log(`Using Firestore database: ${databaseId}`);
       return databaseId;
     }
@@ -156,16 +146,9 @@ async function resolveDatabaseId(
 
   throw new Error(
     [
-      'Firestore database topilmadi (NOT_FOUND).',
-      '',
+      'Firestore database ga ulanib bo\'lmadi.',
       `Project: ${projectId}`,
-      fromEnv ? `So\'ralgan database: ${fromEnv}` : 'FIRESTORE_DATABASE_ID .env da ko\'rsatilmagan',
-      listed.length ? `Mavjud databaselar: ${listed.join(', ')}` : 'Database ro\'yxati olinmadi — Firebase Console → Firestore → Database ID ni tekshiring',
-      '',
-      'api/.env ga to\'g\'ri ID qo\'ying, masalan:',
-      'FIRESTORE_DATABASE_ID=(default)',
-      'yoki',
-      'FIRESTORE_DATABASE_ID=ai-studio-4c1b1226-dd9d-4904-bc52-80793f46787',
+      listed.length ? `REST orqali topilgan: ${listed.join(', ')}` : 'Database ro\'yxati bo\'sh',
     ].join('\n')
   );
 }
@@ -196,9 +179,8 @@ async function main() {
     });
   }
 
-  const { getFirestore } = await import('firebase-admin/firestore');
-  const databaseId = await resolveDatabaseId(getFirestore, projectId, serviceAccount, preferredDatabaseId);
-  const db = databaseId === '(default)' ? getFirestore() : getFirestore(undefined, databaseId);
+  const databaseId = await resolveDatabaseId(projectId, serviceAccount, preferredDatabaseId);
+  const db = createFirestoreClient(projectId, databaseId, serviceAccount);
 
   fs.mkdirSync(EXPORT_DIR, { recursive: true });
 
@@ -219,7 +201,6 @@ async function main() {
     console.log(`Exported ${collectionName}: ${documents.length}`);
   }
 
-  // Single-document collections
   for (const [col, docId] of [
     ['settings', 'global_config'],
     ['system_stats', 'revenue'],
@@ -238,7 +219,6 @@ async function main() {
     }
   }
 
-  // Firebase Auth users
   const authUsers: Array<Record<string, unknown>> = [];
   let pageToken: string | undefined;
   do {
