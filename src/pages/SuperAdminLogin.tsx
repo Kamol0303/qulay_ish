@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Shield, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { authService } from '../lib/authService';
+import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 
 const SUPER_ADMIN_PHONE = import.meta.env.VITE_SUPER_ADMIN_PHONE || '';
@@ -37,17 +37,9 @@ export default function SuperAdminLogin() {
     }
 
     try {
-      const result = await authService.superAdminSignIn(
-        SUPER_ADMIN_EMAIL,
-        password
-      );
-
-      if (result.success) {
-        await refreshProfile();
-        navigate('/super-admin/dashboard');
-      } else {
-        setError(result.error || "Kirish muvaffaqiyatsiz bo'ldi.");
-      }
+      await api.auth.superAdminLogin(SUPER_ADMIN_EMAIL, password);
+      await refreshProfile();
+      navigate('/super-admin/dashboard');
     } catch (err) {
       setError("Tizimda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.");
     } finally {

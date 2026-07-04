@@ -10,7 +10,15 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "seed:workers": "tsx scripts/addWorkerProfiles.ts",
-    "migrate:passwords": "tsx scripts/migratePasswords.ts"
+    "migrate:passwords": "tsx scripts/migratePasswords.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "api:install": "cd api && npm install",
+    "api:dev": "cd api && npm run start:dev",
+    "api:build": "cd api && npm run build",
+    "db:migrate": "cd api && npx prisma migrate dev",
+    "db:seed": "cd api && npm run prisma:seed",
+    "export:firestore": "cd api && npm run export:firestore"
   },
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",

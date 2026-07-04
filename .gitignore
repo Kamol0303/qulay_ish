@@ -25,3 +25,8 @@ npm-debug.log*
 
 # Export data (can contain user data)
 data/firestore-export/
+
+# API env
+api/.env
+api/node_modules/
+api/dist/

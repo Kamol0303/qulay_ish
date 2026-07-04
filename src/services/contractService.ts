@@ -1,8 +1,7 @@
 import { debugLogger } from '../lib/debugLogger';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, addDoc, updateDoc, doc, serverTimestamp, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { Contract } from '../types';
 import { notificationService } from './notificationService';
+import { api } from '../lib/api';
 
 export const contractService = {
   async create(contractData: {
@@ -14,172 +13,106 @@ export const contractService = {
     terms?: string;
   }): Promise<string | null> {
     try {
-      const docRef = await addDoc(collection(db, 'contracts'), {
-        ...contractData,
+      const created = await api.contracts.create({
+        jobId: contractData.jobId,
+        workerId: contractData.workerId,
+        employerId: contractData.employerId,
+        jobTitle: contractData.title,
+        amount: contractData.amount,
+        terms: contractData.terms,
         status: 'draft',
         workerSigned: false,
         employerSigned: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
       });
 
-      // Notify both parties
-      await notificationService.notifyNewContract(contractData.workerId, 'worker', contractData.title, docRef.id);
-      await notificationService.notifyNewContract(contractData.employerId, 'employer', contractData.title, docRef.id);
-
-      return docRef.id;
+      await notificationService.notifyNewContract(contractData.workerId, 'worker', contractData.title, created.id);
+      await notificationService.notifyNewContract(contractData.employerId, 'employer', contractData.title, created.id);
+      return created.id;
     } catch (error) {
       debugLogger.error('Error creating contract:', error);
-      handleFirestoreError(error, OperationType.WRITE, 'contracts');
       return null;
     }
   },
 
   async signByWorker(contractId: string, workerId: string, employerId: string, jobTitle: string): Promise<boolean> {
     try {
-      const contractRef = doc(db, 'contracts', contractId);
-      const contractSnap = await getDoc(contractRef);
-      
-      if (!contractSnap.exists()) return false;
-      
-      const contract = contractSnap.data() as Contract;
-      const updates: any = {
-        workerSigned: true,
-        updatedAt: serverTimestamp()
-      };
-
-      // If employer already signed, activate contract
+      const contract = await api.contracts.get(contractId);
+      const updates: Partial<Contract> = { workerSigned: true, signedByWorker: true };
       if (contract.employerSigned) {
         updates.status = 'active';
-        updates.startDate = serverTimestamp();
+        updates.startDate = new Date().toISOString();
       }
-
-      await updateDoc(contractRef, updates);
-
-      // Notify employer
+      await api.contracts.update(contractId, updates);
       await notificationService.notifyContractSigned(employerId, 'employer', jobTitle);
-
       return true;
     } catch (error) {
       debugLogger.error('Error signing contract by worker:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `contracts/${contractId}`);
       return false;
     }
   },
 
   async signByEmployer(contractId: string, employerId: string, workerId: string, jobTitle: string): Promise<boolean> {
     try {
-      const contractRef = doc(db, 'contracts', contractId);
-      const contractSnap = await getDoc(contractRef);
-      
-      if (!contractSnap.exists()) return false;
-      
-      const contract = contractSnap.data() as Contract;
-      const updates: any = {
-        employerSigned: true,
-        updatedAt: serverTimestamp()
-      };
-
-      // If worker already signed, activate contract
+      const contract = await api.contracts.get(contractId);
+      const updates: Partial<Contract> = { employerSigned: true, signedByEmployer: true };
       if (contract.workerSigned) {
         updates.status = 'active';
-        updates.startDate = serverTimestamp();
+        updates.startDate = new Date().toISOString();
       }
-
-      await updateDoc(contractRef, updates);
-
-      // Notify worker
+      await api.contracts.update(contractId, updates);
       await notificationService.notifyContractSigned(workerId, 'worker', jobTitle);
-
       return true;
     } catch (error) {
       debugLogger.error('Error signing contract by employer:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `contracts/${contractId}`);
       return false;
     }
   },
 
   async complete(contractId: string, workerId: string, employerId: string, jobTitle: string, amount: number): Promise<boolean> {
     try {
-      await updateDoc(doc(db, 'contracts', contractId), {
+      await api.contracts.update(contractId, {
         status: 'completed',
-        endDate: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        endDate: new Date().toISOString(),
       });
-
-      // Notify both parties
       await notificationService.notifyContractCompleted(workerId, jobTitle, amount);
       await notificationService.notifyContractCompleted(employerId, jobTitle, amount);
 
-      // Update worker's completed jobs count
-      const workerRef = doc(db, 'profiles', workerId);
-      const workerSnap = await getDoc(workerRef);
-      if (workerSnap.exists()) {
-        const currentCount = workerSnap.data().completedJobs || 0;
-        await updateDoc(workerRef, {
-          completedJobs: currentCount + 1,
-          updatedAt: serverTimestamp()
-        });
-      }
-
+      const worker = await api.users.get(workerId);
+      await api.users.update(workerId, { completedJobs: (worker.completedJobs || 0) + 1 });
       return true;
     } catch (error) {
       debugLogger.error('Error completing contract:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `contracts/${contractId}`);
       return false;
     }
   },
 
   async cancel(contractId: string, reason?: string): Promise<boolean> {
     try {
-      await updateDoc(doc(db, 'contracts', contractId), {
-        status: 'cancelled',
-        cancelReason: reason || '',
-        updatedAt: serverTimestamp()
-      });
+      await api.contracts.update(contractId, { status: 'cancelled', terms: reason });
       return true;
     } catch (error) {
       debugLogger.error('Error cancelling contract:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `contracts/${contractId}`);
       return false;
     }
   },
 
   async getById(contractId: string): Promise<Contract | null> {
     try {
-      const docSnap = await getDoc(doc(db, 'contracts', contractId));
-      if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Contract;
-      }
-      return null;
-    } catch (error) {
-      debugLogger.error('Error fetching contract:', error);
-      handleFirestoreError(error, OperationType.GET, `contracts/${contractId}`);
+      return await api.contracts.get(contractId);
+    } catch {
       return null;
     }
   },
 
   async getByWorker(workerId: string): Promise<Contract[]> {
-    try {
-      const q = query(collection(db, 'contracts'), where('workerId', '==', workerId));
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Contract));
-    } catch (error) {
-      debugLogger.error('Error fetching worker contracts:', error);
-      handleFirestoreError(error, OperationType.LIST, 'contracts');
-      return [];
-    }
+    return api.contracts.list({ workerId });
   },
 
   async getByEmployer(employerId: string): Promise<Contract[]> {
-    try {
-      const q = query(collection(db, 'contracts'), where('employerId', '==', employerId));
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Contract));
-    } catch (error) {
-      debugLogger.error('Error fetching employer contracts:', error);
-      handleFirestoreError(error, OperationType.LIST, 'contracts');
-      return [];
-    }
-  }
+    return api.contracts.list({ employerId });
+  },
+
+  async list(params?: Record<string, string>): Promise<Contract[]> {
+    return api.contracts.list(params);
+  },
 };

@@ -1,0 +1,469 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  worker
+  employer
+  admin
+  super_admin
+}
+
+enum VerificationStatus {
+  none
+  pending
+  verified
+  rejected
+}
+
+enum JobStatus {
+  active
+  closed
+  draft
+  open
+}
+
+enum ApplicationStatus {
+  pending
+  accepted
+  rejected
+  withdrawn
+}
+
+enum ContractStatus {
+  draft
+  active
+  completed
+  cancelled
+  disputed
+  signed
+}
+
+enum DisputeStatus {
+  pending
+  resolved
+  rejected
+}
+
+enum NotificationType {
+  application
+  contract
+  message
+  dispute
+  system
+}
+
+enum ServicePostStatus {
+  active
+  inactive
+  pending
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  completed
+  failed
+  refunded
+  cancelled
+}
+
+enum LogType {
+  info
+  warning
+  error
+}
+
+model User {
+  id                 String             @id
+  email              String?
+  phoneNumber        String?            @unique @map("phone_number")
+  passwordHash       String?            @map("password_hash")
+  fullName           String             @map("full_name")
+  role               UserRole           @default(worker)
+  region             String             @default("")
+  district           String?
+  neighborhood       String?
+  bio                String?
+  skills             String[]           @default([])
+  photoUrl           String?            @map("photo_url")
+  experienceLevel    String?            @map("experience_level")
+  isPremium          Boolean            @default(false) @map("is_premium")
+  isVerified         Boolean            @default(false) @map("is_verified")
+  verificationStatus VerificationStatus @default(none) @map("verification_status")
+  rating             Float              @default(0)
+  reviewCount        Int                @default(0) @map("review_count")
+  completedJobs      Int                @default(0) @map("completed_jobs")
+  education          Json?
+  experience         Json?
+  violationCount     Int                @default(0) @map("violation_count")
+  riskScore          Int                @default(0) @map("risk_score")
+  lastViolation      DateTime?          @map("last_violation")
+  isBlocked          Boolean            @default(false) @map("is_blocked")
+  blockUntil         DateTime?          @map("block_until")
+  blockReason        String?            @map("block_reason")
+  blockedAt          DateTime?          @map("blocked_at")
+  trustScore         Int                @default(100) @map("trust_score")
+  behaviorFlags      String[]           @default([]) @map("behavior_flags")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  lastActive         DateTime?          @map("last_active")
+
+  jobsAsEmployer           Job[]                 @relation("EmployerJobs")
+  applicationsAsWorker     Application[]         @relation("WorkerApplications")
+  applicationsAsEmployer   Application[]         @relation("EmployerApplications")
+  contractsAsWorker        Contract[]            @relation("WorkerContracts")
+  contractsAsEmployer      Contract[]            @relation("EmployerContracts")
+  servicePosts             ServicePost[]
+  notifications            Notification[]
+  savedJobs                SavedJob[]
+  reviewsWritten           Review[]              @relation("ReviewsWritten")
+  reviewsReceived          Review[]              @relation("ReviewsReceived")
+  verificationRequests     VerificationRequest[]
+  disputesOpened           Dispute[]
+  payments                 Payment[]
+  violations               Violation[]
+  activityLogs             ActivityLog[]
+  chatMessagesSent         ChatMessage[]         @relation("MessagesSent")
+  chatMessagesReceived     ChatMessage[]         @relation("MessagesReceived")
+  refreshTokens            RefreshToken[]
+  otpSessions              OtpSession[]
+
+  @@map("users")
+}
+
+model Job {
+  id           String     @id
+  title        String
+  description  String?
+  employerId   String     @map("employer_id")
+  employerName String?    @map("employer_name")
+  category     String?
+  region       String?
+  district     String?
+  neighborhood String?
+  salary       Float?
+  price        Float?
+  salaryType   String?    @map("salary_type")
+  workType     String?    @map("work_type")
+  status       JobStatus  @default(active)
+  isPromoted   Boolean    @default(false) @map("is_promoted")
+  requirements String[]   @default([])
+  images       String[]   @default([])
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  employer     User          @relation("EmployerJobs", fields: [employerId], references: [id], onDelete: Cascade)
+  applications Application[]
+  contracts    Contract[]
+  savedJobs    SavedJob[]
+
+  @@index([employerId])
+  @@index([status])
+  @@index([region])
+  @@map("jobs")
+}
+
+model Application {
+  id          String            @id
+  jobId       String            @map("job_id")
+  workerId    String            @map("worker_id")
+  employerId  String            @map("employer_id")
+  workerName  String?           @map("worker_name")
+  jobTitle    String?           @map("job_title")
+  message     String?
+  coverLetter String?           @map("cover_letter")
+  status      ApplicationStatus @default(pending)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  job      Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker   User @relation("WorkerApplications", fields: [workerId], references: [id], onDelete: Cascade)
+  employer User @relation("EmployerApplications", fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([workerId])
+  @@index([employerId])
+  @@index([status])
+  @@map("applications")
+}
+
+model Contract {
+  id               String         @id
+  jobId            String?        @map("job_id")
+  workerId         String         @map("worker_id")
+  employerId       String         @map("employer_id")
+  workerName       String?        @map("worker_name")
+  employerName     String?        @map("employer_name")
+  jobTitle         String?        @map("job_title")
+  salary           Float?
+  amount           Float?
+  startDate        DateTime?      @map("start_date")
+  endDate          DateTime?      @map("end_date")
+  status           ContractStatus @default(draft)
+  terms            String?
+  signedByWorker   Boolean        @default(false) @map("signed_by_worker")
+  signedByEmployer Boolean        @default(false) @map("signed_by_employer")
+  adminApproved    Boolean        @default(false) @map("admin_approved")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  job      Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  worker   User      @relation("WorkerContracts", fields: [workerId], references: [id], onDelete: Cascade)
+  employer User      @relation("EmployerContracts", fields: [employerId], references: [id], onDelete: Cascade)
+  disputes Dispute[]
+
+  @@index([workerId])
+  @@index([employerId])
+  @@index([status])
+  @@map("contracts")
+}
+
+model Dispute {
+  id         String        @id
+  contractId String        @map("contract_id")
+  openedById String        @map("opened_by_id")
+  reason     String
+  status     DisputeStatus @default(pending)
+  resolution String?
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  openedBy User     @relation(fields: [openedById], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@index([openedById])
+  @@map("disputes")
+}
+
+model ServicePost {
+  id            String            @id
+  workerId      String            @map("worker_id")
+  workerName    String?           @map("worker_name")
+  title         String
+  description   String?
+  category      String?
+  price         Float?
+  expectedPrice Float?            @map("expected_price")
+  priceType     String?           @map("price_type")
+  region        String?
+  district      String?
+  images        String[]          @default([])
+  isActive      Boolean           @default(true) @map("is_active")
+  status        ServicePostStatus @default(active)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  worker User @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workerId])
+  @@index([status])
+  @@map("service_posts")
+}
+
+model ChatMessage {
+  id         String   @id
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  content    String
+  read       Boolean  @default(false)
+  delivered  Boolean  @default(false)
+  status     String?
+  jobId      String?  @map("job_id")
+  contractId String?  @map("contract_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sender   User @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("MessagesReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+model Notification {
+  id        String           @id
+  userId    String           @map("user_id")
+  title     String
+  message   String
+  type      NotificationType
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+model VerificationRequest {
+  id           String             @id
+  userId       String             @map("user_id")
+  userName     String?            @map("user_name")
+  documentType String?            @map("document_type")
+  documentUrl  String?            @map("document_url")
+  idPhotoUrl   String?            @map("id_photo_url")
+  selfieUrl    String?            @map("selfie_url")
+  status       VerificationStatus @default(pending)
+  reviewedBy   String?            @map("reviewed_by")
+  reviewNote   String?            @map("review_note")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("verification_requests")
+}
+
+model Review {
+  id           String   @id
+  reviewerId   String   @map("reviewer_id")
+  revieweeId   String   @map("reviewee_id")
+  reviewerName String?  @map("reviewer_name")
+  rating       Int
+  comment      String?
+  contractId   String?  @map("contract_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  reviewer User @relation("ReviewsWritten", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@index([revieweeId])
+  @@map("reviews")
+}
+
+model SavedJob {
+  id        String   @id
+  userId    String   @map("user_id")
+  jobId     String   @map("job_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@map("saved_jobs")
+}
+
+model Payment {
+  id            String        @id
+  userId        String        @map("user_id")
+  amount        Float
+  currency      String        @default("UZS")
+  type          String
+  provider      String
+  status        PaymentStatus @default(pending)
+  transactionId String?       @map("transaction_id")
+  metadata      Json?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("payments")
+}
+
+model Violation {
+  id            String   @id
+  userId        String   @map("user_id")
+  violationType String   @map("violation_type")
+  message       String?
+  action        String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("violations")
+}
+
+model ActivityLog {
+  id        String   @id
+  userId    String?  @map("user_id")
+  action    String
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("activity_logs")
+}
+
+model SystemLog {
+  id        String   @id
+  action    String
+  userId    String?  @map("user_id")
+  userEmail String?  @map("user_email")
+  details   Json?
+  type      LogType  @default(info)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("system_logs")
+}
+
+model GlobalSettings {
+  id                     String   @id @default("global_config")
+  maxJobPostsPerWeek     Int      @default(5) @map("max_job_posts_per_week")
+  maxServicePostsPerWeek Int      @default(5) @map("max_service_posts_per_week")
+  maxApplicationsPerDay  Int      @default(10) @map("max_applications_per_day")
+  enableNotifications    Boolean  @default(true) @map("enable_notifications")
+  enableModeration       Boolean  @default(true) @map("enable_moderation")
+  maintenanceMode        Boolean  @default(false) @map("maintenance_mode")
+  updatedBy              String?  @map("updated_by")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("global_settings")
+}
+
+model SystemStats {
+  id        String   @id @default("revenue")
+  total     Float    @default(0)
+  monthly   Json?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_stats")
+}
+
+model OtpSession {
+  id        String   @id
+  phone     String?
+  email     String?
+  codeHash  String   @map("code_hash")
+  uid       String?  @map("user_id")
+  verified  Boolean  @default(false)
+  completed Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [uid], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@map("otp_sessions")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
