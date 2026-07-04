@@ -14,7 +14,14 @@ import type { ServiceAccount } from 'firebase-admin/app';
 config({ path: path.resolve(__dirname, '../../.env') });
 config({ path: path.resolve(__dirname, '../.env') });
 
-const EXPORT_DIR = path.resolve(__dirname, '../../data/firestore-export');
+const ROOT_DIR = path.resolve(__dirname, '../..');
+const EXPORT_DIR = path.resolve(ROOT_DIR, 'data/firestore-export');
+
+const DEFAULT_SERVICE_ACCOUNT_PATHS = [
+  'secrets/firebase-service-account.json',
+  'firebase-service-account.json',
+  'secrets/gen-lang-client-firebase-adminsdk.json',
+] as const;
 
 const COLLECTIONS = [
   'profiles',
@@ -34,17 +41,50 @@ const COLLECTIONS = [
   'system_logs',
 ] as const;
 
+function resolveServiceAccountPath(filePath: string): string {
+  return path.isAbsolute(filePath) ? filePath : path.resolve(ROOT_DIR, filePath);
+}
+
 function loadServiceAccount(): Record<string, unknown> {
   const json = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (json) {
     return JSON.parse(json) as Record<string, unknown>;
   }
-  const filePath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (filePath && fs.existsSync(filePath)) {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+
+  const candidates: string[] = [];
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    candidates.push(resolveServiceAccountPath(process.env.FIREBASE_SERVICE_ACCOUNT_PATH));
   }
+  for (const relativePath of DEFAULT_SERVICE_ACCOUNT_PATHS) {
+    candidates.push(path.resolve(ROOT_DIR, relativePath));
+  }
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      console.log(`Using service account: ${candidate}`);
+      return JSON.parse(fs.readFileSync(candidate, 'utf8')) as Record<string, unknown>;
+    }
+  }
+
+  const checked = [...new Set(candidates)].map((p) => `  - ${p}`).join('\n');
   throw new Error(
-    'FIREBASE_SERVICE_ACCOUNT (JSON string) or FIREBASE_SERVICE_ACCOUNT_PATH is required for export.'
+    [
+      'Firebase service account topilmadi.',
+      '',
+      '1-variant (tavsiya): JSON fayl yarating:',
+      `   mkdir -p ${path.join(ROOT_DIR, 'secrets')}`,
+      `   # Firebase Console → Project Settings → Service accounts → Generate new private key`,
+      `   # Faylni shu joyga saqlang: ${path.join(ROOT_DIR, 'secrets/firebase-service-account.json')}`,
+      '',
+      '2-variant: root .env yoki api/.env ga qo\'shing:',
+      '   FIREBASE_SERVICE_ACCOUNT_PATH=./secrets/firebase-service-account.json',
+      '',
+      '3-variant: to\'liq JSON string:',
+      '   FIREBASE_SERVICE_ACCOUNT={"type":"service_account",...}',
+      '',
+      'Tekshirilgan yo\'llar:',
+      checked,
+    ].join('\n')
   );
 }
 
