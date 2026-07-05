@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+salom/node_modules/
+api/node_modules/
+
+# Build output
+dist/
+api/dist/
+
+# Local env / secrets
+.env
+.env.local
+.env.*.local
+.env.production
+api/.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
