@@ -451,7 +451,7 @@ model OtpSession {
   verified           Boolean   @default(false)
   completed          Boolean   @default(false)
   attempts           Int       @default(0)
-  channel            String    @default("telegram") // telegram | email
+  channel            String    @default("sms") // sms | email
   telegramRequestId  String?   @map("telegram_request_id")
   metadata           Json?
   expiresAt          DateTime  @map("expires_at")

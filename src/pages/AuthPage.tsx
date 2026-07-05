@@ -107,7 +107,7 @@ export default function AuthPage() {
         setPartialState({
           error: state.useEmailFallback
             ? 'Iltimos, email manzilini kiriting.'
-            : 'Iltimos, Telegram bilan bog\'langan telefon raqamini kiriting.',
+            : 'Iltimos, telefon raqamingizni kiriting.',
         });
         return;
       }
@@ -129,7 +129,7 @@ export default function AuthPage() {
       setPartialState({ loading: true });
 
       try {
-        const channel = state.useEmailFallback ? ('email' as const) : ('telegram' as const);
+        const channel = state.useEmailFallback ? ('email' as const) : ('sms' as const);
 
         if (mode === 'register') {
           const fullNameValidation = validateFullName(state.fullName);
@@ -157,7 +157,7 @@ export default function AuthPage() {
             loading: false,
             success:
               result.message ||
-              'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring.',
+              'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring.',
             sessionId: result.sessionId || '',
             useEmailFallback: false,
           });
@@ -177,7 +177,7 @@ export default function AuthPage() {
             loading: false,
             success:
               result.message ||
-              'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring.',
+              'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring.',
             sessionId: result.sessionId || '',
             useEmailFallback: false,
           });
@@ -319,8 +319,8 @@ export default function AuthPage() {
                 {mode === 'login' ? 'Kirish' : 'Roʻyxatdan oʻtish'}
               </h1>
               <p className="text-gray-600">
-                {step === 'phoneEmail' && (mode === 'login' ? 'Telegram orqali kirish' : 'Telegram orqali roʻyxatdan oʻtish')}
-                {step === 'otp' && 'Telegramdan kelgan OTP kodini kiriting'}
+                {step === 'phoneEmail' && (mode === 'login' ? 'SMS orqali kirish' : 'SMS orqali roʻyxatdan oʻtish')}
+                {step === 'otp' && 'Telefoningizga kelgan OTP kodini kiriting'}
                 {step === 'registerDetails' && 'Qo\'shimcha maʼlumotni kiriting'}
               </p>
             </div>
@@ -347,7 +347,7 @@ export default function AuthPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {state.useEmailFallback ? 'Email manzili' : 'Telefon raqami (Telegram)'}
+                    {state.useEmailFallback ? 'Email manzili' : 'Telefon raqami'}
                   </label>
                   <input
                     type="text"
@@ -362,7 +362,7 @@ export default function AuthPage() {
                   />
                   {!state.useEmailFallback && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Raqam Telegram hisobingizga bog\'langan bo\'lishi kerak (+998...)
+                      O'zbekiston raqami (+998...) formatida kiriting
                     </p>
                   )}
                 </div>
@@ -407,14 +407,14 @@ export default function AuthPage() {
                       <Loader size={18} className="animate-spin" /> Yuborilmoqda...
                     </span>
                   ) : (
-                    'Telegram orqali OTP olish'
+                    'SMS orqali OTP olish'
                   )}
                 </button>
 
-                {state.error && state.error.includes('Telegram') && !state.useEmailFallback && (
+                {state.error && !state.useEmailFallback && (
                   <div className="space-y-3 pt-2 border-t border-gray-100">
                     <p className="text-sm text-gray-600">
-                      Bu raqam Telegram orqali tasdiqlanmasa, boshqa usulni sinab ko\'ring:
+                      SMS yuborilmadi bo'lsa, boshqa raqam bilan urinib ko'ring:
                     </p>
                     <div className="grid grid-cols-1 gap-2">
                       <button
@@ -464,7 +464,7 @@ export default function AuthPage() {
                     maxLength={6}
                   />
                   <p className="text-xs text-gray-500 mt-2">
-                    Telegram orqali {state.phoneOrEmail} raqamiga yuborilgan 6 xonali kod
+                    {state.phoneOrEmail} raqamiga SMS orqali yuborilgan 6 xonali kod
                   </p>
                 </div>
 

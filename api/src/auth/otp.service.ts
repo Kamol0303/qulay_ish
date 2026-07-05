@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
-import { TelegramGatewayService, TelegramGatewayError } from './telegram-gateway.service';
+import { DevSmsService, DevSmsError } from './devsms.service';
 import {
   OTP_TTL_MS,
   OTP_MAX_ATTEMPTS,
@@ -20,7 +20,7 @@ import {
   UZ_PHONE_E164,
 } from './otp.constants';
 
-type OtpChannel = 'telegram' | 'email';
+type OtpChannel = 'sms' | 'email';
 
 @Injectable()
 export class OtpService {
@@ -28,7 +28,7 @@ export class OtpService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly auth: AuthService,
-    private readonly telegram: TelegramGatewayService,
+    private readonly devSms: DevSmsService,
   ) {}
 
   private normalizePhone(input: string): string {
@@ -106,12 +106,12 @@ export class OtpService {
     return String(Math.floor(100000 + Math.random() * 900000));
   }
 
-  private throwTelegramError(err: TelegramGatewayError): never {
-    const mapped = this.telegram.mapErrorToUserMessage(err.code);
+  private throwSmsError(err: DevSmsError): never {
+    const mapped = this.devSms.mapErrorToUserMessage(err.code);
     throw new BadRequestException({
       message: mapped.message,
-      errorCode: 'TELEGRAM_UNAVAILABLE',
-      telegramCode: err.code,
+      errorCode: 'SMS_UNAVAILABLE',
+      smsCode: err.code,
       fallbackAvailable: mapped.fallbackAvailable,
     });
   }
@@ -124,12 +124,12 @@ export class OtpService {
     channel?: OtpChannel;
   }) {
     const raw = params.phoneOrEmail.trim();
-    const requestedChannel: OtpChannel = params.channel === 'email' ? 'email' : 'telegram';
+    const requestedChannel: OtpChannel = params.channel === 'email' ? 'email' : 'sms';
     const isEmailInput = raw.includes('@');
 
-    if (requestedChannel === 'telegram' && isEmailInput) {
+    if (requestedChannel === 'sms' && isEmailInput) {
       throw new BadRequestException({
-        message: 'Telegram OTP uchun telefon raqamini kiriting (+998...)',
+        message: 'SMS OTP uchun telefon raqamini kiriting (+998...)',
         errorCode: 'PHONE_REQUIRED',
         fallbackAvailable: false,
       });
@@ -138,7 +138,7 @@ export class OtpService {
     if (isEmailInput || requestedChannel === 'email') {
       throw new BadRequestException({
         message:
-          'Email orqali tasdiqlash hozircha mavjud emas. Telegram bilan bog\'langan telefon raqamidan foydalaning.',
+          'Email orqali tasdiqlash hozircha mavjud emas. Telefon raqamingiz orqali SMS kod oling.',
         errorCode: 'EMAIL_NOT_AVAILABLE',
         fallbackAvailable: false,
       });
@@ -166,21 +166,20 @@ export class OtpService {
     const sessionId = `otp_${randomUUID()}`;
     const expiresAt = new Date(Date.now() + OTP_TTL_MS);
 
-    let telegramRequestId: string | null = null;
+    let smsMeta: { smsId: number; requestId: string } | null = null;
     try {
-      const result = await this.telegram.sendVerificationMessage({
-        phoneNumber: phone,
+      smsMeta = await this.devSms.sendOtp({
+        phone,
         code,
-        ttlSeconds: OTP_TTL_MS / 1000,
+        purpose: params.purpose,
       });
-      telegramRequestId = result.request_id;
     } catch (err) {
-      if (err instanceof TelegramGatewayError) {
-        this.throwTelegramError(err);
+      if (err instanceof DevSmsError) {
+        this.throwSmsError(err);
       }
       throw new BadRequestException({
-        message: 'Telegram orqali OTP yuborib bo\'lmadi',
-        errorCode: 'TELEGRAM_UNAVAILABLE',
+        message: 'SMS orqali OTP yuborib bo\'lmadi',
+        errorCode: 'SMS_UNAVAILABLE',
         fallbackAvailable: true,
       });
     }
@@ -193,16 +192,16 @@ export class OtpService {
         purpose: params.purpose,
         fullName: params.fullName,
         role: params.role,
-        channel: 'telegram',
-        telegramRequestId,
+        channel: 'sms',
+        metadata: smsMeta,
         expiresAt,
       },
     });
 
     return {
       sessionId,
-      channel: 'telegram' as const,
-      message: 'OTP kodi Telegram orqali yuborildi',
+      channel: 'sms' as const,
+      message: 'OTP kodi SMS orqali yuborildi',
     };
   }
 
@@ -248,14 +247,6 @@ export class OtpService {
       throw new BadRequestException('OTP kodi noto\'g\'ri');
     }
 
-    if (session.channel === 'telegram' && session.telegramRequestId) {
-      try {
-        await this.telegram.checkVerificationStatus(session.telegramRequestId, otp);
-      } catch {
-        // Telegram status tekshiruvi muvaffaqiyatsiz bo'lsa ham lokal tasdiqlash yetarli
-      }
-    }
-
     await this.prisma.otpSession.update({
       where: { id: sessionId },
       data: { verified: true },
@@ -287,7 +278,6 @@ export class OtpService {
         region: 'Samarqand viloyati',
         isVerified: true,
         verificationStatus: 'verified',
-        telegramVerified: session.channel === 'telegram' && Boolean(session.phone),
       },
     });
 
@@ -314,13 +304,6 @@ export class OtpService {
       },
     });
     if (!user) throw new UnauthorizedException('Foydalanuvchi topilmadi');
-
-    if (session.channel === 'telegram' && session.phone) {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { telegramVerified: true },
-      });
-    }
 
     await this.prisma.otpSession.update({
       where: { id: sessionId },

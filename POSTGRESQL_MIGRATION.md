@@ -31,13 +31,14 @@ npm run dev
 curl http://localhost:4000/api/stats/counts
 ```
 
-## OTP (Telegram Gateway)
+## OTP (DevSMS)
 
-Ro'yxatdan o'tish OTP kodlari Telegram orqali yuboriladi. `api/.env`:
+Ro'yxatdan o'tish OTP kodlari SMS orqali yuboriladi. `api/.env`:
 
 ```env
-TELEGRAM_GATEWAY_TOKEN=...
-TELEGRAM_GATEWAY_BASE_URL=https://gatewayapi.telegram.org
+DEVSMS_TOKEN=...
+DEVSMS_BASE_URL=https://devsms.uz/api
+DEVSMS_SERVICE_NAME=Qulay Ish
 ```
 
 Migratsiya:

@@ -95,11 +95,11 @@ export const api = {
       purpose: 'login' | 'register',
       fullName?: string,
       role?: Profile['role'],
-      channel?: 'telegram' | 'email',
+      channel?: 'sms' | 'email',
     ) {
       return apiRequest<{
         sessionId: string;
-        channel: 'telegram' | 'email';
+        channel: 'sms' | 'email';
         message?: string;
       }>('/auth/otp/request', {
         method: 'POST',

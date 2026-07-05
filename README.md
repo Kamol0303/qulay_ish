@@ -41,16 +41,17 @@ VITE_SUPER_ADMIN_EMAIL=superadmin@qulay-ish.local
 
 **API (`api/.env`):** `api/.env.example` dan nusxa oling.
 
-### OTP (Telegram Gateway)
+### OTP (DevSMS)
 
-Ro'yxatdan o'tish va kirish OTP kodlari **Telegram Gateway API** orqali yuboriladi.
+Ro'yxatdan o'tish va kirish OTP kodlari **DevSMS** orqali SMS sifatida yuboriladi.
 
-1. [gateway.telegram.org](https://gateway.telegram.org) dan `TELEGRAM_GATEWAY_TOKEN` oling
+1. [devsms.uz](https://devsms.uz) dan ro'yxatdan o'ting va `DEVSMS_TOKEN` oling
 2. `api/.env` ga qo'shing:
    ```env
-   TELEGRAM_GATEWAY_TOKEN=your_token
-   TELEGRAM_GATEWAY_BASE_URL=https://gatewayapi.telegram.org
+   DEVSMS_TOKEN=your_token
+   DEVSMS_BASE_URL=https://devsms.uz/api
+   DEVSMS_SERVICE_NAME=Qulay Ish
    ```
-3. Foydalanuvchi telefon raqami Telegram hisobiga bog'langan bo'lishi kerak (`+998...`)
+3. Telefon raqami `+998XXXXXXXXX` formatida bo'lishi kerak
 
 Batafsil: [POSTGRESQL_MIGRATION.md](./POSTGRESQL_MIGRATION.md)

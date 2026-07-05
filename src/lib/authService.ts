@@ -52,7 +52,7 @@ export const authService = {
     phoneOrEmail: string;
     fullName: string;
     role: 'worker' | 'employer';
-    channel?: 'telegram' | 'email';
+    channel?: 'sms' | 'email';
   }): Promise<AuthResult> {
     try {
       const res = await api.auth.requestOtp(
@@ -65,7 +65,7 @@ export const authService = {
       return {
         success: true,
         sessionId: res.sessionId,
-        message: res.message || 'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring',
+        message: res.message || 'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring',
       };
     } catch (e) {
       const err = extractApiError(e);
@@ -103,14 +103,14 @@ export const authService = {
 
   async requestOTPForLogin(
     phoneOrEmail: string,
-    channel?: 'telegram' | 'email',
+    channel?: 'sms' | 'email',
   ): Promise<AuthResult> {
     try {
       const res = await api.auth.requestOtp(phoneOrEmail, 'login', undefined, undefined, channel);
       return {
         success: true,
         sessionId: res.sessionId,
-        message: res.message || 'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring',
+        message: res.message || 'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring',
       };
     } catch (e) {
       const err = extractApiError(e);
