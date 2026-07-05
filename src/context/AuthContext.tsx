@@ -4,8 +4,13 @@ import { auth, db } from '../firebase';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { Profile } from '../types';
+import {
+  clearApiSession,
+  getApiSession,
+  persistApiSession,
+  UserProfile,
+} from '../lib/authService';
 
-// Debug logger - only in development
 const debugWarn = (label: string, data?: unknown) => {
   if (import.meta.env.DEV) {
     debugLogger.warn(`[${label}]`, data);
@@ -27,12 +32,53 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   userRole: UserRole | null;
   isDemo: boolean;
-  /** Call after profile is written to Firestore to force a fresh read */
   refreshProfile: () => Promise<void>;
   checkDemoSession: () => void;
+  establishApiSession: (accessToken: string, profile: UserProfile) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function toContextProfile(profile: UserProfile): Profile {
+  return {
+    uid: profile.uid,
+    fullName: profile.fullName,
+    email: profile.email,
+    phoneNumber: profile.phoneNumber,
+    role: profile.role,
+    region: profile.region,
+    district: profile.district,
+    neighborhood: profile.neighborhood,
+    bio: profile.bio,
+    skills: profile.skills,
+    isVerified: profile.isVerified,
+    verificationStatus: profile.verificationStatus,
+    rating: profile.rating,
+    reviewCount: profile.reviewCount,
+    completedJobs: profile.completedJobs,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
+    lastActive: profile.lastActive,
+  };
+}
+
+function createApiPseudoUser(profile: Profile, accessToken: string): User {
+  return {
+    uid: profile.uid,
+    email: profile.email || null,
+    displayName: profile.fullName,
+    phoneNumber: profile.phoneNumber || null,
+    emailVerified: true,
+    isAnonymous: false,
+    metadata: {},
+    providerData: [],
+    reload: async () => {},
+    getIdToken: async () => accessToken,
+    getIdTokenResult: async () => ({ token: accessToken } as any),
+    delete: async () => {},
+    toJSON: () => ({}),
+  } as User;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -51,6 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => !!(user?.uid?.startsWith('demo_') || profile?.uid?.startsWith('demo_') || localStorage.getItem('qulay_ish_demo_session')),
     [user, profile]
   );
+
+  const establishApiSession = useCallback((accessToken: string, apiProfile: UserProfile) => {
+    persistApiSession(accessToken, apiProfile);
+    const nextProfile = toContextProfile(apiProfile);
+    setUser(createApiPseudoUser(nextProfile, accessToken));
+    setProfile(nextProfile);
+    setLoading(false);
+  }, []);
 
   const checkDemoSession = useCallback(() => {
     const savedDemo = localStorage.getItem('qulay_ish_demo_session');
@@ -89,44 +143,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const checkOTPLoginSession = useCallback(async () => {
-    const otpLoginUid = localStorage.getItem('qulay_ish_otp_login_uid');
-    const otpLoginProfile = localStorage.getItem('qulay_ish_otp_login_profile');
-    
-    if (otpLoginUid && otpLoginProfile) {
-      try {
-        const profile = JSON.parse(otpLoginProfile);
-        
-        // Create a pseudo-user object for OTP login
-        setUser({
-          uid: otpLoginUid,
-          email: profile.email || '',
-          displayName: profile.fullName || '',
-          phoneNumber: profile.phoneNumber || '',
-          emailVerified: true,
-          isAnonymous: false,
-          metadata: {},
-          providerData: [],
-          reload: async () => {},
-          getIdToken: async () => '',
-          getIdTokenResult: async () => ({} as any),
-          delete: async () => {},
-          toJSON: () => ({}),
-        } as any);
-        
-        setProfile(profile);
-        setLoading(false);
-        return true;
-      } catch (err) {
-        debugWarn('AuthContext] checkOTPLoginSession parsing error:', err);
-        localStorage.removeItem('qulay_ish_otp_login_uid');
-        localStorage.removeItem('qulay_ish_otp_login_profile');
-      }
-    }
-    return false;
+  const checkApiAuthSession = useCallback(() => {
+    const session = getApiSession();
+    if (!session) return false;
+
+    const nextProfile = toContextProfile(session.profile);
+    setUser(createApiPseudoUser(nextProfile, session.accessToken));
+    setProfile(nextProfile);
+    setLoading(false);
+    return true;
   }, []);
 
-  // Restore auth state on mount
   useEffect(() => {
     const savedDemo = localStorage.getItem('qulay_ish_demo_session');
     if (savedDemo) {
@@ -134,41 +161,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Check for OTP login session
-    const checkOTPSession = async () => {
-      const isOTPLogin = await checkOTPLoginSession();
-      if (isOTPLogin) {
+    if (checkApiAuthSession()) {
+      return;
+    }
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        if (unsubscribeProfileRef.current) {
+          unsubscribeProfileRef.current();
+          unsubscribeProfileRef.current = null;
+        }
+        profileListenerActiveRef.current = false;
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
         return;
       }
 
-      // Otherwise, use Firebase Auth
-      const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-        if (!firebaseUser) {
-          // Tear down profile listener
-          if (unsubscribeProfileRef.current) {
-            unsubscribeProfileRef.current();
-            unsubscribeProfileRef.current = null;
-          }
-          profileListenerActiveRef.current = false;
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
+      setUser(firebaseUser);
+      attachProfileListener(firebaseUser.uid);
+    });
 
-        // New user signed in — keep loading=true, attach profile listener
-        setUser(firebaseUser);
-        attachProfileListener(firebaseUser.uid);
-      });
-
-      return () => unsubscribeAuth();
-    };
-
-    checkOTPSession();
-  }, [checkDemoSession, checkOTPLoginSession]);
+    return () => unsubscribeAuth();
+  }, [checkDemoSession, checkApiAuthSession]);
 
   function attachProfileListener(uid: string) {
-    // Tear down any existing listener first
     if (unsubscribeProfileRef.current) {
       unsubscribeProfileRef.current();
       unsubscribeProfileRef.current = null;
@@ -213,12 +230,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }
 
-  /**
-   * Force-read the profile from Firestore once.
-   * Use this right after writing a new profile so the UI doesn't wait for the
-   * snapshot to propagate (which can take a moment and cause a redirect loop).
-   */
   const refreshProfile = useCallback(async () => {
+    const apiSession = getApiSession();
+    if (apiSession) {
+      setProfile(toContextProfile(apiSession.profile));
+      return;
+    }
+
     const currentUser = auth.currentUser;
     if (!currentUser) return;
     try {
@@ -238,18 +256,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     profileListenerActiveRef.current = false;
 
-    // Clear demo session if any
     localStorage.removeItem('qulay_ish_demo_session');
-    // Clear OTP login session if any
-    localStorage.removeItem('qulay_ish_otp_login_uid');
-    localStorage.removeItem('qulay_ish_otp_login_profile');
+    clearApiSession();
 
     try {
       await firebaseSignOut(auth);
     } catch (err) {
       debugWarn('Auth] Firebase signOut error (may already be signed out):', err);
     }
-    
+
     setUser(null);
     setProfile(null);
     setLoading(false);
@@ -257,7 +272,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signOut, userRole, isDemo, refreshProfile, checkDemoSession }}
+      value={{
+        user,
+        profile,
+        loading,
+        signOut,
+        userRole,
+        isDemo,
+        refreshProfile,
+        checkDemoSession,
+        establishApiSession,
+      }}
     >
       {children}
     </AuthContext.Provider>

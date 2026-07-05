@@ -1,23 +1,19 @@
 import { debugLogger } from './debugLogger';
 import {
   GoogleAuthProvider,
-  RecaptchaVerifier,
   isSignInWithEmailLink,
   sendSignInLinkToEmail,
   signInWithEmailLink,
-  signInWithPhoneNumber,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithCustomToken,
-  type ConfirmationResult,
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { auth, db, functions } from '../firebase';
+import { auth, db } from '../firebase';
 import { demoStore } from './demoStore';
 import { passwordService } from './passwordService';
+import { ApiError, apiFetch } from './apiClient';
 
 export interface AuthResult {
   success: boolean;
@@ -48,10 +44,8 @@ export interface UserProfile {
 
 const EMAIL_STORAGE_KEY = 'qulayish_email_for_signin';
 const NAME_STORAGE_KEY = 'qulayish_name_for_signin';
-const PHONE_SESSION_KEY = 'qulayish_phone_session';
-
-let phoneConfirmationResult: ConfirmationResult | null = null;
-let phoneConfirmationTimestamp: number | null = null;
+export const API_ACCESS_TOKEN_KEY = 'qulay_ish_access_token';
+export const API_PROFILE_KEY = 'qulay_ish_api_profile';
 
 // Debug logger - only in development
 const debugLog = (label: string, data?: unknown) => {
@@ -72,12 +66,60 @@ const debugWarn = (label: string, data?: unknown) => {
   }
 };
 
-declare global {
-  interface Window {
-    grecaptcha?: {
-      reset: (widgetId?: number) => void;
-    };
+function mapApiUserToProfile(user: Record<string, unknown>): UserProfile {
+  return {
+    uid: String(user.id ?? ''),
+    fullName: String(user.fullName ?? 'User'),
+    email: String(user.email ?? ''),
+    phoneNumber: user.phoneNumber
+      ? String(user.phoneNumber)
+      : user.phone
+        ? String(user.phone)
+        : undefined,
+    role: (user.role as UserProfile['role']) ?? 'worker',
+    region: String(user.region ?? 'Samarqand viloyati'),
+    district: user.district ? String(user.district) : undefined,
+    neighborhood: user.neighborhood ? String(user.neighborhood) : undefined,
+    isVerified: Boolean(user.isVerified),
+    verificationStatus: (user.verificationStatus as UserProfile['verificationStatus']) ?? 'verified',
+    rating: typeof user.rating === 'number' ? user.rating : 0,
+    reviewCount: typeof user.reviewCount === 'number' ? user.reviewCount : 0,
+    completedJobs: typeof user.completedJobs === 'number' ? user.completedJobs : 0,
+  };
+}
+
+export function persistApiSession(accessToken: string, profile: UserProfile): void {
+  localStorage.setItem(API_ACCESS_TOKEN_KEY, accessToken);
+  localStorage.setItem(API_PROFILE_KEY, JSON.stringify(profile));
+}
+
+export function clearApiSession(): void {
+  localStorage.removeItem(API_ACCESS_TOKEN_KEY);
+  localStorage.removeItem(API_PROFILE_KEY);
+  localStorage.removeItem('qulay_ish_otp_login_uid');
+  localStorage.removeItem('qulay_ish_otp_login_profile');
+}
+
+export function getApiSession(): { accessToken: string; profile: UserProfile } | null {
+  const accessToken = localStorage.getItem(API_ACCESS_TOKEN_KEY);
+  const rawProfile = localStorage.getItem(API_PROFILE_KEY);
+  if (!accessToken || !rawProfile) return null;
+  try {
+    return { accessToken, profile: JSON.parse(rawProfile) as UserProfile };
+  } catch {
+    return null;
   }
+}
+
+function formatApiError(err: unknown): string {
+  if (err instanceof ApiError) {
+    const remaining = err.body?.remainingAttempts;
+    if (typeof remaining === 'number' && remaining > 0) {
+      return `${err.message} (${remaining} ta urinish qoldi)`;
+    }
+    return err.message;
+  }
+  return 'Kutilmagan xato yuz berdi. Qayta urinib ko\'ring.';
 }
 
 function normalizePhoneNumber(phone: string): string {
@@ -464,12 +506,6 @@ export const authService = {
     }
   },
 
-  clearPhoneSession(): void {
-    phoneConfirmationResult = null;
-    phoneConfirmationTimestamp = null;
-    sessionStorage.removeItem(PHONE_SESSION_KEY);
-  },
-
   /**
    * Parol bilan ro'yxatdan o'tish
    */
@@ -490,7 +526,6 @@ export const authService = {
         };
       }
 
-      // Check if phone already exists
       const profilesRef = collection(db, 'profiles');
       const phoneQuery = query(profilesRef, where('phoneNumber', '==', normalizedPhone));
       const phoneSnap = await getDocs(phoneQuery);
@@ -502,17 +537,14 @@ export const authService = {
         };
       }
 
-      // Hash password
       const passwordHash = await passwordService.hashPassword(data.password);
 
-      // Create Firebase user with email
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         data.email,
         data.password
       );
 
-      // Create profile with passwordHash and role
       const profileRef = doc(db, 'profiles', userCredential.user.uid);
       await setDoc(profileRef, {
         uid: userCredential.user.uid,
@@ -557,7 +589,6 @@ export const authService = {
     try {
       const normalizedPhone = normalizePhoneNumber(data.phoneNumber);
 
-      // Find user by phone number
       const profilesRef = collection(db, 'profiles');
       const phoneQuery = query(profilesRef, where('phoneNumber', '==', normalizedPhone));
       const phoneSnap = await getDocs(phoneQuery);
@@ -572,14 +603,12 @@ export const authService = {
       const profileData = phoneSnap.docs[0].data();
       const email = profileData.email;
 
-      // Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         data.password
       );
 
-      // Update last active
       await updateExistingProfile(userCredential.user);
 
       return { success: true, needsRoleSelection: false };
@@ -592,500 +621,58 @@ export const authService = {
     }
   },
 
-  /**
-   * OTP orqali ro'yxatdan o'tish uchun OTP kodi jo'natish
-   */
-  async requestOTPForRegistration(data: {
-    phoneOrEmail: string;
-    fullName: string;
-    role: 'worker' | 'employer';
-  }): Promise<AuthResult & { sessionId?: string }> {
-    try {
-      // Check if it's phone or email
-      const isPhone = /^(\+|[0-9])/.test(data.phoneOrEmail.trim());
-      const isEmail = data.phoneOrEmail.includes('@');
-
-      if (!isPhone && !isEmail) {
-        return {
-          success: false,
-          error: 'Iltimos, to\'g\'ri telefon raqam yoki email kiriting.',
-        };
-      }
-
-      let normalizedIdentifier = data.phoneOrEmail;
-      if (isPhone) {
-        normalizedIdentifier = normalizePhoneNumber(data.phoneOrEmail);
-      }
-
-      // Check if already registered
-      const profilesRef = collection(db, 'profiles');
-      const identifierField = isPhone ? 'phoneNumber' : 'email';
-      const existingQuery = query(profilesRef, where(identifierField, '==', normalizedIdentifier));
-      const existingSnap = await getDocs(existingQuery);
-
-      if (!existingSnap.empty) {
-        return {
-          success: false,
-          error: isPhone ? 'Bu telefon raqam allaqachon ro\'yxatdan o\'tgan' : 'Bu email allaqachon ro\'yxatdan o\'tgan',
-        };
-      }
-
-      // Generate OTP (6 digits)
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const sessionId = `otp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const expiryTime = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-      // Store OTP in Firestore
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      await setDoc(otpRef, {
-        sessionId,
-        identifier: normalizedIdentifier,
-        identifierType: isPhone ? 'phone' : 'email',
-        otp,
-        fullName: data.fullName,
-        role: data.role,
-        verified: false,
-        expiryTime,
-        createdAt: serverTimestamp(),
-        attempts: 0,
-      });
-
-      // Send OTP via Cloud Function
-      try {
-        if (functions && isPhone) {
-          const sendOTPSMS = httpsCallable(functions, 'sendOTPSMS');
-          await sendOTPSMS({
-            phoneNumber: normalizedIdentifier,
-            otp,
-            purpose: 'registration',
-          });
-        } else if (functions && isEmail) {
-          const sendOTPEmail = httpsCallable(functions, 'sendOTPEmail');
-          await sendOTPEmail({
-            email: normalizedIdentifier,
-            otp,
-            purpose: 'registration',
-          });
-        }
-      } catch (sendError: any) {
-        debugWarn('OTP Send Error]', sendError);
-        // Don't fail if sending fails - OTP is still stored and can be used
-      }
-
-      return {
-        success: true,
-        sessionId,
-      };
-    } catch (error: any) {
-      debugError('OTP Request Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
-    }
-  },
-
-  /**
-   * OTP orqali ro'yxatdan o'tish uchun OTP ni tasdiqlash
-   */
-  async verifyOTPForRegistration(sessionId: string, otp: string): Promise<AuthResult> {
-    try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists()) {
-        return {
-          success: false,
-          error: 'OTP sessiyasi topilmadi. Qayta urinib ko\'ring.',
-        };
-      }
-
-      const otpData = otpSnap.data();
-
-      // Check expiry
-      if (Date.now() > otpData.expiryTime) {
-        return {
-          success: false,
-          error: 'OTP kodi eskirib qolgan. Yangi kod so\'rang.',
-        };
-      }
-
-      // Check attempts
-      if (otpData.attempts >= 5) {
-        return {
-          success: false,
-          error: 'Juda ko\'p xato urinish. Qayta o\'rnatish uchun yangi kod so\'rang.',
-        };
-      }
-
-      // Verify OTP
-      if (otp !== otpData.otp) {
-        // Increment attempts
-        await setDoc(otpRef, { attempts: otpData.attempts + 1 }, { merge: true });
-        return {
-          success: false,
-          error: 'OTP kodi noto\'g\'ri.',
-        };
-      }
-
-      // OTP verified - create user account
-      const isPhone = otpData.identifierType === 'phone';
-      
-      // For registration, we need both phone and email
-      // Store temporarily in the OTP session
-      await setDoc(otpRef, { verified: true }, { merge: true });
-
-      return {
-        success: true,
-        needsRoleSelection: false,
-      };
-    } catch (error: any) {
-      debugError('OTP Verify Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
-    }
-  },
-
-  /**
-   * OTP verified sessiyadan user yaratish va kirish
-   */
-  async completeRegistrationWithOTP(sessionId: string, additionalData?: {
-    email?: string;
-    phoneNumber?: string;
+  async sendOtp(params: {
+    phone: string;
+    purpose?: 'login' | 'register';
+    fullName?: string;
+    role?: 'worker' | 'employer';
   }): Promise<AuthResult> {
     try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists() || !otpSnap.data().verified) {
-        return {
-          success: false,
-          error: 'OTP tasdiqlash muvaffaqiyatsiz. Qayta urinib ko\'ring.',
-        };
-      }
-
-      const otpData = otpSnap.data();
-
-      // Create email for Firebase Auth if we only have phone
-      let email = additionalData?.email || `${otpData.identifier.replace(/\D/g, '')}@qulayish.local`;
-      let phoneNumber = additionalData?.phoneNumber || '';
-
-      if (otpData.identifierType === 'phone') {
-        phoneNumber = otpData.identifier;
-      } else {
-        email = otpData.identifier;
-      }
-
-      // Create temporary password for Firebase (OTP users don't need password)
-      const tempPassword = Math.random().toString(36).substring(2, 15);
-
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, tempPassword);
-
-        // Create profile
-        const profileRef = doc(db, 'profiles', userCredential.user.uid);
-        await setDoc(profileRef, {
-          uid: userCredential.user.uid,
-          fullName: otpData.fullName,
-          email,
-          phoneNumber,
-          role: otpData.role,
-          region: 'Samarqand',
-          district: '',
-          neighborhood: '',
-          bio: '',
-          skills: [],
-          isVerified: true,
-          verificationStatus: 'verified',
-          status: 'active',
-          authMethod: 'otp',
-          rating: 0,
-          reviewCount: 0,
-          completedJobs: 0,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastActive: serverTimestamp(),
-        });
-
-        // Delete OTP session
-        await setDoc(otpRef, { completed: true, completedAt: serverTimestamp() }, { merge: true });
-
-        return { success: true, needsRoleSelection: false };
-      } catch (createError: any) {
-        if (createError.code === 'auth/email-already-in-use') {
-          return {
-            success: false,
-            error: 'Bu email allaqachon ishlatilgan.',
-          };
-        }
-        throw createError;
-      }
-    } catch (error: any) {
-      debugError('OTP Completion Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+      const phone = normalizePhoneNumber(params.phone);
+      await apiFetch<{ success: true }>('/auth/send-otp', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone,
+          purpose: params.purpose,
+          fullName: params.fullName,
+          role: params.role,
+        }),
+      });
+      return { success: true };
+    } catch (error) {
+      debugError('Send OTP Error]', error);
+      return { success: false, error: formatApiError(error) };
     }
   },
 
-  /**
-   * OTP orqali kirish uchun OTP kodi jo'natish
-   */
-  async requestOTPForLogin(phoneOrEmail: string): Promise<AuthResult & { sessionId?: string }> {
+  async verifyOtp(
+    phone: string,
+    code: string,
+  ): Promise<AuthResult & { accessToken?: string; profile?: UserProfile }> {
     try {
-      // Check if it's phone or email
-      const isPhone = /^(\+|[0-9])/.test(phoneOrEmail.trim());
-      const isEmail = phoneOrEmail.includes('@');
-
-      if (!isPhone && !isEmail) {
-        return {
-          success: false,
-          error: 'Iltimos, to\'g\'ri telefon raqam yoki email kiriting.',
-        };
-      }
-
-      let normalizedIdentifier = phoneOrEmail;
-      if (isPhone) {
-        normalizedIdentifier = normalizePhoneNumber(phoneOrEmail);
-      }
-
-      // Check if user exists
-      const profilesRef = collection(db, 'profiles');
-      const identifierField = isPhone ? 'phoneNumber' : 'email';
-      const userQuery = query(profilesRef, where(identifierField, '==', normalizedIdentifier));
-      const userSnap = await getDocs(userQuery);
-
-      if (userSnap.empty) {
-        return {
-          success: false,
-          error: isPhone ? 'Bu telefon raqam ro\'yxatdan o\'tmagan' : 'Bu email ro\'yxatdan o\'tmagan',
-        };
-      }
-
-      // Generate OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const sessionId = `otp_login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const expiryTime = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-      // Store OTP in Firestore
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const userData = userSnap.docs[0].data();
-      
-      await setDoc(otpRef, {
-        sessionId,
-        identifier: normalizedIdentifier,
-        identifierType: isPhone ? 'phone' : 'email',
-        otp,
-        uid: userData.uid,
-        verified: false,
-        expiryTime,
-        createdAt: serverTimestamp(),
-        attempts: 0,
-        purpose: 'login',
+      const result = await apiFetch<{
+        success: true;
+        accessToken: string;
+        user: Record<string, unknown>;
+      }>('/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: normalizePhoneNumber(phone),
+          code,
+        }),
       });
 
-      // Send OTP via Cloud Function
-      try {
-        if (functions && isPhone) {
-          const sendOTPSMS = httpsCallable(functions, 'sendOTPSMS');
-          await sendOTPSMS({
-            phoneNumber: normalizedIdentifier,
-            otp,
-            purpose: 'login',
-          });
-        } else if (functions && isEmail) {
-          const sendOTPEmail = httpsCallable(functions, 'sendOTPEmail');
-          await sendOTPEmail({
-            email: normalizedIdentifier,
-            otp,
-            purpose: 'login',
-          });
-        }
-      } catch (sendError: any) {
-        debugWarn('OTP Send Error]', sendError);
-        // Don't fail if sending fails - OTP is still stored and can be used
-      }
+      const profile = mapApiUserToProfile(result.user);
+      persistApiSession(result.accessToken, profile);
 
       return {
         success: true,
-        sessionId,
+        accessToken: result.accessToken,
+        profile,
       };
-    } catch (error: any) {
-      debugError('OTP Login Request Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
-    }
-  },
-
-  /**
-   * OTP orqali kirish uchun OTP ni tasdiqlash
-   */
-  async verifyOTPForLogin(sessionId: string, otp: string): Promise<AuthResult & { uid?: string }> {
-    try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists()) {
-        return {
-          success: false,
-          error: 'OTP sessiyasi topilmadi. Qayta urinib ko\'ring.',
-        };
-      }
-
-      const otpData = otpSnap.data();
-
-      // Check purpose
-      if (otpData.purpose !== 'login') {
-        return {
-          success: false,
-          error: 'Noto\'g\'ri OTP turi.',
-        };
-      }
-
-      // Check expiry
-      if (Date.now() > otpData.expiryTime) {
-        return {
-          success: false,
-          error: 'OTP kodi eskirib qolgan. Yangi kod so\'rang.',
-        };
-      }
-
-      // Check attempts
-      if (otpData.attempts >= 5) {
-        return {
-          success: false,
-          error: 'Juda ko\'p xato urinish. Qayta o\'rnatish uchun yangi kod so\'rang.',
-        };
-      }
-
-      // Verify OTP
-      if (otp !== otpData.otp) {
-        // Increment attempts
-        await setDoc(otpRef, { attempts: otpData.attempts + 1 }, { merge: true });
-        return {
-          success: false,
-          error: 'OTP kodi noto\'g\'ri.',
-        };
-      }
-
-      // OTP verified
-      await setDoc(otpRef, { verified: true }, { merge: true });
-
-      return {
-        success: true,
-        needsRoleSelection: false,
-        uid: otpData.uid,
-      };
-    } catch (error: any) {
-      debugError('OTP Login Verify Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
-    }
-  },
-
-  /**
-   * OTP verified sessiyadan foydalanuvchi kiritish
-   */
-  async completeLoginWithOTP(sessionId: string): Promise<AuthResult> {
-    try {
-      const otpRef = doc(db, 'otp_sessions', sessionId);
-      const otpSnap = await getDoc(otpRef);
-
-      if (!otpSnap.exists() || !otpSnap.data().verified) {
-        return {
-          success: false,
-          error: 'OTP tasdiqlash muvaffaqiyatsiz. Qayta urinib ko\'ring.',
-        };
-      }
-
-      // Call Cloud Function to get custom token
-      try {
-        if (functions) {
-          const createOTPLoginToken = httpsCallable(functions, 'createOTPLoginToken');
-          const result = await createOTPLoginToken({sessionId});
-          const customToken = result.data.customToken;
-
-          // Sign in with custom token
-          await signInWithCustomToken(auth, customToken);
-
-          return { success: true, needsRoleSelection: false };
-        } else {
-          // Fallback for development without functions
-          const otpData = otpSnap.data();
-          const uid = otpData.uid;
-
-          // Get user profile
-          const profileRef = doc(db, 'profiles', uid);
-          const profileSnap = await getDoc(profileRef);
-
-          if (!profileSnap.exists()) {
-            return {
-              success: false,
-              error: 'Foydalanuvchi profili topilmadi.',
-            };
-          }
-
-          // Update last active
-          await setDoc(profileRef, { 
-            updatedAt: serverTimestamp(), 
-            lastActive: serverTimestamp() 
-          }, { merge: true });
-
-          // Mark OTP session as completed
-          await setDoc(otpRef, { completed: true, completedAt: serverTimestamp() }, { merge: true });
-
-          // Store OTP login session for demo mode
-          localStorage.setItem('qulay_ish_otp_login_uid', uid);
-          localStorage.setItem('qulay_ish_otp_login_profile', JSON.stringify(profileSnap.data()));
-
-          return { success: true, needsRoleSelection: false };
-        }
-      } catch (tokenError: any) {
-        debugWarn('OTP Token Error]', tokenError);
-        
-        // Fallback: Use local session storage
-        const otpData = otpSnap.data();
-        const uid = otpData.uid;
-
-        // Get user profile
-        const profileRef = doc(db, 'profiles', uid);
-        const profileSnap = await getDoc(profileRef);
-
-        if (!profileSnap.exists()) {
-          return {
-            success: false,
-            error: 'Foydalanuvchi profili topilmadi.',
-          };
-        }
-
-        // Update last active
-        await setDoc(profileRef, { 
-          updatedAt: serverTimestamp(), 
-          lastActive: serverTimestamp() 
-        }, { merge: true });
-
-        // Mark OTP session as completed
-        await setDoc(otpRef, { completed: true, completedAt: serverTimestamp() }, { merge: true });
-
-        // Store OTP login session
-        localStorage.setItem('qulay_ish_otp_login_uid', uid);
-        localStorage.setItem('qulay_ish_otp_login_profile', JSON.stringify(profileSnap.data()));
-
-        return { success: true, needsRoleSelection: false };
-      }
-    } catch (error: any) {
-      debugError('OTP Login Completion Error]', error);
-      return {
-        success: false,
-        error: mapFirebaseError(error),
-      };
+    } catch (error) {
+      debugError('Verify OTP Error]', error);
+      return { success: false, error: formatApiError(error) };
     }
   },
 };
