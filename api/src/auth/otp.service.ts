@@ -111,6 +111,7 @@ export class OtpService {
     throw new BadRequestException({
       message: mapped.message,
       errorCode: 'TELEGRAM_UNAVAILABLE',
+      telegramCode: err.code,
       fallbackAvailable: mapped.fallbackAvailable,
     });
   }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 export class TelegramGatewayError extends Error {
   constructor(
@@ -27,7 +27,7 @@ export type TelegramRequestStatus = {
 };
 
 @Injectable()
-export class TelegramGatewayService {
+export class TelegramGatewayService implements OnModuleInit {
   private readonly logger = new Logger(TelegramGatewayService.name);
   private readonly baseUrl: string;
   private readonly token: string;
@@ -37,7 +37,28 @@ export class TelegramGatewayService {
       /\/$/,
       '',
     );
-    this.token = process.env.TELEGRAM_GATEWAY_TOKEN || '';
+    this.token = this.normalizeToken(process.env.TELEGRAM_GATEWAY_TOKEN);
+  }
+
+  onModuleInit() {
+    if (!this.token) {
+      this.logger.warn(
+        'TELEGRAM_GATEWAY_TOKEN topilmadi — api/.env faylini tekshiring va serverni qayta ishga tushiring',
+      );
+      return;
+    }
+    this.logger.log(`Telegram Gateway token yuklandi (${this.maskToken(this.token)})`);
+  }
+
+  private normalizeToken(raw: string | undefined): string {
+    if (!raw) return '';
+    const trimmed = raw.trim();
+    return trimmed.replace(/^['"]|['"]$/g, '');
+  }
+
+  private maskToken(token: string): string {
+    if (token.length <= 12) return '***';
+    return `${token.slice(0, 8)}...${token.slice(-4)}`;
   }
 
   isConfigured(): boolean {
@@ -73,7 +94,9 @@ export class TelegramGatewayService {
     }
 
     if (!data.ok) {
-      throw new TelegramGatewayError(data.error || 'UNKNOWN_ERROR', data.error, data);
+      const code = data.error || 'UNKNOWN_ERROR';
+      this.logger.warn(`Telegram Gateway ${method} failed: ${code}`);
+      throw new TelegramGatewayError(code, code, data);
     }
 
     if (!data.result) {
@@ -119,6 +142,20 @@ export class TelegramGatewayService {
     if (upper.includes('FLOOD') || upper.includes('LIMIT') || upper.includes('TOO_MANY')) {
       return {
         message: 'Limit tugadi. Birozdan keyin qayta urinib ko\'ring',
+        fallbackAvailable: false,
+      };
+    }
+
+    if (upper === 'TOKEN_MISSING' || upper === 'ACCESS_TOKEN_REQUIRED') {
+      return {
+        message: 'Telegram tasdiqlash xizmati sozlanmagan (server token yo\'q)',
+        fallbackAvailable: false,
+      };
+    }
+
+    if (upper === 'ACCESS_TOKEN_INVALID') {
+      return {
+        message: 'Telegram tasdiqlash xizmati sozlanmagan (token noto\'g\'ri)',
         fallbackAvailable: false,
       };
     }
