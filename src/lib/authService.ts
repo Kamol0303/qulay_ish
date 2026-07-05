@@ -1,24 +1,50 @@
 import { api } from './api';
 import type { Profile } from '../types';
+import { ApiError } from './api/client';
 
 export interface AuthResult {
   success: boolean;
   error?: string;
+  errorCode?: string;
+  fallbackAvailable?: boolean;
   needsRoleSelection?: boolean;
   sessionId?: string;
   uid?: string;
   user?: Profile;
+  message?: string;
 }
 
-function mapApiError(error: unknown): string {
-  if (error && typeof error === 'object' && 'body' in error) {
-    const body = (error as { body?: { message?: string | string[] } }).body;
-    const msg = body?.message;
-    if (Array.isArray(msg)) return msg.join(', ');
-    if (typeof msg === 'string') return msg;
+function extractApiError(error: unknown): {
+  message: string;
+  errorCode?: string;
+  fallbackAvailable?: boolean;
+} {
+  if (error instanceof ApiError && error.body && typeof error.body === 'object') {
+    const body = error.body as {
+      message?: string | { message?: string; errorCode?: string; fallbackAvailable?: boolean };
+      errorCode?: string;
+      fallbackAvailable?: boolean;
+    };
+
+    if (body.message && typeof body.message === 'object') {
+      return {
+        message: body.message.message || 'Xatolik yuz berdi',
+        errorCode: body.message.errorCode,
+        fallbackAvailable: body.message.fallbackAvailable,
+      };
+    }
+
+    if (typeof body.message === 'string') {
+      return {
+        message: body.message,
+        errorCode: body.errorCode,
+        fallbackAvailable: body.fallbackAvailable,
+      };
+    }
   }
-  if (error instanceof Error) return error.message;
-  return "Noma'lum xatolik";
+
+  if (error instanceof Error) return { message: error.message };
+  return { message: "Noma'lum xatolik" };
 }
 
 export const authService = {
@@ -26,12 +52,29 @@ export const authService = {
     phoneOrEmail: string;
     fullName: string;
     role: 'worker' | 'employer';
-  }): Promise<AuthResult & { sessionId?: string }> {
+    channel?: 'telegram' | 'email';
+  }): Promise<AuthResult> {
     try {
-      const res = await api.auth.requestOtp(data.phoneOrEmail, 'register', data.fullName, data.role);
-      return { success: true, sessionId: res.sessionId };
+      const res = await api.auth.requestOtp(
+        data.phoneOrEmail,
+        'register',
+        data.fullName,
+        data.role,
+        data.channel,
+      );
+      return {
+        success: true,
+        sessionId: res.sessionId,
+        message: res.message || 'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring',
+      };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return {
+        success: false,
+        error: err.message,
+        errorCode: err.errorCode,
+        fallbackAvailable: err.fallbackAvailable,
+      };
     }
   },
 
@@ -40,7 +83,8 @@ export const authService = {
       await api.auth.verifyOtp(sessionId, otp);
       return { success: true };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return { success: false, error: err.message, errorCode: err.errorCode, fallbackAvailable: err.fallbackAvailable };
     }
   },
 
@@ -52,25 +96,40 @@ export const authService = {
       const res = await api.auth.completeRegistration(sessionId, additionalData);
       return { success: true, user: res.user, uid: res.user.uid };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return { success: false, error: err.message };
     }
   },
 
-  async requestOTPForLogin(phoneOrEmail: string): Promise<AuthResult & { sessionId?: string }> {
+  async requestOTPForLogin(
+    phoneOrEmail: string,
+    channel?: 'telegram' | 'email',
+  ): Promise<AuthResult> {
     try {
-      const res = await api.auth.requestOtp(phoneOrEmail, 'login');
-      return { success: true, sessionId: res.sessionId };
+      const res = await api.auth.requestOtp(phoneOrEmail, 'login', undefined, undefined, channel);
+      return {
+        success: true,
+        sessionId: res.sessionId,
+        message: res.message || 'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring',
+      };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return {
+        success: false,
+        error: err.message,
+        errorCode: err.errorCode,
+        fallbackAvailable: err.fallbackAvailable,
+      };
     }
   },
 
-  async verifyOTPForLogin(sessionId: string, otp: string): Promise<AuthResult & { uid?: string }> {
+  async verifyOTPForLogin(sessionId: string, otp: string): Promise<AuthResult> {
     try {
       await api.auth.verifyOtp(sessionId, otp);
       return { success: true };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return { success: false, error: err.message, errorCode: err.errorCode, fallbackAvailable: err.fallbackAvailable };
     }
   },
 
@@ -79,7 +138,8 @@ export const authService = {
       const res = await api.auth.completeLogin(sessionId);
       return { success: true, user: res.user, uid: res.user.uid };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return { success: false, error: err.message };
     }
   },
 
@@ -93,7 +153,8 @@ export const authService = {
       await api.users.update(profile.uid, { role, ...(fullName ? { fullName } : {}) });
       return { success: true };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return { success: false, error: err.message };
     }
   },
 
@@ -102,7 +163,8 @@ export const authService = {
       await api.auth.superAdminLogin(email, password);
       return { success: true };
     } catch (e) {
-      return { success: false, error: mapApiError(e) };
+      const err = extractApiError(e);
+      return { success: false, error: err.message };
     }
   },
 };

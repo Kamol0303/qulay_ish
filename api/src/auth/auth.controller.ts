@@ -31,6 +31,7 @@ export class AuthController {
       purpose: 'login' | 'register';
       fullName?: string;
       role?: UserRole;
+      channel?: 'telegram' | 'email';
     },
   ) {
     return this.otp.requestOtp(body);

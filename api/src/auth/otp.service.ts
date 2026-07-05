@@ -1,10 +1,26 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
+import { TelegramGatewayService, TelegramGatewayError } from './telegram-gateway.service';
+import {
+  OTP_TTL_MS,
+  OTP_MAX_ATTEMPTS,
+  OTP_LOCK_MS,
+  OTP_RATE_LIMIT_MS,
+  UZ_PHONE_E164,
+} from './otp.constants';
+
+type OtpChannel = 'telegram' | 'email';
 
 @Injectable()
 export class OtpService {
@@ -12,13 +28,26 @@ export class OtpService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly auth: AuthService,
+    private readonly telegram: TelegramGatewayService,
   ) {}
 
   private normalizePhone(input: string): string {
     const digits = input.replace(/\D/g, '');
-    if (digits.startsWith('998')) return `+${digits}`;
+    if (digits.startsWith('998') && digits.length === 12) return `+${digits}`;
     if (digits.length === 9) return `+998${digits}`;
-    return input.trim();
+    const trimmed = input.trim();
+    if (trimmed.startsWith('+')) return trimmed;
+    return trimmed;
+  }
+
+  private validateE164Phone(phone: string): void {
+    if (!UZ_PHONE_E164.test(phone)) {
+      throw new BadRequestException({
+        message: 'Telefon raqami +998XXXXXXXXX formatida bo\'lishi kerak',
+        errorCode: 'INVALID_PHONE_FORMAT',
+        fallbackAvailable: false,
+      });
+    }
   }
 
   private async hashCode(code: string) {
@@ -29,66 +58,151 @@ export class OtpService {
     return bcrypt.compare(code, hash);
   }
 
+  private async assertPhoneNotLocked(phone: string) {
+    const lock = await this.prisma.otpPhoneLock.findUnique({ where: { phone } });
+    if (lock && lock.lockedUntil > new Date()) {
+      const minutes = Math.ceil((lock.lockedUntil.getTime() - Date.now()) / 60_000);
+      throw new HttpException(
+        {
+          message: `Juda ko'p noto'g'ri urinish. ${minutes} daqiqadan keyin qayta urinib ko'ring`,
+          errorCode: 'OTP_LOCKED',
+          fallbackAvailable: true,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private async assertRateLimit(phone: string) {
+    const recent = await this.prisma.otpSession.findFirst({
+      where: {
+        phone,
+        createdAt: { gte: new Date(Date.now() - OTP_RATE_LIMIT_MS) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recent) {
+      throw new HttpException(
+        {
+          message: 'Bir daqiqada faqat bitta OTP so\'rov yuborish mumkin',
+          errorCode: 'RATE_LIMIT',
+          fallbackAvailable: false,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private async lockPhone(phone: string) {
+    const lockedUntil = new Date(Date.now() + OTP_LOCK_MS);
+    await this.prisma.otpPhoneLock.upsert({
+      where: { phone },
+      create: { phone, lockedUntil },
+      update: { lockedUntil },
+    });
+  }
+
+  private generateCode(): string {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  }
+
+  private throwTelegramError(err: TelegramGatewayError): never {
+    const mapped = this.telegram.mapErrorToUserMessage(err.code);
+    throw new BadRequestException({
+      message: mapped.message,
+      errorCode: 'TELEGRAM_UNAVAILABLE',
+      fallbackAvailable: mapped.fallbackAvailable,
+    });
+  }
+
   async requestOtp(params: {
     phoneOrEmail: string;
     purpose: 'login' | 'register';
     fullName?: string;
     role?: UserRole;
+    channel?: OtpChannel;
   }) {
     const raw = params.phoneOrEmail.trim();
-    const isEmail = raw.includes('@');
-    const phone = isEmail ? null : this.normalizePhone(raw);
-    const email = isEmail ? raw.toLowerCase() : null;
+    const requestedChannel: OtpChannel = params.channel === 'email' ? 'email' : 'telegram';
+    const isEmailInput = raw.includes('@');
+
+    if (requestedChannel === 'telegram' && isEmailInput) {
+      throw new BadRequestException({
+        message: 'Telegram OTP uchun telefon raqamini kiriting (+998...)',
+        errorCode: 'PHONE_REQUIRED',
+        fallbackAvailable: false,
+      });
+    }
+
+    if (isEmailInput || requestedChannel === 'email') {
+      throw new BadRequestException({
+        message:
+          'Email orqali tasdiqlash hozircha mavjud emas. Telegram bilan bog\'langan telefon raqamidan foydalaning.',
+        errorCode: 'EMAIL_NOT_AVAILABLE',
+        fallbackAvailable: false,
+      });
+    }
+
+    const phone = this.normalizePhone(raw);
+    this.validateE164Phone(phone);
+
+    await this.assertPhoneNotLocked(phone);
+    await this.assertRateLimit(phone);
 
     if (params.purpose === 'register') {
-      const existing = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            ...(phone ? [{ phoneNumber: phone }] : []),
-            ...(email ? [{ email }] : []),
-          ],
-        },
-      });
+      const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
       if (existing) {
-        throw new BadRequestException('Bu telefon yoki email allaqachon ro\'yxatdan o\'tgan');
+        throw new BadRequestException('Bu telefon raqami allaqachon ro\'yxatdan o\'tgan');
       }
     } else {
-      const existing = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            ...(phone ? [{ phoneNumber: phone }] : []),
-            ...(email ? [{ email }] : []),
-          ],
-        },
-      });
+      const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
       if (!existing) {
         throw new BadRequestException('Foydalanuvchi topilmadi. Avval ro\'yxatdan o\'ting');
       }
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = this.generateCode();
     const sessionId = `otp_${randomUUID()}`;
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+
+    let telegramRequestId: string | null = null;
+    try {
+      const result = await this.telegram.sendVerificationMessage({
+        phoneNumber: phone,
+        code,
+        ttlSeconds: OTP_TTL_MS / 1000,
+      });
+      telegramRequestId = result.request_id;
+    } catch (err) {
+      if (err instanceof TelegramGatewayError) {
+        this.throwTelegramError(err);
+      }
+      throw new BadRequestException({
+        message: 'Telegram orqali OTP yuborib bo\'lmadi',
+        errorCode: 'TELEGRAM_UNAVAILABLE',
+        fallbackAvailable: true,
+      });
+    }
 
     await this.prisma.otpSession.create({
       data: {
         id: sessionId,
         phone,
-        email,
         codeHash: await this.hashCode(code),
         purpose: params.purpose,
         fullName: params.fullName,
         role: params.role,
+        channel: 'telegram',
+        telegramRequestId,
         expiresAt,
       },
     });
 
-    // Dev: log OTP (Eskiz integration later)
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[OTP ${params.purpose}] ${phone || email}: ${code}`);
-    }
-
-    return { sessionId, ...(process.env.OTP_DEV_RETURN === 'true' ? { devCode: code } : {}) };
+    return {
+      sessionId,
+      channel: 'telegram' as const,
+      message: 'OTP kodi Telegram orqali yuborildi',
+    };
   }
 
   async verifyOtp(sessionId: string, otp: string) {
@@ -96,15 +210,49 @@ export class OtpService {
     if (!session) throw new BadRequestException('OTP sessiyasi topilmadi');
     if (session.completed) throw new BadRequestException('Sessiya allaqachon ishlatilgan');
     if (session.expiresAt < new Date()) throw new BadRequestException('OTP kodi eskirgan');
-    if (session.attempts >= 5) throw new BadRequestException('Juda ko\'p xato urinish');
+    if (session.attempts >= OTP_MAX_ATTEMPTS) {
+      if (session.phone) await this.lockPhone(session.phone);
+      throw new HttpException(
+        {
+          message: 'Juda ko\'p noto\'g\'ri urinish. 15 daqiqadan keyin qayta urinib ko\'ring',
+          errorCode: 'OTP_LOCKED',
+          fallbackAvailable: true,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (session.phone) {
+      await this.assertPhoneNotLocked(session.phone);
+    }
 
     const ok = await this.checkCode(otp, session.codeHash);
     if (!ok) {
+      const attempts = session.attempts + 1;
       await this.prisma.otpSession.update({
         where: { id: sessionId },
-        data: { attempts: session.attempts + 1 },
+        data: { attempts },
       });
+      if (attempts >= OTP_MAX_ATTEMPTS && session.phone) {
+        await this.lockPhone(session.phone);
+        throw new HttpException(
+          {
+            message: 'Juda ko\'p noto\'g\'ri urinish. 15 daqiqadan keyin qayta urinib ko\'ring',
+            errorCode: 'OTP_LOCKED',
+            fallbackAvailable: true,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
       throw new BadRequestException('OTP kodi noto\'g\'ri');
+    }
+
+    if (session.channel === 'telegram' && session.telegramRequestId) {
+      try {
+        await this.telegram.checkVerificationStatus(session.telegramRequestId, otp);
+      } catch {
+        // Telegram status tekshiruvi muvaffaqiyatsiz bo'lsa ham lokal tasdiqlash yetarli
+      }
     }
 
     await this.prisma.otpSession.update({
@@ -138,6 +286,7 @@ export class OtpService {
         region: 'Samarqand viloyati',
         isVerified: true,
         verificationStatus: 'verified',
+        telegramVerified: session.channel === 'telegram' && Boolean(session.phone),
       },
     });
 
@@ -164,6 +313,13 @@ export class OtpService {
       },
     });
     if (!user) throw new UnauthorizedException('Foydalanuvchi topilmadi');
+
+    if (session.channel === 'telegram' && session.phone) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { telegramVerified: true },
+      });
+    }
 
     await this.prisma.otpSession.update({
       where: { id: sessionId },

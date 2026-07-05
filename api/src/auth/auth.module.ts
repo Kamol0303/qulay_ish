@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { OtpService } from './otp.service';
+import { TelegramGatewayService } from './telegram-gateway.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { OtpService } from './otp.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpService, JwtStrategy],
+  providers: [AuthService, OtpService, TelegramGatewayService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

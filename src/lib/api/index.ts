@@ -90,10 +90,20 @@ export const api = {
     logout() {
       clearAccessToken();
     },
-    async requestOtp(phoneOrEmail: string, purpose: 'login' | 'register', fullName?: string, role?: Profile['role']) {
-      return apiRequest<{ sessionId: string }>('/auth/otp/request', {
+    async requestOtp(
+      phoneOrEmail: string,
+      purpose: 'login' | 'register',
+      fullName?: string,
+      role?: Profile['role'],
+      channel?: 'telegram' | 'email',
+    ) {
+      return apiRequest<{
+        sessionId: string;
+        channel: 'telegram' | 'email';
+        message?: string;
+      }>('/auth/otp/request', {
         method: 'POST',
-        body: JSON.stringify({ phoneOrEmail, purpose, fullName, role }),
+        body: JSON.stringify({ phoneOrEmail, purpose, fullName, role, channel }),
       }, false);
     },
     async verifyOtp(sessionId: string, otp: string) {

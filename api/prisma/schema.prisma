@@ -113,6 +113,7 @@ model User {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
   lastActive         DateTime?          @map("last_active")
+  telegramVerified   Boolean            @default(false) @map("telegram_verified")
 
   jobsAsEmployer           Job[]                 @relation("EmployerJobs")
   applicationsAsWorker     Application[]         @relation("WorkerApplications")
@@ -439,25 +440,36 @@ model SystemStats {
 }
 
 model OtpSession {
-  id           String   @id
-  phone        String?
-  email        String?
-  codeHash     String   @map("code_hash")
-  uid          String?  @map("user_id")
-  purpose      String?  // login | register
-  fullName     String?  @map("full_name")
-  role         UserRole?
-  verified     Boolean  @default(false)
-  completed    Boolean  @default(false)
-  attempts     Int      @default(0)
-  metadata     Json?
-  expiresAt    DateTime @map("expires_at")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id                 String    @id
+  phone              String?
+  email              String?
+  codeHash           String    @map("code_hash")
+  uid                String?   @map("user_id")
+  purpose            String?   // login | register
+  fullName           String?   @map("full_name")
+  role               UserRole?
+  verified           Boolean   @default(false)
+  completed          Boolean   @default(false)
+  attempts           Int       @default(0)
+  channel            String    @default("telegram") // telegram | email
+  telegramRequestId  String?   @map("telegram_request_id")
+  metadata           Json?
+  expiresAt          DateTime  @map("expires_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
 
   user User? @relation(fields: [uid], references: [id], onDelete: SetNull)
 
   @@index([expiresAt])
+  @@index([phone, createdAt])
   @@map("otp_sessions")
+}
+
+model OtpPhoneLock {
+  phone       String   @id
+  lockedUntil DateTime @map("locked_until")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("otp_phone_locks")
 }
 
 model RefreshToken {

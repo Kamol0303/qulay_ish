@@ -30,3 +30,18 @@ npm run dev
 ```bash
 curl http://localhost:4000/api/stats/counts
 ```
+
+## OTP (Telegram Gateway)
+
+Ro'yxatdan o'tish OTP kodlari Telegram orqali yuboriladi. `api/.env`:
+
+```env
+TELEGRAM_GATEWAY_TOKEN=...
+TELEGRAM_GATEWAY_BASE_URL=https://gatewayapi.telegram.org
+```
+
+Migratsiya:
+
+```bash
+cd api && npx prisma migrate deploy
+```

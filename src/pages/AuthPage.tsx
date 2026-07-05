@@ -35,6 +35,7 @@ type AuthState = {
   error: string;
   success: string;
   sessionId: string;
+  useEmailFallback: boolean;
 };
 
 const initialState: AuthState = {
@@ -48,6 +49,7 @@ const initialState: AuthState = {
   error: '',
   success: '',
   sessionId: '',
+  useEmailFallback: false,
 };
 
 export default function AuthPage() {
@@ -102,13 +104,33 @@ export default function AuthPage() {
 
       const phoneOrEmail = state.phoneOrEmail.trim();
       if (!phoneOrEmail) {
-        setPartialState({ error: 'Iltimos, telefon raqam yoki emailni kiriting.' });
+        setPartialState({
+          error: state.useEmailFallback
+            ? 'Iltimos, email manzilini kiriting.'
+            : 'Iltimos, Telegram bilan bog\'langan telefon raqamini kiriting.',
+        });
         return;
+      }
+
+      if (!state.useEmailFallback) {
+        const phoneValidation = validatePhoneNumber(phoneOrEmail);
+        if (!phoneValidation.isValid) {
+          setPartialState({ error: phoneValidation.error || 'Telefon raqami noto\'g\'ri' });
+          return;
+        }
+      } else {
+        const emailValidation = validateEmail(phoneOrEmail);
+        if (!emailValidation.isValid) {
+          setPartialState({ error: emailValidation.error || 'Email noto\'g\'ri' });
+          return;
+        }
       }
 
       setPartialState({ loading: true });
 
       try {
+        const channel = state.useEmailFallback ? ('email' as const) : ('telegram' as const);
+
         if (mode === 'register') {
           const fullNameValidation = validateFullName(state.fullName);
           if (!fullNameValidation.isValid) {
@@ -120,32 +142,44 @@ export default function AuthPage() {
             phoneOrEmail,
             fullName: state.fullName.trim(),
             role: state.selectedRole,
+            channel,
           });
 
           if (!result.success) {
-            setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+            setPartialState({
+              loading: false,
+              error: result.error || t('auth.unexpected_error'),
+            });
             return;
           }
 
           setPartialState({
             loading: false,
-            success: 'OTP kodi sizning telefon/emailga yuborildi.',
+            success:
+              result.message ||
+              'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring.',
             sessionId: result.sessionId || '',
+            useEmailFallback: false,
           });
           setStep('otp');
         } else {
-          // Login mode
-          const result = await authService.requestOTPForLogin(phoneOrEmail);
+          const result = await authService.requestOTPForLogin(phoneOrEmail, channel);
 
           if (!result.success) {
-            setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+            setPartialState({
+              loading: false,
+              error: result.error || t('auth.unexpected_error'),
+            });
             return;
           }
 
           setPartialState({
             loading: false,
-            success: 'OTP kodi sizning telefon/emailga yuborildi.',
+            success:
+              result.message ||
+              'OTP kodi Telegram orqali yuborildi, Telegram ilovangizni tekshiring.',
             sessionId: result.sessionId || '',
+            useEmailFallback: false,
           });
           setStep('otp');
         }
@@ -154,7 +188,7 @@ export default function AuthPage() {
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.phoneOrEmail, state.fullName, state.selectedRole, mode, clearMessages, setPartialState, t]
+    [state.phoneOrEmail, state.fullName, state.selectedRole, state.useEmailFallback, mode, clearMessages, setPartialState, t],
   );
 
   // Step 2: Verify OTP
@@ -285,8 +319,8 @@ export default function AuthPage() {
                 {mode === 'login' ? 'Kirish' : 'Roʻyxatdan oʻtish'}
               </h1>
               <p className="text-gray-600">
-                {step === 'phoneEmail' && (mode === 'login' ? 'Tizimga kirishning eng oson usuli' : 'OTP orqali roʻyxatdan oʻtish')}
-                {step === 'otp' && 'OTP kodini kiriting'}
+                {step === 'phoneEmail' && (mode === 'login' ? 'Telegram orqali kirish' : 'Telegram orqali roʻyxatdan oʻtish')}
+                {step === 'otp' && 'Telegramdan kelgan OTP kodini kiriting'}
                 {step === 'registerDetails' && 'Qo\'shimcha maʼlumotni kiriting'}
               </p>
             </div>
@@ -313,7 +347,7 @@ export default function AuthPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefon raqami yoki Email
+                    {state.useEmailFallback ? 'Email manzili' : 'Telefon raqami (Telegram)'}
                   </label>
                   <input
                     type="text"
@@ -322,10 +356,15 @@ export default function AuthPage() {
                       clearMessages();
                       setPartialState({ phoneOrEmail: e.target.value });
                     }}
-                    placeholder="+998 90 123 45 67 yoki example@email.com"
+                    placeholder={state.useEmailFallback ? 'example@email.com' : '+998 90 123 45 67'}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
                     disabled={state.loading}
                   />
+                  {!state.useEmailFallback && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Raqam Telegram hisobingizga bog\'langan bo\'lishi kerak (+998...)
+                    </p>
+                  )}
                 </div>
 
                 {mode === 'register' && (
@@ -368,9 +407,39 @@ export default function AuthPage() {
                       <Loader size={18} className="animate-spin" /> Yuborilmoqda...
                     </span>
                   ) : (
-                    'OTP kodi oʻqish'
+                    'Telegram orqali OTP olish'
                   )}
                 </button>
+
+                {state.error && state.error.includes('Telegram') && !state.useEmailFallback && (
+                  <div className="space-y-3 pt-2 border-t border-gray-100">
+                    <p className="text-sm text-gray-600">
+                      Bu raqam Telegram orqali tasdiqlanmasa, boshqa usulni sinab ko\'ring:
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearMessages();
+                          setPartialState({ phoneOrEmail: '', useEmailFallback: false });
+                        }}
+                        className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-800 font-medium hover:bg-gray-50"
+                      >
+                        Boshqa telefon raqam bilan urinish
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearMessages();
+                          setPartialState({ phoneOrEmail: '', useEmailFallback: true });
+                        }}
+                        className="w-full py-2.5 rounded-xl border border-blue-200 text-blue-700 font-medium hover:bg-blue-50"
+                      >
+                        Email orqali davom etish
+                      </button>
+                    </div>
+                  </div>
+                )}
               </form>
             )}
 
@@ -395,7 +464,7 @@ export default function AuthPage() {
                     maxLength={6}
                   />
                   <p className="text-xs text-gray-500 mt-2">
-                    {state.phoneOrEmail} ga yuborilgan kod
+                    Telegram orqali {state.phoneOrEmail} raqamiga yuborilgan 6 xonali kod
                   </p>
                 </div>
 
