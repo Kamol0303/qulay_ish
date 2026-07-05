@@ -165,7 +165,11 @@ export class OtpService {
         data: { completed: true },
       });
       throw new HttpException(
-        'Urinishlar soni tugadi, yangi OTP so\'rang',
+        {
+          message: 'Urinishlar soni tugadi, yangi OTP so\'rang',
+          remainingAttempts: 0,
+          maxAttempts: OTP_MAX_ATTEMPTS,
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -180,11 +184,19 @@ export class OtpService {
       });
       if (exhausted) {
         throw new HttpException(
-          'Urinishlar soni tugadi, yangi OTP so\'rang',
+          {
+            message: 'Urinishlar soni tugadi, yangi OTP so\'rang',
+            remainingAttempts: 0,
+            maxAttempts: OTP_MAX_ATTEMPTS,
+          },
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
-      throw new UnauthorizedException('OTP kodi noto\'g\'ri');
+      throw new UnauthorizedException({
+        message: 'OTP kodi noto\'g\'ri',
+        remainingAttempts: OTP_MAX_ATTEMPTS - attempts,
+        maxAttempts: OTP_MAX_ATTEMPTS,
+      });
     }
 
     await this.prisma.otpSession.update({

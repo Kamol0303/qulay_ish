@@ -21,6 +21,8 @@ type DevSmsResponse = {
     sms_id: number;
     request_id: string;
     status: string;
+    total_cost?: number;
+    balance?: number;
   };
 };
 
@@ -31,6 +33,7 @@ export class DevSmsService implements OnModuleInit {
   private readonly token: string;
   private readonly from: string | undefined;
   private readonly devMode: boolean;
+  private readonly balanceWarnThreshold: number;
 
   constructor() {
     this.baseUrl = (process.env.DEVSMS_BASE_URL || 'https://devsms.uz/api').replace(/\/$/, '');
@@ -39,6 +42,7 @@ export class DevSmsService implements OnModuleInit {
     this.devMode =
       process.env.DEVSMS_DEV_MODE === 'true' ||
       (!this.token && process.env.NODE_ENV !== 'production');
+    this.balanceWarnThreshold = Number(process.env.DEVSMS_BALANCE_WARN_THRESHOLD || 10000);
   }
 
   onModuleInit() {
@@ -118,6 +122,9 @@ export class DevSmsService implements OnModuleInit {
     this.logger.log(
       `DevSMS yuborildi: sms_id=${result.smsId}, request_id=${result.requestId}, status=${result.status ?? 'unknown'}`,
     );
+    if (typeof data.data.balance === 'number' && data.data.balance < this.balanceWarnThreshold) {
+      this.logger.warn(`DevSMS balance past: ${data.data.balance}`);
+    }
     return result;
   }
 

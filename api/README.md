@@ -32,3 +32,10 @@ npm run start:dev
 ```
 
 Production uchun haqiqiy `DEVSMS_TOKEN` qo'ying.
+
+## OTP urinish qoidalari (frontend uchun)
+
+- **5 marta** noto'g'ri kod → `429` + `remainingAttempts: 0`, yangi OTP so'rash kerak
+- Har noto'g'ri urinishda `401` + `remainingAttempts` (qolgan urinishlar soni)
+- **15 daqiqa lock yo'q** — faqat sessiya tugaydi
+- Yangi OTP: 1 daqikada 1 marta (`send-otp`)
