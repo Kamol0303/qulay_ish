@@ -2,28 +2,32 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  NotFoundException,
+  GoneException,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { DevSmsService, DevSmsError } from './devsms.service';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 import {
   OTP_TTL_MS,
   OTP_MAX_ATTEMPTS,
-  OTP_LOCK_MS,
   OTP_RATE_LIMIT_MS,
   UZ_PHONE_E164,
 } from './otp.constants';
 
-type OtpChannel = 'sms' | 'email';
-
 @Injectable()
 export class OtpService {
+  private readonly logger = new Logger(OtpService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -42,11 +46,7 @@ export class OtpService {
 
   private validateE164Phone(phone: string): void {
     if (!UZ_PHONE_E164.test(phone)) {
-      throw new BadRequestException({
-        message: 'Telefon raqami +998XXXXXXXXX formatida bo\'lishi kerak',
-        errorCode: 'INVALID_PHONE_FORMAT',
-        fallbackAvailable: false,
-      });
+      throw new BadRequestException('Telefon raqami +998XXXXXXXXX formatida bo\'lishi kerak');
     }
   }
 
@@ -56,21 +56,6 @@ export class OtpService {
 
   private async checkCode(code: string, hash: string) {
     return bcrypt.compare(code, hash);
-  }
-
-  private async assertPhoneNotLocked(phone: string) {
-    const lock = await this.prisma.otpPhoneLock.findUnique({ where: { phone } });
-    if (lock && lock.lockedUntil > new Date()) {
-      const minutes = Math.ceil((lock.lockedUntil.getTime() - Date.now()) / 60_000);
-      throw new HttpException(
-        {
-          message: `Juda ko'p noto'g'ri urinish. ${minutes} daqiqadan keyin qayta urinib ko'ring`,
-          errorCode: 'OTP_LOCKED',
-          fallbackAvailable: true,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
   }
 
   private async assertRateLimit(phone: string) {
@@ -83,234 +68,209 @@ export class OtpService {
     });
     if (recent) {
       throw new HttpException(
-        {
-          message: 'Bir daqiqada faqat bitta OTP so\'rov yuborish mumkin',
-          errorCode: 'RATE_LIMIT',
-          fallbackAvailable: false,
-        },
+        'Bir daqiqada faqat bitta OTP so\'rov yuborish mumkin',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
   }
 
-  private async lockPhone(phone: string) {
-    const lockedUntil = new Date(Date.now() + OTP_LOCK_MS);
-    await this.prisma.otpPhoneLock.upsert({
-      where: { phone },
-      create: { phone, lockedUntil },
-      update: { lockedUntil },
-    });
-  }
-
   private generateCode(): string {
-    return String(Math.floor(100000 + Math.random() * 900000));
+    return String(randomInt(100000, 1000000));
   }
 
-  private throwSmsError(err: DevSmsError): never {
-    const mapped = this.devSms.mapErrorToUserMessage(err.code);
-    throw new BadRequestException({
-      message: mapped.message,
-      errorCode: 'SMS_UNAVAILABLE',
-      smsCode: err.code,
-      fallbackAvailable: mapped.fallbackAvailable,
-    });
+  private throwSmsError(err: unknown): never {
+    if (err instanceof DevSmsError) {
+      this.logger.warn(`DevSMS xatosi: ${err.code}`);
+    } else {
+      this.logger.error('DevSMS noma\'lum xato', err);
+    }
+    throw new BadRequestException('SMS yuborib bo\'lmadi. Birozdan keyin qayta urinib ko\'ring');
   }
+
+  /** POST /auth/send-otp — spec */
+  async sendOtp(dto: SendOtpDto): Promise<{ success: true }> {
+    const phone = this.normalizePhone(dto.phone);
+    this.validateE164Phone(phone);
+    await this.assertRateLimit(phone);
+
+    const purpose = dto.purpose || 'login';
+
+    if (purpose === 'register') {
+      const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
+      if (existing) {
+        throw new BadRequestException('Bu telefon raqami allaqachon ro\'yxatdan o\'tgan');
+      }
+    }
+
+    const code = this.generateCode();
+    const sessionId = randomUUID();
+    const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+    const codeHash = await this.hashCode(code);
+
+    await this.prisma.otpSession.deleteMany({
+      where: { phone, verified: false },
+    });
+
+    await this.prisma.otpSession.create({
+      data: {
+        id: sessionId,
+        phone,
+        codeHash,
+        purpose,
+        fullName: dto.fullName,
+        role: dto.role,
+        channel: 'sms',
+        attempts: 0,
+        verified: false,
+        expiresAt,
+      },
+    });
+
+    try {
+      const smsMeta = await this.devSms.sendOtpSms(phone, code);
+      await this.prisma.otpSession.update({
+        where: { id: sessionId },
+        data: { metadata: smsMeta },
+      });
+    } catch (err) {
+      await this.prisma.otpSession.delete({ where: { id: sessionId } }).catch(() => undefined);
+      this.throwSmsError(err);
+    }
+
+    return { success: true };
+  }
+
+  /** POST /auth/verify-otp — spec */
+  async verifyOtpByPhone(dto: VerifyOtpDto) {
+    const phone = this.normalizePhone(dto.phone);
+    this.validateE164Phone(phone);
+
+    const session = await this.prisma.otpSession.findFirst({
+      where: { phone, verified: false, completed: false },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session topilmadi, qayta OTP so\'rang');
+    }
+
+    if (session.expiresAt < new Date()) {
+      await this.prisma.otpSession.delete({ where: { id: session.id } }).catch(() => undefined);
+      throw new GoneException('OTP muddati tugagan');
+    }
+
+    if (session.attempts >= OTP_MAX_ATTEMPTS) {
+      await this.prisma.otpSession.update({
+        where: { id: session.id },
+        data: { completed: true },
+      });
+      throw new HttpException(
+        'Urinishlar soni tugadi, yangi OTP so\'rang',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const ok = await this.checkCode(dto.code, session.codeHash);
+    if (!ok) {
+      const attempts = session.attempts + 1;
+      const exhausted = attempts >= OTP_MAX_ATTEMPTS;
+      await this.prisma.otpSession.update({
+        where: { id: session.id },
+        data: { attempts, ...(exhausted ? { completed: true } : {}) },
+      });
+      if (exhausted) {
+        throw new HttpException(
+          'Urinishlar soni tugadi, yangi OTP so\'rang',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      throw new UnauthorizedException('OTP kodi noto\'g\'ri');
+    }
+
+    await this.prisma.otpSession.update({
+      where: { id: session.id },
+      data: { verified: true },
+    });
+
+    let user = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
+
+    if (!user) {
+      const uid = randomUUID().replace(/-/g, '').slice(0, 28);
+      const email = `${phone.replace(/\D/g, '')}@qulayish.local`;
+      user = await this.prisma.user.create({
+        data: {
+          id: uid,
+          fullName: session.fullName || 'User',
+          email,
+          phoneNumber: phone,
+          role: session.role || UserRole.worker,
+          region: 'Samarqand viloyati',
+          isVerified: true,
+          verificationStatus: 'verified',
+        },
+      });
+    }
+
+    const tokenResult = this.auth.signToken(user);
+
+    await this.prisma.otpSession.delete({ where: { id: session.id } }).catch(() => undefined);
+
+    return {
+      success: true,
+      accessToken: tokenResult.accessToken,
+      user: {
+        ...tokenResult.user,
+        phone: user.phoneNumber,
+      },
+    };
+  }
+
+  // --- Legacy endpoints (registerDetails email qo'shish uchun) ---
 
   async requestOtp(params: {
     phoneOrEmail: string;
     purpose: 'login' | 'register';
     fullName?: string;
     role?: UserRole;
-    channel?: OtpChannel;
+    channel?: 'sms' | 'email';
   }) {
-    const raw = params.phoneOrEmail.trim();
-    const requestedChannel: OtpChannel = params.channel === 'email' ? 'email' : 'sms';
-    const isEmailInput = raw.includes('@');
-
-    if (requestedChannel === 'sms' && isEmailInput) {
-      throw new BadRequestException({
-        message: 'SMS OTP uchun telefon raqamini kiriting (+998...)',
-        errorCode: 'PHONE_REQUIRED',
-        fallbackAvailable: false,
-      });
-    }
-
-    if (isEmailInput || requestedChannel === 'email') {
-      throw new BadRequestException({
-        message:
-          'Email orqali tasdiqlash hozircha mavjud emas. Telefon raqamingiz orqali SMS kod oling.',
-        errorCode: 'EMAIL_NOT_AVAILABLE',
-        fallbackAvailable: false,
-      });
-    }
-
-    const phone = this.normalizePhone(raw);
-    this.validateE164Phone(phone);
-
-    await this.assertPhoneNotLocked(phone);
-    await this.assertRateLimit(phone);
-
-    if (params.purpose === 'register') {
-      const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
-      if (existing) {
-        throw new BadRequestException('Bu telefon raqami allaqachon ro\'yxatdan o\'tgan');
-      }
-    } else {
-      const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
-      if (!existing) {
-        throw new BadRequestException('Foydalanuvchi topilmadi. Avval ro\'yxatdan o\'ting');
-      }
-    }
-
-    const code = this.generateCode();
-    const sessionId = `otp_${randomUUID()}`;
-    const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-
-    let smsMeta: { smsId: number; requestId: string } | null = null;
-    try {
-      smsMeta = await this.devSms.sendOtp({
-        phone,
-        code,
-        purpose: params.purpose,
-      });
-    } catch (err) {
-      if (err instanceof DevSmsError) {
-        this.throwSmsError(err);
-      }
-      throw new BadRequestException({
-        message: 'SMS orqali OTP yuborib bo\'lmadi',
-        errorCode: 'SMS_UNAVAILABLE',
-        fallbackAvailable: true,
-      });
-    }
-
-    await this.prisma.otpSession.create({
-      data: {
-        id: sessionId,
-        phone,
-        codeHash: await this.hashCode(code),
-        purpose: params.purpose,
-        fullName: params.fullName,
-        role: params.role,
-        channel: 'sms',
-        metadata: smsMeta,
-        expiresAt,
-      },
-    });
-
-    return {
-      sessionId,
-      channel: 'sms' as const,
-      message: 'OTP kodi SMS orqali yuborildi',
-    };
-  }
-
-  async verifyOtp(sessionId: string, otp: string) {
-    const session = await this.prisma.otpSession.findUnique({ where: { id: sessionId } });
-    if (!session) throw new BadRequestException('OTP sessiyasi topilmadi');
-    if (session.completed) throw new BadRequestException('Sessiya allaqachon ishlatilgan');
-    if (session.expiresAt < new Date()) throw new BadRequestException('OTP kodi eskirgan');
-    if (session.attempts >= OTP_MAX_ATTEMPTS) {
-      if (session.phone) await this.lockPhone(session.phone);
-      throw new HttpException(
-        {
-          message: 'Juda ko\'p noto\'g\'ri urinish. 15 daqiqadan keyin qayta urinib ko\'ring',
-          errorCode: 'OTP_LOCKED',
-          fallbackAvailable: true,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
+    if (params.channel === 'email' || params.phoneOrEmail.includes('@')) {
+      throw new BadRequestException(
+        'Email orqali tasdiqlash hozircha mavjud emas. Telefon raqamingiz orqali SMS kod oling.',
       );
     }
-
-    if (session.phone) {
-      await this.assertPhoneNotLocked(session.phone);
-    }
-
-    const ok = await this.checkCode(otp, session.codeHash);
-    if (!ok) {
-      const attempts = session.attempts + 1;
-      await this.prisma.otpSession.update({
-        where: { id: sessionId },
-        data: { attempts },
-      });
-      if (attempts >= OTP_MAX_ATTEMPTS && session.phone) {
-        await this.lockPhone(session.phone);
-        throw new HttpException(
-          {
-            message: 'Juda ko\'p noto\'g\'ri urinish. 15 daqiqadan keyin qayta urinib ko\'ring',
-            errorCode: 'OTP_LOCKED',
-            fallbackAvailable: true,
-          },
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
-      throw new BadRequestException('OTP kodi noto\'g\'ri');
-    }
-
-    await this.prisma.otpSession.update({
-      where: { id: sessionId },
-      data: { verified: true },
+    await this.sendOtp({
+      phone: this.normalizePhone(params.phoneOrEmail),
+      purpose: params.purpose,
+      fullName: params.fullName,
+      role: params.role,
     });
+    return { sessionId: '', channel: 'sms' as const, message: 'OTP kodi SMS orqali yuborildi' };
+  }
 
-    return { success: true };
+  async verifyOtp(_sessionId: string, otp: string, phone?: string) {
+    if (!phone) {
+      throw new BadRequestException('Telefon raqami talab qilinadi');
+    }
+    return this.verifyOtpByPhone({ phone, code: otp });
   }
 
   async completeRegistration(
     sessionId: string,
     data?: { email?: string; phoneNumber?: string },
   ) {
-    const session = await this.prisma.otpSession.findUnique({ where: { id: sessionId } });
-    if (!session?.verified || session.purpose !== 'register') {
-      throw new UnauthorizedException('OTP tasdiqlanmagan');
+    void sessionId;
+    if (data?.email) {
+      throw new BadRequestException(
+        'Ro\'yxatdan o\'tish verify-otp orqali yakunlanadi. Email profil sozlamalaridan qo\'shiladi.',
+      );
     }
-
-    const phone = data?.phoneNumber || session.phone;
-    const email = data?.email || session.email || `${(phone || 'user').replace(/\D/g, '')}@qulayish.local`;
-    const uid = randomUUID().replace(/-/g, '').slice(0, 28);
-
-    const user = await this.prisma.user.create({
-      data: {
-        id: uid,
-        fullName: session.fullName || 'User',
-        email,
-        phoneNumber: phone,
-        role: session.role || UserRole.worker,
-        region: 'Samarqand viloyati',
-        isVerified: true,
-        verificationStatus: 'verified',
-      },
-    });
-
-    await this.prisma.otpSession.update({
-      where: { id: sessionId },
-      data: { completed: true, uid: user.id },
-    });
-
-    return this.auth.signToken(user);
+    throw new BadRequestException('Sessiya topilmadi');
   }
 
   async completeLogin(sessionId: string) {
-    const session = await this.prisma.otpSession.findUnique({ where: { id: sessionId } });
-    if (!session?.verified || session.purpose !== 'login') {
-      throw new UnauthorizedException('OTP tasdiqlanmagan');
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          ...(session.phone ? [{ phoneNumber: session.phone }] : []),
-          ...(session.email ? [{ email: session.email }] : []),
-        ],
-      },
-    });
-    if (!user) throw new UnauthorizedException('Foydalanuvchi topilmadi');
-
-    await this.prisma.otpSession.update({
-      where: { id: sessionId },
-      data: { completed: true, uid: user.id },
-    });
-
-    return this.auth.signToken(user);
+    void sessionId;
+    throw new BadRequestException('Kirish verify-otp orqali yakunlanadi');
   }
 
   async registerWithPassword(data: {

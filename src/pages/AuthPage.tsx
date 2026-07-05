@@ -6,7 +6,7 @@ import { AlertCircle, CheckCircle, Loader, Mail, User, ArrowLeft } from 'lucide-
 import { authService } from '../lib/authService';
 import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
-import { validatePhoneNumber, validateEmail, validateFullName, formatPhoneNumber } from '../lib/validation';
+import { validatePhoneNumber, validateFullName } from '../lib/validation';
 
 // Debug logger - only in development
 const debugError = (label: string, error?: unknown) => {
@@ -18,24 +18,15 @@ const debugError = (label: string, error?: unknown) => {
 type AuthStep = 'phoneEmail' | 'otp' | 'registerDetails' | 'complete';
 
 type AuthState = {
-  // Step 1: Phone/Email
   phoneOrEmail: string;
-  
-  // Step 2: OTP
   otp: string;
-  
-  // Step 3: Registration details (register mode only)
   fullName: string;
   additionalEmail?: string;
-  additionalPhone?: string;
   selectedRole: 'worker' | 'employer';
-  
-  // Shared
   loading: boolean;
   error: string;
   success: string;
-  sessionId: string;
-  useEmailFallback: boolean;
+  verifiedUserId: string;
 };
 
 const initialState: AuthState = {
@@ -43,13 +34,11 @@ const initialState: AuthState = {
   otp: '',
   fullName: '',
   additionalEmail: '',
-  additionalPhone: '',
   selectedRole: 'worker',
   loading: false,
   error: '',
   success: '',
-  sessionId: '',
-  useEmailFallback: false,
+  verifiedUserId: '',
 };
 
 export default function AuthPage() {
@@ -66,6 +55,13 @@ export default function AuthPage() {
 
   const [state, setState] = useState<AuthState>(initialState);
   const [step, setStep] = useState<AuthStep>('phoneEmail');
+  const [resendSeconds, setResendSeconds] = useState(0);
+
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const timer = window.setTimeout(() => setResendSeconds((s) => s - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendSeconds]);
 
   const setPartialState = useCallback((patch: Partial<AuthState>) => {
     setState((prev) => ({ ...prev, ...patch }));
@@ -86,13 +82,13 @@ export default function AuthPage() {
     clearMessages();
     if (step === 'otp') {
       setStep('phoneEmail');
-      setPartialState({ otp: '', sessionId: '' });
+      setPartialState({ otp: '' });
     } else if (step === 'registerDetails') {
       setStep('otp');
-      setPartialState({ fullName: '', selectedRole: 'worker', additionalEmail: '', additionalPhone: '' });
+      setPartialState({ fullName: '', selectedRole: 'worker', additionalEmail: '' });
     } else if (step === 'complete') {
       setStep('phoneEmail');
-      setPartialState({ phoneOrEmail: '', otp: '', sessionId: '' });
+      setPartialState({ phoneOrEmail: '', otp: '' });
     }
   }, [step, clearMessages, setPartialState]);
 
@@ -104,33 +100,19 @@ export default function AuthPage() {
 
       const phoneOrEmail = state.phoneOrEmail.trim();
       if (!phoneOrEmail) {
-        setPartialState({
-          error: state.useEmailFallback
-            ? 'Iltimos, email manzilini kiriting.'
-            : 'Iltimos, telefon raqamingizni kiriting.',
-        });
+        setPartialState({ error: 'Iltimos, telefon raqamingizni kiriting.' });
         return;
       }
 
-      if (!state.useEmailFallback) {
-        const phoneValidation = validatePhoneNumber(phoneOrEmail);
-        if (!phoneValidation.isValid) {
-          setPartialState({ error: phoneValidation.error || 'Telefon raqami noto\'g\'ri' });
-          return;
-        }
-      } else {
-        const emailValidation = validateEmail(phoneOrEmail);
-        if (!emailValidation.isValid) {
-          setPartialState({ error: emailValidation.error || 'Email noto\'g\'ri' });
-          return;
-        }
+      const phoneValidation = validatePhoneNumber(phoneOrEmail);
+      if (!phoneValidation.isValid) {
+        setPartialState({ error: phoneValidation.error || 'Telefon raqami noto\'g\'ri' });
+        return;
       }
 
       setPartialState({ loading: true });
 
       try {
-        const channel = state.useEmailFallback ? ('email' as const) : ('sms' as const);
-
         if (mode === 'register') {
           const fullNameValidation = validateFullName(state.fullName);
           if (!fullNameValidation.isValid) {
@@ -142,54 +124,61 @@ export default function AuthPage() {
             phoneOrEmail,
             fullName: state.fullName.trim(),
             role: state.selectedRole,
-            channel,
           });
 
           if (!result.success) {
-            setPartialState({
-              loading: false,
-              error: result.error || t('auth.unexpected_error'),
-            });
+            setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
             return;
           }
-
-          setPartialState({
-            loading: false,
-            success:
-              result.message ||
-              'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring.',
-            sessionId: result.sessionId || '',
-            useEmailFallback: false,
-          });
-          setStep('otp');
         } else {
-          const result = await authService.requestOTPForLogin(phoneOrEmail, channel);
+          const result = await authService.requestOTPForLogin(phoneOrEmail);
 
           if (!result.success) {
-            setPartialState({
-              loading: false,
-              error: result.error || t('auth.unexpected_error'),
-            });
+            setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
             return;
           }
-
-          setPartialState({
-            loading: false,
-            success:
-              result.message ||
-              'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring.',
-            sessionId: result.sessionId || '',
-            useEmailFallback: false,
-          });
-          setStep('otp');
         }
+
+        setPartialState({
+          loading: false,
+          success: 'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring.',
+        });
+        setResendSeconds(60);
+        setStep('otp');
       } catch (err) {
         debugError('OTP Request Error]', err);
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.phoneOrEmail, state.fullName, state.selectedRole, state.useEmailFallback, mode, clearMessages, setPartialState, t],
+    [state.phoneOrEmail, state.fullName, state.selectedRole, mode, clearMessages, setPartialState, t],
   );
+
+  const handleResendOtp = useCallback(async () => {
+    if (resendSeconds > 0 || state.loading) return;
+    clearMessages();
+    setPartialState({ loading: true });
+    try {
+      const phoneOrEmail = state.phoneOrEmail.trim();
+      const result =
+        mode === 'register'
+          ? await authService.requestOTPForRegistration({
+              phoneOrEmail,
+              fullName: state.fullName.trim(),
+              role: state.selectedRole,
+            })
+          : await authService.requestOTPForLogin(phoneOrEmail);
+
+      if (!result.success) {
+        setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+        return;
+      }
+      setPartialState({ loading: false, success: 'OTP kodi qayta yuborildi.' });
+      setResendSeconds(60);
+    } catch (err) {
+      debugError('OTP Resend Error]', err);
+      setPartialState({ loading: false, error: t('auth.unexpected_error') });
+    }
+  }, [resendSeconds, state.loading, state.phoneOrEmail, state.fullName, state.selectedRole, mode, clearMessages, setPartialState, t]);
 
   // Step 2: Verify OTP
   const handleVerifyOTP = useCallback(
@@ -205,40 +194,39 @@ export default function AuthPage() {
       setPartialState({ loading: true });
 
       try {
+        const phoneOrEmail = state.phoneOrEmail.trim();
+
         if (mode === 'register') {
-          const result = await authService.verifyOTPForRegistration(state.sessionId, state.otp);
+          const result = await authService.verifyOTPForRegistration(phoneOrEmail, state.otp);
 
           if (!result.success) {
             setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
             return;
           }
 
-          setPartialState({ loading: false, success: 'OTP tasdiqlandi!' });
-          setStep('registerDetails');
-        } else {
-          // Login mode
-          const result = await authService.verifyOTPForLogin(state.sessionId, state.otp);
-
-          if (!result.success) {
-            setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
-            return;
-          }
-
-          // Complete login
-          const loginResult = await authService.completeLoginWithOTP(state.sessionId);
-          if (!loginResult.success) {
-            setPartialState({ loading: false, error: loginResult.error || t('auth.unexpected_error') });
-            return;
-          }
-
-          if (loginResult.user) {
-            setAuthProfile(loginResult.user);
+          if (result.user) {
+            setAuthProfile(result.user);
           }
 
           setPartialState({
             loading: false,
-            success: 'Tizimga muvaffaqiyatli kirdingiz.',
+            success: 'OTP tasdiqlandi!',
+            verifiedUserId: result.uid || result.user?.uid || '',
           });
+          setStep('registerDetails');
+        } else {
+          const result = await authService.verifyOTPForLogin(phoneOrEmail, state.otp);
+
+          if (!result.success) {
+            setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+            return;
+          }
+
+          if (result.user) {
+            setAuthProfile(result.user);
+          }
+
+          setPartialState({ loading: false, success: 'Tizimga muvaffaqiyatli kirdingiz.' });
           setStep('complete');
         }
       } catch (err) {
@@ -246,7 +234,7 @@ export default function AuthPage() {
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.otp, state.sessionId, mode, clearMessages, setPartialState, setAuthProfile, t]
+    [state.otp, state.phoneOrEmail, mode, clearMessages, setPartialState, setAuthProfile, t],
   );
 
   // Step 3: Complete Registration
@@ -264,9 +252,15 @@ export default function AuthPage() {
       setPartialState({ loading: true });
 
       try {
-        const result = await authService.completeRegistrationWithOTP(state.sessionId, {
-          email: state.additionalEmail,
-          phoneNumber: state.additionalPhone,
+        const userId = state.verifiedUserId;
+        if (!userId) {
+          setPartialState({ loading: false, error: 'Foydalanuvchi topilmadi' });
+          return;
+        }
+
+        const result = await authService.updateProfileAfterRegistration(userId, {
+          email: state.additionalEmail?.trim() || undefined,
+          fullName: state.fullName.trim(),
         });
 
         if (!result.success) {
@@ -288,7 +282,7 @@ export default function AuthPage() {
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.fullName, state.additionalEmail, state.additionalPhone, state.sessionId, clearMessages, setPartialState, setAuthProfile, t]
+    [state.fullName, state.additionalEmail, state.verifiedUserId, clearMessages, setPartialState, setAuthProfile, t],
   );
 
   const showDebugBanner = import.meta.env.VITE_SHOW_DEBUG_BANNER === 'true';
@@ -346,9 +340,7 @@ export default function AuthPage() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {state.useEmailFallback ? 'Email manzili' : 'Telefon raqami'}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon raqami</label>
                   <input
                     type="text"
                     value={state.phoneOrEmail}
@@ -356,15 +348,13 @@ export default function AuthPage() {
                       clearMessages();
                       setPartialState({ phoneOrEmail: e.target.value });
                     }}
-                    placeholder={state.useEmailFallback ? 'example@email.com' : '+998 90 123 45 67'}
+                    placeholder="+998 90 123 45 67"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
                     disabled={state.loading}
                   />
-                  {!state.useEmailFallback && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      O'zbekiston raqami (+998...) formatida kiriting
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    O'zbekiston raqami (+998...) formatida kiriting
+                  </p>
                 </div>
 
                 {mode === 'register' && (
@@ -411,33 +401,11 @@ export default function AuthPage() {
                   )}
                 </button>
 
-                {state.error && !state.useEmailFallback && (
+                {state.error && (
                   <div className="space-y-3 pt-2 border-t border-gray-100">
                     <p className="text-sm text-gray-600">
-                      SMS yuborilmadi bo'lsa, boshqa raqam bilan urinib ko'ring:
+                      SMS yuborilmadi bo'lsa, boshqa raqam bilan urinib ko'ring.
                     </p>
-                    <div className="grid grid-cols-1 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearMessages();
-                          setPartialState({ phoneOrEmail: '', useEmailFallback: false });
-                        }}
-                        className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-800 font-medium hover:bg-gray-50"
-                      >
-                        Boshqa telefon raqam bilan urinish
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearMessages();
-                          setPartialState({ phoneOrEmail: '', useEmailFallback: true });
-                        }}
-                        className="w-full py-2.5 rounded-xl border border-blue-200 text-blue-700 font-medium hover:bg-blue-50"
-                      >
-                        Email orqali davom etish
-                      </button>
-                    </div>
                   </div>
                 )}
               </form>
@@ -481,6 +449,17 @@ export default function AuthPage() {
                     'Tasdiqlash'
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={state.loading || resendSeconds > 0}
+                  className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-800 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendSeconds > 0
+                    ? `Qayta yuborish (${resendSeconds}s)`
+                    : 'OTP kodini qayta yuborish'}
+                </button>
               </form>
             )}
 
@@ -504,43 +483,22 @@ export default function AuthPage() {
                   />
                 </div>
 
-                {!state.phoneOrEmail.includes('@') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email (ixtiyoriy)
-                    </label>
-                    <input
-                      type="email"
-                      value={state.additionalEmail || ''}
-                      onChange={(e) => {
-                        clearMessages();
-                        setPartialState({ additionalEmail: e.target.value });
-                      }}
-                      placeholder="example@email.com"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                      disabled={state.loading}
-                    />
-                  </div>
-                )}
-
-                {state.phoneOrEmail.includes('@') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Telefon raqami (ixtiyoriy)
-                    </label>
-                    <input
-                      type="tel"
-                      value={state.additionalPhone || ''}
-                      onChange={(e) => {
-                        clearMessages();
-                        setPartialState({ additionalPhone: formatPhoneNumber(e.target.value) });
-                      }}
-                      placeholder="+998 90 123 45 67"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                      disabled={state.loading}
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email (ixtiyoriy)
+                  </label>
+                  <input
+                    type="email"
+                    value={state.additionalEmail || ''}
+                    onChange={(e) => {
+                      clearMessages();
+                      setPartialState({ additionalEmail: e.target.value });
+                    }}
+                    placeholder="example@email.com"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                    disabled={state.loading}
+                  />
+                </div>
 
                 <button
                   type="submit"

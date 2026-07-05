@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { buildOtpSmsMessage } from './otp.constants';
 
 export class DevSmsError extends Error {
   constructor(
@@ -27,13 +28,11 @@ export class DevSmsService implements OnModuleInit {
   private readonly logger = new Logger(DevSmsService.name);
   private readonly baseUrl: string;
   private readonly token: string;
-  private readonly serviceName: string;
   private readonly from: string | undefined;
 
   constructor() {
     this.baseUrl = (process.env.DEVSMS_BASE_URL || 'https://devsms.uz/api').replace(/\/$/, '');
     this.token = this.normalizeToken(process.env.DEVSMS_TOKEN);
-    this.serviceName = (process.env.DEVSMS_SERVICE_NAME || 'Qulay Ish').trim();
     this.from = process.env.DEVSMS_FROM?.trim() || undefined;
   }
 
@@ -56,10 +55,6 @@ export class DevSmsService implements OnModuleInit {
   private maskToken(token: string): string {
     if (token.length <= 12) return '***';
     return `${token.slice(0, 8)}...${token.slice(-4)}`;
-  }
-
-  isConfigured(): boolean {
-    return Boolean(this.token);
   }
 
   toDevSmsPhone(e164Phone: string): string {
@@ -115,60 +110,16 @@ export class DevSmsService implements OnModuleInit {
     const upper = message.toUpperCase();
     if (upper.includes('BALANS') || upper.includes('BALANCE')) return 'INSUFFICIENT_BALANCE';
     if (upper.includes('TOKEN') || upper.includes('AUTENTIFIKATSIYA')) return 'ACCESS_TOKEN_INVALID';
-    if (upper.includes('NOMAQBUL')) return 'SERVICE_NAME_REJECTED';
     return 'SEND_FAILED';
   }
 
-  async sendOtp(params: {
-    phone: string;
-    code: string;
-    purpose: 'login' | 'register';
-  }): Promise<{ smsId: number; requestId: string }> {
-    const templateType = params.purpose === 'register' ? 3 : 4;
+  /** Spec bo'yicha aniq SMS matni */
+  async sendOtpSms(phone: string, code: string): Promise<{ smsId: number; requestId: string }> {
+    const message = buildOtpSmsMessage(code);
     return this.call({
-      phone: this.toDevSmsPhone(params.phone),
-      type: 'universal_otp',
-      template_type: templateType,
-      service_name: this.serviceName,
-      otp_code: params.code,
+      phone: this.toDevSmsPhone(phone),
+      message,
       ...(this.from ? { from: this.from } : {}),
     });
-  }
-
-  mapErrorToUserMessage(code: string): { message: string; fallbackAvailable: boolean } {
-    const upper = code.toUpperCase();
-
-    if (upper === 'TOKEN_MISSING' || upper === 'ACCESS_TOKEN_INVALID') {
-      return {
-        message: 'SMS xizmati sozlanmagan. Administrator bilan bog\'laning',
-        fallbackAvailable: false,
-      };
-    }
-
-    if (upper === 'INSUFFICIENT_BALANCE') {
-      return {
-        message: 'SMS xizmati vaqtincha ishlamayapti (balans tugagan)',
-        fallbackAvailable: false,
-      };
-    }
-
-    if (upper === 'SERVICE_NAME_REJECTED') {
-      return {
-        message: 'SMS yuborib bo\'lmadi. Birozdan keyin qayta urinib ko\'ring',
-        fallbackAvailable: false,
-      };
-    }
-
-    if (upper === 'NETWORK_ERROR') {
-      return {
-        message: 'SMS xizmatiga ulanib bo\'lmadi. Internetni tekshiring',
-        fallbackAvailable: false,
-      };
-    }
-
-    return {
-      message: 'SMS yuborib bo\'lmadi. Telefon raqamini tekshirib, qayta urinib ko\'ring',
-      fallbackAvailable: true,
-    };
   }
 }

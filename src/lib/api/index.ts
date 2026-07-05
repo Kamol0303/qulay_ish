@@ -90,6 +90,26 @@ export const api = {
     logout() {
       clearAccessToken();
     },
+    async sendOtp(
+      phone: string,
+      opts?: { purpose?: 'login' | 'register'; fullName?: string; role?: Profile['role'] },
+    ) {
+      return apiRequest<{ success: true }>('/auth/send-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone, ...opts }),
+      }, false);
+    },
+    async verifyOtp(phone: string, code: string) {
+      const res = await apiRequest<AuthResponse>('/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone, code }),
+      }, false);
+      setAccessToken(res.accessToken);
+      const user = mapUser(res.user as unknown as Record<string, unknown>);
+      if (!user) throw new Error('Invalid auth response');
+      return { ...res, user };
+    },
+    /** @deprecated sendOtp ishlating */
     async requestOtp(
       phoneOrEmail: string,
       purpose: 'login' | 'register',
@@ -106,7 +126,8 @@ export const api = {
         body: JSON.stringify({ phoneOrEmail, purpose, fullName, role, channel }),
       }, false);
     },
-    async verifyOtp(sessionId: string, otp: string) {
+    /** @deprecated verifyOtp(phone, code) ishlating */
+    async verifyOtpLegacy(sessionId: string, otp: string) {
       return apiRequest('/auth/otp/verify', {
         method: 'POST',
         body: JSON.stringify({ sessionId, otp }),

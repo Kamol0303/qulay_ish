@@ -21,12 +21,12 @@ function extractApiError(error: unknown): {
 } {
   if (error instanceof ApiError && error.body && typeof error.body === 'object') {
     const body = error.body as {
-      message?: string | { message?: string; errorCode?: string; fallbackAvailable?: boolean };
+      message?: string | string[] | { message?: string; errorCode?: string; fallbackAvailable?: boolean };
       errorCode?: string;
       fallbackAvailable?: boolean;
     };
 
-    if (body.message && typeof body.message === 'object') {
+    if (body.message && typeof body.message === 'object' && !Array.isArray(body.message)) {
       return {
         message: body.message.message || 'Xatolik yuz berdi',
         errorCode: body.message.errorCode,
@@ -41,102 +41,93 @@ function extractApiError(error: unknown): {
         fallbackAvailable: body.fallbackAvailable,
       };
     }
+
+    if (Array.isArray(body.message)) {
+      return { message: body.message.join(', ') };
+    }
   }
 
   if (error instanceof Error) return { message: error.message };
   return { message: "Noma'lum xatolik" };
 }
 
+function normalizePhone(input: string): string {
+  const digits = input.replace(/\D/g, '');
+  if (digits.startsWith('998') && digits.length === 12) return `+${digits}`;
+  if (digits.length === 9) return `+998${digits}`;
+  const trimmed = input.trim();
+  if (trimmed.startsWith('+')) return trimmed;
+  return trimmed;
+}
+
 export const authService = {
+  async sendOtp(
+    phoneOrEmail: string,
+    opts?: {
+      purpose?: 'login' | 'register';
+      fullName?: string;
+      role?: 'worker' | 'employer';
+    },
+  ): Promise<AuthResult> {
+    try {
+      const phone = normalizePhone(phoneOrEmail);
+      await api.auth.sendOtp(phone, opts);
+      return {
+        success: true,
+        message: 'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring',
+      };
+    } catch (e) {
+      const err = extractApiError(e);
+      return { success: false, error: err.message, errorCode: err.errorCode };
+    }
+  },
+
+  async verifyOtp(phoneOrEmail: string, code: string): Promise<AuthResult> {
+    try {
+      const phone = normalizePhone(phoneOrEmail);
+      const res = await api.auth.verifyOtp(phone, code);
+      return { success: true, user: res.user, uid: res.user.uid };
+    } catch (e) {
+      const err = extractApiError(e);
+      return { success: false, error: err.message, errorCode: err.errorCode };
+    }
+  },
+
   async requestOTPForRegistration(data: {
     phoneOrEmail: string;
     fullName: string;
     role: 'worker' | 'employer';
-    channel?: 'sms' | 'email';
   }): Promise<AuthResult> {
-    try {
-      const res = await api.auth.requestOtp(
-        data.phoneOrEmail,
-        'register',
-        data.fullName,
-        data.role,
-        data.channel,
-      );
-      return {
-        success: true,
-        sessionId: res.sessionId,
-        message: res.message || 'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring',
-      };
-    } catch (e) {
-      const err = extractApiError(e);
-      return {
-        success: false,
-        error: err.message,
-        errorCode: err.errorCode,
-        fallbackAvailable: err.fallbackAvailable,
-      };
-    }
+    return this.sendOtp(data.phoneOrEmail, {
+      purpose: 'register',
+      fullName: data.fullName,
+      role: data.role,
+    });
   },
 
-  async verifyOTPForRegistration(sessionId: string, otp: string): Promise<AuthResult> {
-    try {
-      await api.auth.verifyOtp(sessionId, otp);
-      return { success: true };
-    } catch (e) {
-      const err = extractApiError(e);
-      return { success: false, error: err.message, errorCode: err.errorCode, fallbackAvailable: err.fallbackAvailable };
-    }
+  async requestOTPForLogin(phoneOrEmail: string): Promise<AuthResult> {
+    return this.sendOtp(phoneOrEmail, { purpose: 'login' });
   },
 
-  async completeRegistrationWithOTP(
-    sessionId: string,
-    additionalData?: { email?: string; phoneNumber?: string },
+  async verifyOTPForRegistration(phoneOrEmail: string, otp: string): Promise<AuthResult> {
+    return this.verifyOtp(phoneOrEmail, otp);
+  },
+
+  async verifyOTPForLogin(phoneOrEmail: string, otp: string): Promise<AuthResult> {
+    return this.verifyOtp(phoneOrEmail, otp);
+  },
+
+  async updateProfileAfterRegistration(
+    userId: string,
+    data: { email?: string; fullName?: string },
   ): Promise<AuthResult> {
     try {
-      const res = await api.auth.completeRegistration(sessionId, additionalData);
-      return { success: true, user: res.user, uid: res.user.uid };
-    } catch (e) {
-      const err = extractApiError(e);
-      return { success: false, error: err.message };
-    }
-  },
-
-  async requestOTPForLogin(
-    phoneOrEmail: string,
-    channel?: 'sms' | 'email',
-  ): Promise<AuthResult> {
-    try {
-      const res = await api.auth.requestOtp(phoneOrEmail, 'login', undefined, undefined, channel);
-      return {
-        success: true,
-        sessionId: res.sessionId,
-        message: res.message || 'OTP kodi SMS orqali yuborildi, telefoningizni tekshiring',
-      };
-    } catch (e) {
-      const err = extractApiError(e);
-      return {
-        success: false,
-        error: err.message,
-        errorCode: err.errorCode,
-        fallbackAvailable: err.fallbackAvailable,
-      };
-    }
-  },
-
-  async verifyOTPForLogin(sessionId: string, otp: string): Promise<AuthResult> {
-    try {
-      await api.auth.verifyOtp(sessionId, otp);
-      return { success: true };
-    } catch (e) {
-      const err = extractApiError(e);
-      return { success: false, error: err.message, errorCode: err.errorCode, fallbackAvailable: err.fallbackAvailable };
-    }
-  },
-
-  async completeLoginWithOTP(sessionId: string): Promise<AuthResult> {
-    try {
-      const res = await api.auth.completeLogin(sessionId);
-      return { success: true, user: res.user, uid: res.user.uid };
+      await api.users.update(userId, {
+        ...(data.email ? { email: data.email } : {}),
+        ...(data.fullName ? { fullName: data.fullName } : {}),
+      });
+      const profile = await api.auth.me();
+      return { success: true, user: profile };
     } catch (e) {
       const err = extractApiError(e);
       return { success: false, error: err.message };

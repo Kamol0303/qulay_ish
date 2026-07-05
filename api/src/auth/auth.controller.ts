@@ -3,6 +3,8 @@ import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -10,6 +12,16 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly otp: OtpService,
   ) {}
+
+  @Post('send-otp')
+  sendOtp(@Body() dto: SendOtpDto) {
+    return this.otp.sendOtp(dto);
+  }
+
+  @Post('verify-otp')
+  verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.otp.verifyOtpByPhone(dto);
+  }
 
   @Post('login')
   async login(@Body() body: { emailOrPhone: string; password: string }) {
@@ -23,6 +35,7 @@ export class AuthController {
     return this.auth.signToken(user);
   }
 
+  /** @deprecated verify-otp ishlating */
   @Post('otp/request')
   async requestOtp(
     @Body()
@@ -37,9 +50,10 @@ export class AuthController {
     return this.otp.requestOtp(body);
   }
 
+  /** @deprecated verify-otp ishlating */
   @Post('otp/verify')
-  async verifyOtp(@Body() body: { sessionId: string; otp: string }) {
-    return this.otp.verifyOtp(body.sessionId, body.otp);
+  async legacyVerifyOtp(@Body() body: { sessionId: string; otp: string; phone?: string }) {
+    return this.otp.verifyOtp(body.sessionId, body.otp, body.phone);
   }
 
   @Post('otp/complete-registration')
