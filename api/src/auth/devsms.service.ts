@@ -110,10 +110,15 @@ export class DevSmsService implements OnModuleInit {
       throw new DevSmsError('EMPTY_RESULT', 'DevSMS bo\'sh javob qaytardi', data);
     }
 
-    return {
+    const result = {
       smsId: data.data.sms_id,
       requestId: data.data.request_id,
+      status: data.data.status,
     };
+    this.logger.log(
+      `DevSMS yuborildi: sms_id=${result.smsId}, request_id=${result.requestId}, status=${result.status ?? 'unknown'}`,
+    );
+    return result;
   }
 
   private inferCode(message: string): string {
