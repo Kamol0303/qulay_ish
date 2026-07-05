@@ -65,9 +65,9 @@ export async function apiRequest<T>(
   return res.json() as Promise<T>;
 }
 
-export function toQuery(params: Record<string, string | undefined>): string {
+export function toQuery(params?: Record<string, string | undefined> | null): string {
   const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
+  for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== '') q.set(k, v);
   }
   const s = q.toString();

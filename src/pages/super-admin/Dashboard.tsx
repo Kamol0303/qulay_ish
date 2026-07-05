@@ -65,7 +65,7 @@ export default function SuperAdminDashboard() {
         const workers = users.filter(u => u.role === 'worker');
         const employers = users.filter(u => u.role === 'employer');
         const admins = users.filter(u => u.role === 'admin' || u.role === 'super_admin');
-        const activeJobs = jobs.filter(j => j.status === 'open');
+        const activeJobs = jobs.filter(j => j.status === 'open' || j.status === 'active');
         const pendingApps = applications.filter(a => a.status === 'pending');
         const activeContracts = contracts.filter(c => c.status === 'active');
         const completedContracts = contracts.filter(c => c.status === 'completed');

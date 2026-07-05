@@ -149,7 +149,7 @@ export const api = {
 
   jobs: {
     list(params?: Record<string, string>) {
-      return apiRequest<unknown>(`/jobs${toQuery(params)}`).then(mapJobs);
+      return apiRequest<unknown>(`/jobs${toQuery(params ?? {})}`).then(mapJobs);
     },
     get(id: string) {
       return apiRequest<Job>(`/jobs/${id}`);
@@ -164,7 +164,7 @@ export const api = {
 
   applications: {
     list(params?: Record<string, string>) {
-      return apiRequest<Application[]>(`/applications${toQuery(params)}`).then((rows) => ensureArray<Application>(rows));
+      return apiRequest<Application[]>(`/applications${toQuery(params ?? {})}`).then((rows) => ensureArray<Application>(rows));
     },
     get(id: string) {
       return apiRequest<Application>(`/applications/${id}`);
@@ -179,7 +179,7 @@ export const api = {
 
   contracts: {
     list(params?: Record<string, string>) {
-      return apiRequest<Contract[]>(`/contracts${toQuery(params)}`).then((rows) => ensureArray<Contract>(rows));
+      return apiRequest<Contract[]>(`/contracts${toQuery(params ?? {})}`).then((rows) => ensureArray<Contract>(rows));
     },
     get(id: string) {
       return apiRequest<Contract>(`/contracts/${id}`);
@@ -230,7 +230,7 @@ export const api = {
 
   verificationRequests: {
     list(params?: Record<string, string>) {
-      return apiRequest<VerificationRequest[]>(`/verification-requests${toQuery(params)}`).then((rows) => ensureArray<VerificationRequest>(rows));
+      return apiRequest<VerificationRequest[]>(`/verification-requests${toQuery(params ?? {})}`).then((rows) => ensureArray<VerificationRequest>(rows));
     },
     create(data: Partial<VerificationRequest>) {
       return apiRequest<VerificationRequest>('/verification-requests', { method: 'POST', body: JSON.stringify(data) });
@@ -242,7 +242,7 @@ export const api = {
 
   reviews: {
     list(params?: Record<string, string>) {
-      return apiRequest<Review[]>(`/reviews${toQuery(params)}`).then((rows) => ensureArray<Review>(rows));
+      return apiRequest<Review[]>(`/reviews${toQuery(params ?? {})}`).then((rows) => ensureArray<Review>(rows));
     },
     create(data: Partial<Review>) {
       return apiRequest<Review>('/reviews', { method: 'POST', body: JSON.stringify(data) });
@@ -263,7 +263,7 @@ export const api = {
 
   servicePosts: {
     list(params?: Record<string, string>) {
-      return apiRequest<ServicePost[]>(`/service-posts${toQuery(params)}`).then((rows) => ensureArray<ServicePost>(rows));
+      return apiRequest<ServicePost[]>(`/service-posts${toQuery(params ?? {})}`).then((rows) => ensureArray<ServicePost>(rows));
     },
     create(data: Partial<ServicePost>) {
       return apiRequest<ServicePost>('/service-posts', { method: 'POST', body: JSON.stringify(data) });
