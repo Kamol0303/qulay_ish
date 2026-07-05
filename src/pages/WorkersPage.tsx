@@ -1,6 +1,5 @@
 import React from 'react';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { Profile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, MapPin, SlidersHorizontal, X, ArrowLeft, Play, BookOpen } from 'lucide-react';
@@ -9,7 +8,7 @@ import { SKILLS } from '../constants/categories';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
 import { useAuth } from '../hooks/useAuth';
-import { getDistrictKey, cn } from '../lib/utils';
+import { getDistrictKey, cn, filterWorkersForSamarkand } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 import { useTranslation } from 'react-i18next';
@@ -65,37 +64,40 @@ export default function WorkersPage() {
   };
 
   React.useEffect(() => {
-    // Always filter by worker role and Samarqand viloyati
-    let q = query(
-      collection(db, 'profiles'), 
-      where('role', '==', 'worker'),
-      where('region', '==', 'Samarqand viloyati')
-    );
+    let cancelled = false;
 
-    if (filters.district) {
-      q = query(q, where('district', '==', filters.district));
-    }
+    const loadWorkers = async () => {
+      try {
+        let workersData = await api.users.list({ role: 'worker' });
+        if (cancelled) return;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let workersData = snapshot.docs.map(doc => ({ ...doc.data() } as Profile));
-      
-      // Client-side skill filtering
-      if (filters.skill) {
-        workersData = workersData.filter(w => w.skills?.includes(filters.skill));
+        workersData = filterWorkersForSamarkand(workersData, {
+          district: filters.district || undefined,
+        });
+
+        if (filters.skill) {
+          workersData = workersData.filter(w => w.skills?.includes(filters.skill));
+        }
+        if (filters.sortBy === 'rating') {
+          workersData.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        } else if (filters.sortBy === 'completed') {
+          workersData.sort((a, b) => (b.completedJobs || 0) - (a.completedJobs || 0));
+        }
+
+        setWorkers(workersData);
+      } catch {
+        if (!cancelled) setWorkers([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    };
 
-      // Client-side sorting
-      if (filters.sortBy === 'rating') {
-        workersData.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      } else if (filters.sortBy === 'completed') {
-        workersData.sort((a, b) => (b.completedJobs || 0) - (a.completedJobs || 0));
-      }
-
-      setWorkers(workersData);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    loadWorkers();
+    const interval = setInterval(loadWorkers, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [filters]);
 
   const filteredWorkers = workers.filter(worker => 

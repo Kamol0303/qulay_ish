@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Shield, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { authService } from '../lib/authService';
+import { api } from '../lib/api';
+import { toUserMessage } from '../lib/api/errors';
 import { useAuth } from '../hooks/useAuth';
 
 const SUPER_ADMIN_PHONE = import.meta.env.VITE_SUPER_ADMIN_PHONE || '';
@@ -11,7 +12,7 @@ const SUPER_ADMIN_EMAIL = import.meta.env.VITE_SUPER_ADMIN_EMAIL || '';
 
 export default function SuperAdminLogin() {
   const navigate = useNavigate();
-  const { refreshProfile } = useAuth();
+  const { setAuthProfile } = useAuth();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -37,19 +38,12 @@ export default function SuperAdminLogin() {
     }
 
     try {
-      const result = await authService.superAdminSignIn(
-        SUPER_ADMIN_EMAIL,
-        password
-      );
-
-      if (result.success) {
-        await refreshProfile();
-        navigate('/super-admin/dashboard');
-      } else {
-        setError(result.error || "Kirish muvaffaqiyatsiz bo'ldi.");
-      }
+      localStorage.removeItem('qulay_ish_demo_session');
+      const result = await api.auth.superAdminLogin(SUPER_ADMIN_EMAIL, password);
+      setAuthProfile(result.user);
+      navigate('/super-admin/dashboard');
     } catch (err) {
-      setError("Tizimda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.");
+      setError(toUserMessage(err, "Kirish muvaffaqiyatsiz. Ma'lumotlarni tekshirib qayta urinib ko'ring."));
     } finally {
       setLoading(false);
     }

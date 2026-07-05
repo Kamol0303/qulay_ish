@@ -2,8 +2,8 @@ import { debugLogger } from '../lib/debugLogger';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, X, Send, ShieldAlert } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { api } from '../lib/api';
+import { contractService } from '../services/contractService';
 import { useTranslation } from 'react-i18next';
 
 interface DisputeModalProps {
@@ -23,18 +23,14 @@ export default function DisputeModal({ isOpen, onClose, contractId, openedById }
     e.preventDefault();
     setLoading(true);
     try {
-      await addDoc(collection(db, 'disputes'), {
+      await api.disputes.create({
         contractId,
         openedById,
         reason,
         status: 'pending',
-        createdAt: serverTimestamp()
       });
 
-      // Update contract status
-      await updateDoc(doc(db, 'contracts', contractId), {
-        status: 'disputed'
-      });
+      await contractService.cancel(contractId, reason);
 
       setSuccess(true);
       setTimeout(() => {

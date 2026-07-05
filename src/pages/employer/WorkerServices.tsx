@@ -1,8 +1,7 @@
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { ServicePost, Profile } from '../../types';
 import { Search, MapPin, Briefcase, Star, Filter, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -26,31 +25,19 @@ export default function WorkerServices() {
     async function fetchServices() {
       setLoading(true);
       try {
-        let q = query(collection(db, 'service_posts'), where('status', '==', 'active'), orderBy('createdAt', 'desc'));
-        
-        if (filters.category) {
-          q = query(q, where('category', '==', filters.category));
-        }
-        if (filters.region) {
-          q = query(q, where('region', '==', filters.region));
-        }
+        const params: Record<string, string> = { status: 'active' };
+        if (filters.category) params.category = filters.category;
+        if (filters.region) params.region = filters.region;
 
-        const snap = await getDocs(q);
-        const postsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as ServicePost));
-        
-        // Fetch worker profiles for these posts
+        const postsData = await api.servicePosts.list(params);
+
         const workerIds = [...new Set(postsData.map(p => p.workerId))];
         const profiles: Record<string, Profile> = {};
-        
-        if (workerIds.length > 0) {
-          // Firestore 'in' query limit is 10, but for demo we'll fetch all or loop
-          for (const id of workerIds) {
-            const pSnap = await getDocs(query(collection(db, 'profiles'), where('uid', '==', id)));
-            if (!pSnap.empty) {
-              profiles[id] = { uid: pSnap.docs[0].id, ...pSnap.docs[0].data() } as Profile;
-            }
-          }
-        }
+
+        await Promise.all(workerIds.map(async (id) => {
+          const user = await api.users.get(id).catch(() => null);
+          if (user) profiles[id] = user;
+        }));
 
         const combined = postsData.map(p => ({
           ...p,

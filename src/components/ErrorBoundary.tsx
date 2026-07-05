@@ -23,7 +23,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    debugLogger.error('Uncaught error:', error, errorInfo);
+    debugLogger.error('Uncaught error:', { error, errorInfo });
   }
 
   public render() {

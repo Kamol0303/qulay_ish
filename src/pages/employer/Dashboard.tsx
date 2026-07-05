@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { debugLogger } from '../../lib/debugLogger';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { collection, query, where, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { applicationService } from '../../services/applicationService';
+import { contractService } from '../../services/contractService';
+import { jobService } from '../../services/jobService';
 import { Job, Application, Profile } from '../../types';
 import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Star, Users, MessageSquare, Plus, ChevronRight, User } from 'lucide-react';
 import { format } from 'date-fns';
@@ -47,71 +50,40 @@ export default function EmployerDashboard() {
       return;
     }
 
-    const jobsQuery = query(collection(db, 'jobs'), where('employerId', '==', profile.uid));
-    const unsubscribeJobs = onSnapshot(jobsQuery, (snapshot) => {
-      const firestoreJobs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Job));
-      
-      setMyJobs(firestoreJobs.slice(0, 5));
+    const load = async () => {
+      try {
+        const [employerJobs, apps, contracts] = await Promise.all([
+          jobService.getByEmployer(profile.uid),
+          applicationService.getByEmployer(profile.uid),
+          contractService.getByEmployer(profile.uid),
+        ]);
 
-      const totalActiveJobs = firestoreJobs.filter(j => j.status === 'open').length;
-      setStats(prev => ({
-        ...prev,
-        activeJobs: totalActiveJobs
-      }));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'jobs');
-    });
+        setMyJobs(employerJobs.slice(0, 5));
+        setStats(prev => ({
+          ...prev,
+          activeJobs: employerJobs.filter(j => j.status === 'open').length,
+          totalApplicants: apps.length,
+          activeContracts: contracts.filter(c => c.status === 'active').length,
+          totalSpent: contracts.filter(c => c.status === 'completed').reduce((acc, c) => acc + (c.amount || 0), 0),
+        }));
 
-    const appsQuery = query(collection(db, 'applications'), where('employerId', '==', profile.uid));
-    const unsubscribeApps = onSnapshot(appsQuery, (snapshot) => {
-      setStats(prev => ({
-        ...prev,
-        totalApplicants: snapshot.docs.length
-      }));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'applications');
-    });
-
-    const contractsQuery = query(collection(db, 'contracts'), where('employerId', '==', profile.uid));
-    const unsubscribeContracts = onSnapshot(contractsQuery, (snapshot) => {
-      const activeContracts = snapshot.docs.filter(d => d.data().status === 'active');
-      const totalSpent = snapshot.docs.filter(d => d.data().status === 'completed').reduce((acc, d) => acc + (d.data().amount || 0), 0);
-      
-      setStats(prev => ({
-        ...prev,
-        activeContracts: activeContracts.length,
-        totalSpent: totalSpent
-      }));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'contracts');
-    });
-
-    const recentAppsQuery = query(
-      collection(db, 'applications'),
-      where('employerId', '==', profile.uid),
-      orderBy('createdAt', 'desc'),
-      limit(5)
-    );
-    const unsubscribeRecentApps = onSnapshot(recentAppsQuery, async (snapshot) => {
-      const appsData = await Promise.all(snapshot.docs.map(async (d) => {
-        const app = { id: d.id, ...d.data() } as Application;
-        const workerSnap = await getDocs(query(collection(db, 'profiles'), where('uid', '==', app.workerId)));
-        const worker = workerSnap.docs[0]?.data() as Profile;
-        return { ...app, worker };
-      }));
-      setRecentApplicants(appsData);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'recent_applications');
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeJobs();
-      unsubscribeApps();
-      unsubscribeContracts();
-      unsubscribeRecentApps();
+        const recent = await Promise.all(
+          apps.slice(0, 5).map(async (app) => {
+            const worker = await api.users.get(app.workerId).catch(() => undefined);
+            return { ...app, worker };
+          })
+        );
+        setRecentApplicants(recent);
+        setLoading(false);
+      } catch (error) {
+        debugLogger.error('Employer dashboard error:', error);
+        setLoading(false);
+      }
     };
+
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [profile, isDemo]);
 
   const getDateLocale = () => {

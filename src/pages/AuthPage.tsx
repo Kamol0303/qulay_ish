@@ -41,7 +41,7 @@ const initialState: AuthState = {
 export default function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, loading: authLoading, userRole, establishApiSession } = useAuth();
+  const { user, profile, loading: authLoading, userRole, setAuthProfile } = useAuth();
   const { t } = useTranslation();
 
   const mode = useMemo(() => {
@@ -170,12 +170,12 @@ export default function AuthPage() {
       try {
         const result = await authService.verifyOtp(state.phone, state.otp);
 
-        if (!result.success || !result.accessToken || !result.profile) {
+        if (!result.success || !result.profile) {
           setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
           return;
         }
 
-        establishApiSession(result.accessToken, result.profile);
+        setAuthProfile(result.profile);
 
         setPartialState({
           loading: false,
@@ -187,7 +187,7 @@ export default function AuthPage() {
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.otp, state.phone, mode, clearMessages, setPartialState, t, establishApiSession]
+    [state.otp, state.phone, mode, clearMessages, setPartialState, t, setAuthProfile]
   );
 
   const showDebugBanner = import.meta.env.VITE_SHOW_DEBUG_BANNER === 'true';

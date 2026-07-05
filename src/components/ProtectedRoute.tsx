@@ -19,7 +19,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     );
   }
 
-  // No Firebase user at all → go to auth
+  // No authenticated user → go to auth
   if (!user) return <Navigate to="/auth" replace />;
 
   // User exists but profile not yet in context (e.g. just created, snapshot pending).

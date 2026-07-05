@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Layout from '../components/Layout';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { jobService } from '../services/jobService';
+import { api } from '../lib/api';
 import { Job, Profile } from '../types';
 import { useTranslation } from 'react-i18next';
 import {
@@ -49,27 +49,21 @@ export default function QualayIshJobDetailsPage() {
 
       setLoading(true);
       try {
-        const jobDoc = await getDoc(doc(db, 'jobs', jobId));
-        if (jobDoc.exists()) {
-          const jobData = { id: jobDoc.id, ...jobDoc.data() } as Job;
-          setJob(jobData);
-
-          // Fetch employer details
-          const employerDoc = await getDoc(doc(db, 'profiles', jobData.employerId));
-          if (employerDoc.exists()) {
-            setEmployer(employerDoc.data() as Profile);
-          }
-
-          // Check if job is saved
-          if (profile?.uid) {
-            const saved = await savedJobsService.isJobSaved(profile.uid, jobId);
-            setIsSaved(saved);
-          }
-        } else {
+        const jobData = await jobService.getById(jobId);
+        if (!jobData) {
           navigate('/qulay-ish');
+          return;
         }
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, 'jobs');
+        setJob(jobData);
+
+        const employerData = await api.users.get(jobData.employerId).catch(() => null);
+        if (employerData) setEmployer(employerData);
+
+        if (profile?.uid) {
+          const saved = await savedJobsService.isJobSaved(profile.uid, jobId);
+          setIsSaved(saved);
+        }
+      } catch {
         navigate('/qulay-ish');
       } finally {
         setLoading(false);
@@ -371,6 +365,7 @@ export default function QualayIshJobDetailsPage() {
       {/* Apply Modal */}
       <ApplyModal
         job={job}
+        profile={profile}
         isOpen={isApplyModalOpen}
         onClose={() => setIsApplyModalOpen(false)}
       />

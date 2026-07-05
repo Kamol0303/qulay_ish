@@ -1,6 +1,5 @@
 import { debugLogger } from '../lib/debugLogger';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { api } from '../lib/api';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -13,21 +12,27 @@ export interface CreateNotificationParams {
 export const notificationService = {
   async create(params: CreateNotificationParams): Promise<boolean> {
     try {
-      await addDoc(collection(db, 'notifications'), {
+      await api.notifications.create({
         userId: params.userId,
         title: params.title,
         message: params.message,
         type: params.type,
         link: params.link || '',
         read: false,
-        createdAt: serverTimestamp()
       });
       return true;
     } catch (error) {
       debugLogger.error('Error creating notification:', error);
-      handleFirestoreError(error, OperationType.WRITE, 'notifications');
       return false;
     }
+  },
+
+  async list(userId: string) {
+    return api.notifications.list(userId);
+  },
+
+  async markRead(id: string) {
+    return api.notifications.update(id, { read: true });
   },
 
   async notifyNewApplication(employerId: string, workerName: string, jobTitle: string, applicationId: string) {
@@ -36,7 +41,7 @@ export const notificationService = {
       title: 'Yangi ariza',
       message: `${workerName} "${jobTitle}" ishiga ariza yubordi`,
       type: 'application',
-      link: `/employer/applicants?highlight=${applicationId}`
+      link: `/employer/applicants?highlight=${applicationId}`,
     });
   },
 
@@ -46,7 +51,7 @@ export const notificationService = {
       title: 'Ariza qabul qilindi',
       message: `Sizning "${jobTitle}" ishiga arizangiz qabul qilindi!`,
       type: 'application',
-      link: '/worker/applications'
+      link: '/worker/applications',
     });
   },
 
@@ -56,7 +61,7 @@ export const notificationService = {
       title: 'Ariza rad etildi',
       message: `Sizning "${jobTitle}" ishiga arizangiz rad etildi`,
       type: 'application',
-      link: '/worker/applications'
+      link: '/worker/applications',
     });
   },
 
@@ -66,7 +71,7 @@ export const notificationService = {
       title: 'Yangi shartnoma',
       message: `"${jobTitle}" ishi uchun yangi shartnoma yaratildi`,
       type: 'contract',
-      link: role === 'worker' ? `/worker/contracts/${contractId}` : `/employer/contracts/${contractId}`
+      link: role === 'worker' ? `/worker/contracts` : `/employer/contracts`,
     });
   },
 
@@ -76,7 +81,7 @@ export const notificationService = {
       title: 'Yangi xabar',
       message: `${senderName}: ${messagePreview.substring(0, 50)}...`,
       type: 'message',
-      link: '/chat'
+      link: '/chat',
     });
   },
 
@@ -86,7 +91,7 @@ export const notificationService = {
       title: 'Shartnoma imzolandi',
       message: `"${jobTitle}" ishi uchun shartnoma ${role === 'worker' ? 'ish beruvchi' : 'ishchi'} tomonidan imzolandi`,
       type: 'contract',
-      link: role === 'worker' ? '/worker/contracts' : '/employer/contracts'
+      link: role === 'worker' ? '/worker/contracts' : '/employer/contracts',
     });
   },
 
@@ -96,7 +101,7 @@ export const notificationService = {
       title: 'Shartnoma yakunlandi',
       message: `"${jobTitle}" ishi yakunlandi. Summa: ${amount.toLocaleString()} so'm`,
       type: 'contract',
-      link: '/contracts'
+      link: '/contracts',
     });
   },
 
@@ -106,7 +111,7 @@ export const notificationService = {
       title: 'Tasdiqlash muvaffaqiyatli',
       message: 'Sizning hisobingiz tasdiqlandi!',
       type: 'system',
-      link: '/my-profile'
+      link: '/my-profile',
     });
   },
 
@@ -116,7 +121,7 @@ export const notificationService = {
       title: 'Tasdiqlash rad etildi',
       message: `Sabab: ${reason}`,
       type: 'system',
-      link: '/verification'
+      link: '/verification',
     });
-  }
+  },
 };

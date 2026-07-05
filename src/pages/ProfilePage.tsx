@@ -1,8 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
-import { db } from '../firebase';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { Profile, Review } from '../types';
 import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Calendar, Briefcase } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -17,7 +16,7 @@ import { SKILLS } from '../constants/categories';
 export default function ProfilePage() {
   const { t, i18n } = useTranslation();
   const { userId } = useParams();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, profile: currentProfile } = useAuth();
   const [worker, setWorker] = React.useState<Profile | null>(null);
   const [canViewPhone, setCanViewPhone] = React.useState(false);
   const [reviews, setReviews] = React.useState<Review[]>([]);
@@ -26,36 +25,48 @@ export default function ProfilePage() {
 
   React.useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
 
     const fetchWorker = async () => {
-      const docRef = doc(db, 'profiles', userId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setWorker(docSnap.data() as Profile);
-        // determine if current user can view phone
+      try {
+        const workerData = await api.users.get(userId);
+        if (cancelled) return;
+        setWorker(workerData);
         if (currentUser && userId) {
           const ok = await relationshipService.canViewContact(currentUser.uid, userId);
-          setCanViewPhone(!!ok || currentUser?.role === 'super_admin');
+          setCanViewPhone(!!ok || currentProfile?.role === 'super_admin');
         }
+      } catch {
+        if (!cancelled) setWorker(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     };
 
-    const q = query(collection(db, 'reviews'), where('workerId', '==', userId));
-    const unsubscribeReviews = onSnapshot(q, (snapshot) => {
-      setReviews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review)));
-    });
+    const loadReviews = async () => {
+      try {
+        const rows = await api.reviews.list({ workerId: userId });
+        if (!cancelled) setReviews(rows);
+      } catch {
+        if (!cancelled) setReviews([]);
+      }
+    };
 
     fetchWorker();
-    return () => unsubscribeReviews();
-  }, [userId]);
+    loadReviews();
+    const interval = setInterval(loadReviews, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [userId, currentUser, currentProfile]);
 
   const startChat = () => {
     if (!currentUser) {
       navigate('/auth');
       return;
     }
-    if (!canViewPhone && currentUser?.role !== 'super_admin') {
+    if (!canViewPhone && currentProfile?.role !== 'super_admin') {
       window.alert(t('chat.restricted_before_approval', 'Chat available after application approval.'));
       return;
     }

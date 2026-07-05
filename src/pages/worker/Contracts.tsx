@@ -2,8 +2,9 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { contractService } from '../../services/contractService';
+import { jobService } from '../../services/jobService';
 import { Contract, Profile, Job } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { FileText, CheckCircle, User, Briefcase, ChevronRight } from 'lucide-react';
@@ -49,24 +50,11 @@ export default function WorkerContracts() {
       }
 
       try {
-        const q = query(
-          collection(db, 'contracts'),
-          where('workerId', '==', profile.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const snap = await getDocs(q);
-        const contractsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Contract));
+        const contractsData = await contractService.getByWorker(profile.uid);
 
         const combined = await Promise.all(contractsData.map(async (contract) => {
-          const employerSnap = await getDocs(query(collection(db, 'profiles'), where('uid', '==', contract.employerId)));
-          const employer = employerSnap.docs[0]?.data() as Profile;
-
-          let job: Job | undefined;
-          if (contract.jobId) {
-            const jobSnap = await getDocs(query(collection(db, 'jobs'), where('__name__', '==', contract.jobId)));
-            job = jobSnap.docs[0]?.data() as Job;
-          }
-
+          const employer = await api.users.get(contract.employerId).catch(() => undefined);
+          const job = contract.jobId ? await jobService.getById(contract.jobId).catch(() => undefined) : undefined;
           return { ...contract, employer, job };
         }));
 
@@ -83,10 +71,12 @@ export default function WorkerContracts() {
 
   const handleSign = async (contractId: string) => {
     try {
-      await updateDoc(doc(db, 'contracts', contractId), {
-        workerSigned: true,
-        status: 'active'
-      });
+      await contractService.signByWorker(
+        contractId,
+        profile!.uid,
+        contracts.find(c => c.id === contractId)?.employerId || '',
+        contracts.find(c => c.id === contractId)?.job?.title || '',
+      );
       setContracts(prev => prev.map(c => c.id === contractId ? { ...c, workerSigned: true, status: 'active' } : c));
     } catch (error) {
       debugLogger.error('Error signing contract:', error);

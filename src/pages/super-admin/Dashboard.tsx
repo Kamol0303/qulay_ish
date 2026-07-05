@@ -1,10 +1,10 @@
+import { toUserMessage } from '../../lib/api/errors';
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, getDocs, where, orderBy, limit } from 'firebase/firestore';
-import { 
+import { api } from '../../lib/api';
+import {
   Shield, Users, Briefcase, FileText, AlertTriangle, 
   TrendingUp, Activity, Database, Settings, BarChart3,
   CheckCircle, Clock, XCircle, DollarSign
@@ -34,85 +34,70 @@ export default function SuperAdminDashboard() {
     monthlyRevenue: 0
   });
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchSuperAdminStats() {
-      if (!profile?.uid || profile.role !== 'super_admin') return;
-      
       setLoading(true);
+      setApiError(null);
+
       try {
-        // Fetch all stats in parallel
-        const [
-          usersSnap,
-          jobsSnap,
-          applicationsSnap,
-          contractsSnap,
-          servicePostsSnap,
-          verificationsSnap
-        ] = await Promise.all([
-          getDocs(collection(db, 'profiles')),
-          getDocs(collection(db, 'jobs')),
-          getDocs(collection(db, 'applications')),
-          getDocs(collection(db, 'contracts')),
-          getDocs(collection(db, 'service_posts')),
-          getDocs(query(collection(db, 'verification_requests'), where('status', '==', 'pending')))
+        const counts = await api.stats.counts();
+        const results = await Promise.allSettled([
+          api.users.list(),
+          api.jobs.list(),
+          api.applications.list(),
+          api.contracts.list(),
+          api.servicePosts.list(),
+          api.verificationRequests.list({ status: 'pending' }),
+          api.systemLogs.list(),
         ]);
 
-        // Calculate user stats
-        const users = usersSnap.docs.map(d => d.data());
+        const users = results[0].status === 'fulfilled' ? results[0].value : [];
+        const jobs = results[1].status === 'fulfilled' ? results[1].value : [];
+        const applications = results[2].status === 'fulfilled' ? results[2].value : [];
+        const contracts = results[3].status === 'fulfilled' ? results[3].value : [];
+        const servicePosts = results[4].status === 'fulfilled' ? results[4].value : [];
+        const verifications = results[5].status === 'fulfilled' ? results[5].value : [];
+        const recentLogs = results[6].status === 'fulfilled' ? results[6].value : [];
+
         const workers = users.filter(u => u.role === 'worker');
         const employers = users.filter(u => u.role === 'employer');
         const admins = users.filter(u => u.role === 'admin' || u.role === 'super_admin');
-
-        // Calculate job stats
-        const jobs = jobsSnap.docs.map(d => d.data());
-        const activeJobs = jobs.filter(j => j.status === 'open');
-
-        // Calculate application stats
-        const applications = applicationsSnap.docs.map(d => d.data());
+        const activeJobs = jobs.filter(j => j.status === 'open' || j.status === 'active');
         const pendingApps = applications.filter(a => a.status === 'pending');
-
-        // Calculate contract stats
-        const contracts = contractsSnap.docs.map(d => d.data());
         const activeContracts = contracts.filter(c => c.status === 'active');
         const completedContracts = contracts.filter(c => c.status === 'completed');
-        
-        // Calculate revenue (from completed contracts)
+
         const totalRevenue = completedContracts.reduce((sum, c) => sum + (c.amount || 0), 0);
-        
-        // Calculate monthly revenue (last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const monthlyRevenue = completedContracts
-          .filter(c => c.updatedAt?.toDate?.() > thirtyDaysAgo)
+          .filter(c => new Date(c.updatedAt as string) > thirtyDaysAgo)
           .reduce((sum, c) => sum + (c.amount || 0), 0);
 
         setStats({
-          totalUsers: users.length,
+          totalUsers: counts.users || users.length,
           totalWorkers: workers.length,
           totalEmployers: employers.length,
           totalAdmins: admins.length,
-          totalJobs: jobs.length,
+          totalJobs: counts.jobs || jobs.length,
           activeJobs: activeJobs.length,
-          totalApplications: applications.length,
+          totalApplications: counts.applications || applications.length,
           pendingApplications: pendingApps.length,
-          totalContracts: contracts.length,
+          totalContracts: counts.contracts || contracts.length,
           activeContracts: activeContracts.length,
           completedContracts: completedContracts.length,
-          totalServicePosts: servicePostsSnap.size,
-          pendingVerifications: verificationsSnap.size,
+          totalServicePosts: servicePosts.length,
+          pendingVerifications: verifications.length,
           totalRevenue,
-          monthlyRevenue
+          monthlyRevenue,
         });
 
-        // Fetch recent activity (last 10 system logs or recent items)
-        const recentLogsSnap = await getDocs(
-          query(collection(db, 'system_logs'), orderBy('createdAt', 'desc'), limit(10))
-        );
-        setRecentActivity(recentLogsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
+        setRecentActivity((recentLogs as unknown[]).slice(0, 10));
       } catch (error) {
+        setApiError(toUserMessage(error, t('errors.unexpected')));
         debugLogger.error('Error fetching super admin stats:', error);
       } finally {
         setLoading(false);
@@ -120,7 +105,7 @@ export default function SuperAdminDashboard() {
     }
 
     fetchSuperAdminStats();
-  }, [profile]);
+  }, []);
 
   const statCards = [
     {
@@ -238,6 +223,12 @@ export default function SuperAdminDashboard() {
             </span>
           </div>
         </div>
+
+        {apiError && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm font-medium">
+            {apiError}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

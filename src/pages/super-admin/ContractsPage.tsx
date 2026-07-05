@@ -2,8 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, onSnapshot, query, orderBy, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { FileText, CheckCircle, XCircle, Clock, User, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
@@ -28,23 +27,23 @@ export interface Contract {
   jobTitle: string;
   amount: number;
   currency: string;
-  startDate: Timestamp;
-  endDate?: Timestamp;
+  startDate: string | Date;
+  endDate?: string | Date;
   description?: string;
   termsAccepted: boolean;
   signatures?: {
     worker?: {
-      date: Timestamp;
+      date: string | Date;
       signature: string;
     };
     employer?: {
-      date: Timestamp;
+      date: string | Date;
       signature: string;
     };
   };
   adminApproved: 'pending' | 'approved' | 'rejected';
-  createdAt?: Timestamp;
-  updatedAt?: Timestamp;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export default function SuperAdminContractsPage() {
@@ -57,22 +56,69 @@ export default function SuperAdminContractsPage() {
   const [processMessage, setProcessMessage] = useState('');
 
   useEffect(() => {
-    // Subscribe to real-time contracts
-    const q = query(
-      collection(db, 'contracts'),
-      orderBy('createdAt', 'desc')
-    );
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const contractsList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Contract));
-      setContracts(contractsList);
-      setLoading(false);
-    });
+    const mapContract = async (c: import('../../types').Contract): Promise<Contract> => {
+      const [worker, employer] = await Promise.all([
+        api.users.get(c.workerId).catch(() => null),
+        api.users.get(c.employerId).catch(() => null),
+      ]);
+      const adminStatus: Contract['adminApproved'] =
+        c.adminApproved === true ? 'approved' :
+        c.status === 'cancelled' ? 'rejected' : 'pending';
 
-    return () => unsubscribe();
+      return {
+        id: c.id,
+        ishchi: {
+          id: c.workerId,
+          name: worker?.fullName || c.workerName || 'Ishchi',
+          email: worker?.email || '',
+          phone: worker?.phoneNumber,
+        },
+        ish_beruvchi: {
+          id: c.employerId,
+          name: employer?.fullName || c.employerName || 'Ish beruvchi',
+          email: employer?.email || '',
+          phone: employer?.phoneNumber,
+        },
+        jobId: c.jobId || '',
+        jobTitle: c.jobTitle || 'Shartnoma',
+        amount: c.amount || 0,
+        currency: 'UZS',
+        startDate: c.startDate || new Date().toISOString(),
+        endDate: c.endDate,
+        description: c.terms,
+        termsAccepted: Boolean(c.workerSigned && c.employerSigned),
+        signatures: {
+          worker: c.workerSigned ? { date: c.updatedAt || new Date().toISOString(), signature: 'signed' } : undefined,
+          employer: c.employerSigned ? { date: c.updatedAt || new Date().toISOString(), signature: 'signed' } : undefined,
+        },
+        adminApproved: adminStatus,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      };
+    };
+
+    const load = async () => {
+      try {
+        const rows = await api.contracts.list();
+        const mapped = await Promise.all(rows.map(mapContract));
+        if (!cancelled) {
+          setContracts(mapped);
+          setLoading(false);
+        }
+      } catch (error) {
+        debugLogger.error('Error loading contracts:', error);
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    const interval = setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   const filteredContracts = filterStatus === 'all'
@@ -87,9 +133,9 @@ export default function SuperAdminContractsPage() {
 
     try {
       // Update contract status
-      await updateDoc(doc(db, 'contracts', contractId), {
-        adminApproved: 'approved',
-        updatedAt: Timestamp.now()
+      await api.contracts.update(contractId, {
+        adminApproved: true,
+        status: 'active',
       });
 
       // Log the action
@@ -144,9 +190,9 @@ export default function SuperAdminContractsPage() {
 
     try {
       // Update contract status
-      await updateDoc(doc(db, 'contracts', contractId), {
-        adminApproved: 'rejected',
-        updatedAt: Timestamp.now()
+      await api.contracts.update(contractId, {
+        adminApproved: false,
+        status: 'cancelled',
       });
 
       // Log the action

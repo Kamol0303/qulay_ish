@@ -3,8 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { applicationService } from '../../services/applicationService';
+import { jobService } from '../../services/jobService';
 import { Job, Application, Profile } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -43,22 +44,19 @@ export default function EmployerJobDetails() {
       if (!jobId || !profile?.uid) return;
       setLoading(true);
       try {
-        const jobSnap = await getDoc(doc(db, 'jobs', jobId));
-        if (!jobSnap.exists() || jobSnap.data().employerId !== profile.uid) {
+        const jobData = await jobService.getById(jobId);
+        if (!jobData || jobData.employerId !== profile.uid) {
           navigate('/employer/dashboard');
           return;
         }
-        setJob({ id: jobSnap.id, ...jobSnap.data() } as Job);
+        setJob(jobData);
 
-        const appsQuery = query(collection(db, 'applications'), where('jobId', '==', jobId));
-        const appsSnap = await getDocs(appsQuery);
-        const appsData = await Promise.all(appsSnap.docs.map(async (d) => {
-          const app = { id: d.id, ...d.data() } as Application;
-          const workerSnap = await getDocs(query(collection(db, 'profiles'), where('uid', '==', app.workerId)));
-          const worker = workerSnap.docs[0]?.data() as Profile;
+        const appsData = await applicationService.getByJob(jobId);
+        const withWorkers = await Promise.all(appsData.map(async (app) => {
+          const worker = await api.users.get(app.workerId).catch(() => undefined);
           return { ...app, worker };
         }));
-        setApplications(appsData);
+        setApplications(withWorkers);
       } catch (error) {
         debugLogger.error('Error fetching job details:', error);
       } finally {
@@ -71,7 +69,7 @@ export default function EmployerJobDetails() {
 
   const handleStatusUpdate = async (appId: string, newStatus: string) => {
     try {
-      await updateDoc(doc(db, 'applications', appId), { status: newStatus });
+      await applicationService.updateStatus(appId, newStatus as Application['status']);
       setApplications(prev => prev.map(app => app.id === appId ? { ...app, status: newStatus as any } : app));
     } catch (error) {
       debugLogger.error('Error updating status:', error);
@@ -81,7 +79,7 @@ export default function EmployerJobDetails() {
   const handleDeleteJob = async () => {
     if (!jobId || !window.confirm(t('employer.dashboard.delete_job_confirm'))) return;
     try {
-      await deleteDoc(doc(db, 'jobs', jobId));
+      await jobService.delete(jobId);
       navigate('/employer/dashboard');
     } catch (error) {
       debugLogger.error('Error deleting job:', error);

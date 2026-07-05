@@ -1,13 +1,11 @@
 /**
  * Debug Logger - Only logs in development mode
- * Filters out Firebase config and other noise
  */
 
 const isDev = import.meta.env.DEV;
 
 // Messages to suppress
 const suppressedPatterns = [
-  '[Firebase] Active Configuration',
   'Download the React DevTools',
   'Active Configuration:',
 ];

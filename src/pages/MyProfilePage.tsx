@@ -2,8 +2,7 @@ import { debugLogger } from '../lib/debugLogger';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { motion } from 'motion/react';
 import { User, MapPin, Briefcase, Star, Settings, Save, Plus, X, AlertCircle, CheckCircle, ArrowLeft, BookOpen } from 'lucide-react';
 import Layout from '../components/Layout';
@@ -90,7 +89,7 @@ export default function MyProfilePage() {
     setSuccess(false);
 
     try {
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         fullName: formData.fullName,
         region: formData.region,
         district: formData.district,
@@ -100,26 +99,16 @@ export default function MyProfilePage() {
         experienceLevel: formData.experienceLevel,
         education: formData.education,
         experience: formData.experience,
-        updatedAt: serverTimestamp(),
       };
 
-      if (formData.phoneNumber) {
-        updateData.phoneNumber = formData.phoneNumber;
-      }
+      if (formData.phoneNumber) updateData.phoneNumber = formData.phoneNumber;
+      if (formData.email) updateData.email = formData.email;
 
-      if (formData.email) {
-        updateData.email = formData.email;
-      }
-
-      const profileRef = doc(db, 'profiles', profile.uid);
-      
-      // Check if document exists first
-      const profileSnap = await getDoc(profileRef);
-      
-      if (!profileSnap.exists()) {
-        // Document doesn't exist - create it with setDoc
-        debugLogger.log('[Profile] Creating new profile document');
-        await setDoc(profileRef, {
+      try {
+        await api.users.update(profile.uid, updateData as Parameters<typeof api.users.update>[1]);
+      } catch {
+        debugLogger.log('[Profile] Creating/updating profile via API');
+        await api.users.update(profile.uid, {
           uid: profile.uid,
           fullName: formData.fullName,
           email: formData.email || profile.email,
@@ -135,18 +124,7 @@ export default function MyProfilePage() {
           experience: formData.experience,
           isVerified: false,
           verificationStatus: 'pending',
-          status: 'active',
-          rating: 0,
-          reviewCount: 0,
-          completedJobs: 0,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastActive: serverTimestamp(),
-        });
-      } else {
-        // Document exists - update it
-        debugLogger.log('[Profile] Updating existing profile document');
-        await updateDoc(profileRef, updateData);
+        } as Parameters<typeof api.users.update>[1]);
       }
       
       setIsEditing(false);
@@ -154,7 +132,6 @@ export default function MyProfilePage() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
       debugLogger.error('Update error:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `profiles/${profile.uid}`);
     } finally {
       setSaving(false);
     }

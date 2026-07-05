@@ -1,8 +1,7 @@
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState, useCallback } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, updateDoc, doc, orderBy, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { Profile } from '../../types';
 import {
   Users, Search, UserX, CheckCircle, Mail, Phone,
@@ -214,7 +213,7 @@ export default function UsersManagement() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [verificationFilter, setVerificationFilter] = useState<string>('all');
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 10;
 
@@ -235,39 +234,32 @@ export default function UsersManagement() {
   async function fetchUsers(reset = false) {
     setLoading(true);
     try {
-      const constraints: any[] = [];
-      if (roleFilter !== 'all') constraints.push(where('role', '==', roleFilter));
-      if (verificationFilter === 'verified') constraints.push(where('isVerified', '==', true));
-      if (verificationFilter === 'unverified') constraints.push(where('isVerified', '==', false));
-      constraints.push(orderBy('createdAt', 'desc'));
+      const nextPage = reset ? 0 : page;
+      const params: Record<string, string> = {};
+      if (roleFilter !== 'all') params.role = roleFilter;
 
-      const q = performanceUtils.createPaginatedQuery(
-        'profiles', constraints, pageSize,
-        reset ? undefined : (lastVisible || undefined)
-      );
-      const snap = await getDocs(q);
-      const fetched = snap.docs.map(d => ({ uid: d.id, ...d.data() } as Profile));
+      let fetched = await api.users.list(params);
+      if (verificationFilter === 'verified') fetched = fetched.filter(u => u.isVerified);
+      if (verificationFilter === 'unverified') fetched = fetched.filter(u => !u.isVerified);
 
-      const merged = reset ? demoStore.mergeUsers(fetched) : [...users, ...fetched];
+      const sorted = performanceUtils.sortByCreatedAtDesc(fetched);
+      const { items, hasMore: more } = performanceUtils.paginate(sorted, pageSize, nextPage);
+
+      const merged = reset ? demoStore.mergeUsers(items) : [...users, ...items];
       setUsers(merged as Profile[]);
-
-      if (snap.docs.length > 0) {
-        setLastVisible(snap.docs[snap.docs.length - 1]);
-        setHasMore(snap.docs.length === pageSize);
-      } else {
-        setHasMore(false);
-      }
+      setHasMore(more);
+      if (!reset) setPage(nextPage + 1);
+      else setPage(1);
     } catch (error) {
       debugLogger.error('Error fetching users:', error);
-      const localUsers = demoStore.getUsers();
-      setUsers(localUsers as Profile[]);
+      setUsers(demoStore.getUsers() as Profile[]);
       setHasMore(false);
     } finally {
       setLoading(false);
     }
   }
 
-  /** Apply a patch to a user in all state layers: local state, selectedUser, demoStore, Firestore */
+  /** Apply a patch to a user in all state layers: local state, selectedUser, demoStore, API */
   const applyUserPatch = useCallback(async (uid: string, patch: Partial<Profile> & Record<string, any>) => {
     const now = new Date().toISOString();
     const patchWithTime = { ...patch, updatedAt: now };
@@ -285,11 +277,11 @@ export default function UsersManagement() {
       demoStore.updateUser(uid, patchWithTime);
     }
 
-    // 3. Try Firestore (best-effort — fails silently for demo users without write permission)
+    // 3. Try API (best-effort — fails silently for demo users)
     try {
-      await updateDoc(doc(db, 'profiles', uid), patchWithTime);
+      await api.users.update(uid, patchWithTime as Parameters<typeof api.users.update>[1]);
     } catch (err) {
-      debugLogger.warn('[UsersManagement] Firestore update skipped (demo user or permission denied):', err);
+      debugLogger.warn('[UsersManagement] API update skipped:', err);
     }
   }, []);
 

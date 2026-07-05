@@ -2,8 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { REGIONS, DISTRICTS } from '../../constants/locations';
 import { SKILLS } from '../../constants/categories';
@@ -38,7 +37,7 @@ export default function CreateServicePost() {
     setError(null);
 
     try {
-      await addDoc(collection(db, 'service_posts'), {
+      await api.servicePosts.create({
         workerId: profile.uid,
         title: formData.title,
         description: formData.description,
@@ -46,10 +45,8 @@ export default function CreateServicePost() {
         expectedPrice: Number(formData.expectedPrice),
         region: formData.region,
         district: formData.district,
-        neighborhood: formData.neighborhood,
         images: formData.images,
         status: 'active',
-        createdAt: serverTimestamp()
       });
 
       navigate('/worker/service-posts');

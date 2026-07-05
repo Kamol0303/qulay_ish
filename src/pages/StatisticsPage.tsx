@@ -1,14 +1,13 @@
 import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { Profile } from '../types';
 import { motion } from 'motion/react';
 import { TrendingUp, Users, MapPin, BarChart2, ArrowLeft } from 'lucide-react';
 import Layout from '../components/Layout';
 import { DISTRICTS } from '../constants/locations';
-import { getDistrictKey } from '../lib/utils';
+import { getDistrictKey, filterWorkersForSamarkand } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 interface DistrictStat {
@@ -26,14 +25,9 @@ export default function StatisticsPage() {
   React.useEffect(() => {
     const fetchDistrictStats = async () => {
       try {
-        const profilesQuery = query(
-          collection(db, 'profiles'),
-          where('role', '==', 'worker'),
-          where('region', '==', 'Samarqand viloyati')
+        const profiles = filterWorkersForSamarkand(
+          await api.users.list({ role: 'worker' }),
         );
-        
-        const profilesSnapshot = await getDocs(profilesQuery);
-        const profiles = profilesSnapshot.docs.map(doc => doc.data() as Profile);
         
         const districtCounts: Record<string, number> = {};
         profiles.forEach(profile => {

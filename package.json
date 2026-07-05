@@ -9,11 +9,15 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "seed:workers": "tsx scripts/addWorkerProfiles.ts",
-    "migrate:passwords": "tsx scripts/migratePasswords.ts"
+    "db:up": "sh -c 'docker compose up -d postgres 2>/dev/null || docker-compose up -d postgres'",
+    "db:down": "sh -c 'docker compose down 2>/dev/null || docker-compose down'",
+    "api:install": "cd api && npm install && npx prisma migrate deploy && npx prisma generate",
+    "api:dev": "cd api && npm run start:dev",
+    "api:build": "cd api && npm run build",
+    "db:migrate": "cd api && npx prisma migrate dev",
+    "db:seed": "cd api && npm run prisma:seed"
   },
   "dependencies": {
-    "@dataconnect/generated": "file:src/dataconnect-generated",
     "@tailwindcss/vite": "^4.3.0",
     "@types/bcryptjs": "^2.4.6",
     "@vitejs/plugin-react": "^5.0.4",
@@ -22,7 +26,6 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
-    "firebase": "^12.14.0",
     "i18next": "^26.0.3",
     "i18next-browser-languagedetector": "^8.2.1",
     "jspdf": "^4.2.1",

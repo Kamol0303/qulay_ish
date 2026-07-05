@@ -2,8 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, getDocs, doc, updateDoc, where, orderBy } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { VerificationRequest, Profile } from '../../types';
 import {
   ShieldCheck, CheckCircle, XCircle, Clock, AlertTriangle,
@@ -140,7 +139,7 @@ function PhotoSlot({ url, label, noLabel, onPreview }: {
 
 export default function VerificationManagement() {
   const { t, i18n } = useTranslation();
-  const { isDemo } = useAuth();
+  const { isDemo, profile } = useAuth();
   const [requests, setRequests] = useState<(VerificationRequest & { user?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('pending');
@@ -172,20 +171,12 @@ export default function VerificationManagement() {
       return;
     }
     try {
-      let q = query(collection(db, 'verification_requests'), orderBy('createdAt', 'desc'));
-      if (statusFilter !== 'all') {
-        q = query(collection(db, 'verification_requests'), where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
-      }
-      const snap = await getDocs(q);
-      const data = await Promise.all(snap.docs.map(async (d) => {
-        const req = { id: d.id, ...d.data() } as VerificationRequest;
-        try {
-          const userSnap = await getDocs(query(collection(db, 'profiles'), where('uid', '==', req.userId)));
-          const user = userSnap.docs[0]?.data() as Profile | undefined;
-          return { ...req, user };
-        } catch {
-          return { ...req, user: undefined };
-        }
+      const params: Record<string, string> = {};
+      if (statusFilter !== 'all') params.status = statusFilter;
+      const rows = await api.verificationRequests.list(params);
+      const data = await Promise.all(rows.map(async (req) => {
+        const user = await api.users.get(req.userId).catch(() => undefined);
+        return { ...req, user };
       }));
       setRequests(data);
     } catch (error) {
@@ -199,15 +190,15 @@ export default function VerificationManagement() {
   async function handleApprove(requestId: string, userId: string) {
     setActionLoading(requestId);
     try {
-      await updateDoc(doc(db, 'verification_requests', requestId), {
-        status: 'approved',
-        reviewedAt: new Date().toISOString()
+      await api.verificationRequests.update(requestId, {
+        status: 'verified',
+        reviewedBy: profile?.uid,
       });
-      await updateDoc(doc(db, 'profiles', userId), {
+      await api.users.update(userId, {
         isVerified: true,
-        verificationStatus: 'approved'
+        verificationStatus: 'verified',
       });
-      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved' } : r));
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'verified' } : r));
       showToast(t('common.success'), 'success');
     } catch (error) {
       showToast(t('common.error'), 'error');
@@ -220,14 +211,14 @@ export default function VerificationManagement() {
     setActionLoading(requestId);
     setRejectTarget(null);
     try {
-      await updateDoc(doc(db, 'verification_requests', requestId), {
+      await api.verificationRequests.update(requestId, {
         status: 'rejected',
         reviewNote: reason,
-        reviewedAt: new Date().toISOString()
+        reviewedBy: profile?.uid,
       });
-      await updateDoc(doc(db, 'profiles', userId), {
+      await api.users.update(userId, {
         isVerified: false,
-        verificationStatus: 'rejected'
+        verificationStatus: 'rejected',
       });
       setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected' } : r));
       showToast(t('common.success'), 'success');
@@ -305,7 +296,7 @@ export default function VerificationManagement() {
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar size={14} />
-                          {req.createdAt ? format(req.createdAt.toDate(), 'dd MMM, yyyy', { locale: getDateLocale() }) : '-'}
+                          {req.createdAt ? format(new Date(req.createdAt as string), 'dd MMM, yyyy', { locale: getDateLocale() }) : '-'}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full font-black uppercase tracking-tighter ${
                           req.status === 'approved' ? 'bg-green-100 text-green-600' :

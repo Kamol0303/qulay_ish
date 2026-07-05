@@ -2,8 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, orderBy, limit, onSnapshot, Timestamp } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { Activity, Clock, User, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
@@ -13,9 +12,18 @@ interface SystemLog {
   action: string;
   userId: string;
   userName: string;
-  timestamp: Timestamp;
+  timestamp: string | Date | { toDate?: () => Date };
   details: string;
   type: 'info' | 'warning' | 'error' | 'security';
+}
+
+function toLogDate(value: SystemLog['timestamp']): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') return new Date(value);
+  if (value && typeof value === 'object' && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+  return new Date();
 }
 
 export default function SystemLogs() {
@@ -32,7 +40,7 @@ export default function SystemLogs() {
           action: 'User Login',
           userId: 'demo_admin',
           userName: 'Demo Admin',
-          timestamp: Timestamp.now(),
+          timestamp: new Date().toISOString(),
           details: 'Admin logged into the system',
           type: 'info'
         },
@@ -41,7 +49,7 @@ export default function SystemLogs() {
           action: 'Profile Verified',
           userId: 'worker_123',
           userName: 'Lola Karimova',
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 3600000)),
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
           details: 'Worker profile was verified by admin',
           type: 'security'
         },
@@ -50,7 +58,7 @@ export default function SystemLogs() {
           action: 'Job Deleted',
           userId: 'employer_456',
           userName: 'Azizbek Toshmatov',
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 7200000)),
+          timestamp: new Date(Date.now() - 7200000).toISOString(),
           details: 'Job posting #JOB-789 was deleted',
           type: 'warning'
         }
@@ -59,17 +67,20 @@ export default function SystemLogs() {
       return;
     }
 
-    const q = query(collection(db, 'system_logs'), orderBy('timestamp', 'desc'), limit(50));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const logsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SystemLog));
-      setLogs(logsData);
-      setLoading(false);
-    }, (error) => {
-      debugLogger.error("Error fetching logs:", error);
-      setLoading(false);
-    });
+    const load = async () => {
+      try {
+        const rows = await api.systemLogs.list();
+        setLogs((rows as SystemLog[]).slice(0, 50));
+      } catch (error) {
+        debugLogger.error('Error fetching logs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => unsubscribe();
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [isDemo]);
 
   const getTypeColor = (type: string) => {
@@ -123,9 +134,9 @@ export default function SystemLogs() {
                       <td className="px-8 py-6 whitespace-nowrap">
                         <div className="flex items-center gap-2 text-xs font-bold text-gray-600">
                           <Clock size={14} className="text-gray-400" />
-                          {format(log.timestamp.toDate(), 'HH:mm:ss')}
+                          {format(toLogDate(log.timestamp), 'HH:mm:ss')}
                           <span className="text-gray-300 font-normal ml-1">
-                            {format(log.timestamp.toDate(), 'dd.MM.yyyy')}
+                            {format(toLogDate(log.timestamp), 'dd.MM.yyyy')}
                           </span>
                         </div>
                       </td>

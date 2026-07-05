@@ -2,11 +2,8 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import {
-  collection, query, getDocs, updateDoc, doc,
-  orderBy, QueryDocumentSnapshot, DocumentData, where
-} from 'firebase/firestore';
+import { api } from '../../lib/api';
+import { jobService } from '../../services/jobService';
 import { Job } from '../../types';
 import {
   Briefcase, Search, Trash2, Clock, MapPin, DollarSign,
@@ -20,7 +17,7 @@ import { performanceUtils } from '../../lib/performance';
 import { demoStore } from '../../lib/demoStore';
 import { DEMO_JOBS } from '../../constants/demoData';
 
-// Safe date parser — handles Firestore Timestamp, { seconds, nanoseconds }, ISO string, Date
+// Safe date parser — handles export timestamps, ISO string, Date
 function safeDate(val: any): Date | null {
   if (!val) return null;
   try {
@@ -129,7 +126,7 @@ export default function JobsManagement() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 15;
 
@@ -144,35 +141,25 @@ export default function JobsManagement() {
   async function fetchJobs(reset = false) {
     setLoading(true);
     try {
-      const constraints: any[] = [];
-      if (statusFilter !== 'all') constraints.push(where('status', '==', statusFilter));
-      constraints.push(orderBy('createdAt', 'desc'));
+      const nextPage = reset ? 0 : page;
+      const params: Record<string, string> = {};
+      if (statusFilter !== 'all') params.status = statusFilter;
 
-      const q = performanceUtils.createPaginatedQuery(
-        'jobs', constraints, pageSize,
-        reset ? undefined : (lastVisible || undefined)
-      );
-      const snap = await getDocs(q);
-      const fetched = snap.docs.map(d => ({ id: d.id, ...d.data() } as Job));
+      const fetched = await api.jobs.list(params);
+      const sorted = performanceUtils.sortByCreatedAtDesc(fetched);
+      const { items, hasMore: more } = performanceUtils.paginate(sorted, pageSize, nextPage);
 
-      // Merge Firestore results with DEMO_JOBS + localStorage demo jobs
-      const base = reset ? demoStore.mergeJobs([...DEMO_JOBS, ...fetched]) : [...jobs, ...fetched];
+      const base = reset ? demoStore.mergeJobs([...DEMO_JOBS, ...items]) : [...jobs, ...items];
       const filtered = statusFilter === 'all' ? base : base.filter(j => j.status === statusFilter);
 
       setJobs(filtered);
-
-      if (snap.docs.length > 0) {
-        setLastVisible(snap.docs[snap.docs.length - 1]);
-        setHasMore(snap.docs.length === pageSize);
-      } else {
-        setHasMore(false);
-      }
+      setHasMore(more);
+      if (!reset) setPage(nextPage + 1);
+      else setPage(1);
     } catch (error) {
       debugLogger.error('Error fetching jobs:', error);
-      // Fallback: DEMO_JOBS + localStorage
       const fallback = demoStore.mergeJobs(DEMO_JOBS);
-      const filtered = statusFilter === 'all' ? fallback : fallback.filter(j => j.status === statusFilter);
-      setJobs(filtered as Job[]);
+      setJobs(statusFilter === 'all' ? fallback as Job[] : fallback.filter(j => j.status === statusFilter) as Job[]);
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -183,11 +170,11 @@ export default function JobsManagement() {
     // Update local state + localStorage immediately (optimistic)
     demoStore.updateJob(jobId, { status: newStatus });
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus as any } : j));
-    // Try Firestore (non-blocking for demo jobs)
+    // Try API (non-blocking for demo jobs)
     try {
-      await updateDoc(doc(db, 'jobs', jobId), { status: newStatus });
+      await jobService.update(jobId, { status: newStatus as Job['status'] });
     } catch {
-      // Demo jobs don't exist in Firestore — that's fine
+      // Demo jobs may not exist in API
     }
     showToast(t('common.success'), 'success');
   }
@@ -197,9 +184,9 @@ export default function JobsManagement() {
     demoStore.removeJob(jobId);
     setJobs(prev => prev.filter(j => j.id !== jobId));
     try {
-      await updateDoc(doc(db, 'jobs', jobId), { status: 'closed', deletedAt: new Date().toISOString() });
+      await jobService.update(jobId, { status: 'closed' });
     } catch {
-      // Demo jobs don't exist in Firestore — that's fine
+      // Demo jobs may not exist in API
     }
     showToast(t('common.success'), 'success');
   }

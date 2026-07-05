@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Briefcase, Building2, Loader } from 'lucide-react';
 import { authService } from '../lib/authService';
-import { auth } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,11 +13,11 @@ interface RoleSelectionModalProps {
 export default function RoleSelectionModal({ onComplete }: RoleSelectionModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { refreshProfile } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   const handleRoleSelect = async (role: 'worker' | 'employer') => {
-    if (!auth.currentUser) {
+    if (!user) {
       setError('Foydalanuvchi topilmadi. Qayta kirish kerak.');
       return;
     }
@@ -28,11 +27,11 @@ export default function RoleSelectionModal({ onComplete }: RoleSelectionModalPro
 
     try {
       const savedName = window.localStorage.getItem('qulayish_name_for_signin');
-      await authService.createProfileWithRole(auth.currentUser, role, savedName || undefined);
+      await authService.createProfileWithRole(user, role, savedName || undefined);
       window.localStorage.removeItem('qulayish_name_for_signin');
 
       // Force-read the freshly written profile into context before navigating.
-      // This prevents the race where onComplete() fires before the Firestore
+      // This prevents the race where onComplete() fires before the profile
       // snapshot propagates, causing AuthPage to see user+noProfile and loop.
       await refreshProfile();
 

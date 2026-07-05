@@ -2,8 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../firebase';
-import { collection, query, where, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { api } from '../../lib/api';
 import { ServicePost } from '../../types';
 import { Plus, Briefcase, MapPin, Clock, MoreVertical, Edit2, Trash2, Eye, EyeOff } from 'lucide-react';
 import { format } from 'date-fns';
@@ -31,13 +30,8 @@ export default function MyServicePosts() {
     async function fetchPosts() {
       if (!profile?.uid) return;
       try {
-        const q = query(
-          collection(db, 'service_posts'),
-          where('workerId', '==', profile.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const snap = await getDocs(q);
-        setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as ServicePost)));
+        const rows = await api.servicePosts.list({ workerId: profile.uid });
+        setPosts(rows);
       } catch (error) {
         debugLogger.error('Error fetching service posts:', error);
       } finally {
@@ -53,7 +47,7 @@ export default function MyServicePosts() {
     if (!window.confirm(t('common.delete_confirm'))) return;
     setDeletingId(id);
     try {
-      await deleteDoc(doc(db, 'service_posts', id));
+      await api.servicePosts.update(id, { status: 'inactive' });
       setPosts(posts.filter(p => p.id !== id));
     } catch (error) {
       debugLogger.error('Error deleting post:', error);

@@ -2,8 +2,7 @@ import { debugLogger } from '../lib/debugLogger';
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../firebase';
-import { collection, addDoc, query, where, getDocs, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { api } from '../lib/api';
 import { VerificationRequest } from '../types';
 import { ShieldCheck, Upload, CheckCircle, Clock, AlertTriangle, User, FileText, Camera, ChevronRight, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -26,10 +25,9 @@ export default function VerificationPage() {
     async function fetchRequest() {
       if (!profile?.uid) return;
       try {
-        const q = query(collection(db, 'verification_requests'), where('userId', '==', profile.uid));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          setRequest({ id: snap.docs[0].id, ...snap.docs[0].data() } as VerificationRequest);
+        const rows = await api.verificationRequests.list({ userId: profile.uid });
+        if (rows.length > 0) {
+          setRequest(rows[0]);
         }
       } catch (error) {
         debugLogger.error('Error fetching verification request:', error);
@@ -48,21 +46,15 @@ export default function VerificationPage() {
     try {
       // In a real app, we would upload files to Storage first
       // For this demo, we'll use placeholder URLs
-      const newRequest = {
+      const created = await api.verificationRequests.create({
         userId: profile.uid,
         idPhotoUrl: formData.idPhotoUrl || 'https://picsum.photos/seed/id/800/600',
         selfieUrl: formData.selfieUrl || 'https://picsum.photos/seed/selfie/800/600',
         status: 'pending',
-        createdAt: serverTimestamp()
-      };
-
-      const docRef = await addDoc(collection(db, 'verification_requests'), newRequest);
-      setRequest({ id: docRef.id, ...newRequest } as VerificationRequest);
-
-      // Update profile status
-      await updateDoc(doc(db, 'profiles', profile.uid), {
-        verificationStatus: 'pending'
       });
+      setRequest(created);
+
+      await api.users.update(profile.uid, { verificationStatus: 'pending' });
 
     } catch (error) {
       debugLogger.error('Error submitting verification request:', error);
