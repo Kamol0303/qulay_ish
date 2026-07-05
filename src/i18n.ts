@@ -26,7 +26,12 @@ i18n
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng'
-    }
+    },
+    // Never show raw i18n keys like "nav.sidebar.saved_jobs" in the UI
+    parseMissingKeyHandler: (key) => {
+      const last = key.split('.').pop() ?? key;
+      return last.replace(/_/g, ' ');
+    },
   });
 
 export default i18n;

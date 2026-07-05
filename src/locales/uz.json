@@ -82,7 +82,19 @@
     "platform": "Platforma",
     "help": "Yordam",
     "all_rights_reserved": "Barcha huquqlar himoyalangan",
-    "made_with_love": "Samarqand uchun ❤️ bilan yaratildi"
+    "made_with_love": "Samarqand uchun ❤️ bilan yaratildi",
+    "optional": "Ixtiyoriy",
+    "delete_confirm": "Haqiqatan ham oʻchirib tashlamoqchimisiz?",
+    "contact": "Bogʻlanish",
+    "duration": "Muddat",
+    "recently": "Yaqinda",
+    "search_placeholder": "Qidirish...",
+    "nothing_found": "Hech narsa topilmadi",
+    "try_changing_filters": "Filtrlarni oʻzgartirib koʻring",
+    "noResults": "Natija topilmadi",
+    "images": "Rasmlar",
+    "image_url_placeholder": "Rasm havolasi (URL)",
+    "post": "Joylash"
   },
   "nav": {
     "jobs_link": "Ishlar",
@@ -135,7 +147,8 @@
       "contract_audit": "Shartnomalar auditi",
       "system_logs": "Tizim jurnallari",
       "system_settings": "Tizim sozlamalari",
-      "courses": "Bepul darsliklar"
+      "courses": "Bepul darsliklar",
+      "saved_jobs": "Saqlangan ishlar"
     }
   },
   "jobs": {
@@ -273,7 +286,9 @@
       "price_and_duration": "Narx va davomiylik",
       "offered_price": "Taklif etilayotgan narx",
       "job_type": "Ish turi",
-      "requirement_placeholder": "Masalan: Tajriba talab qilinadi"
+      "requirement_placeholder": "Masalan: Tajriba talab qilinadi",
+      "no_applications": "Hozircha arizalar yoʻq",
+      "price_placeholder": "Masalan: 200000"
     }
   },
   "worker": {
@@ -438,6 +453,10 @@
     "confirm_approve": "Shartnomani tasdiqlashni xohlaysizmi?",
     "confirm_reject": "Shartnomani rad etishni xohlaysizmi?"
     },
+    "applications": {
+      "title": "Arizalarni boshqarish",
+      "subtitle": "Platformadagi barcha ish arizalari"
+    },
     "logs": {
       "subtitle": "Real vaqt rejimidagi tizim faolligi va audit jurnali",
       "live_monitoring": "Jonli monitoring",
@@ -483,6 +502,7 @@
     "step_resume": "Rezyume yozish",
     "step_resume_desc": "O‘z rezyumeingizni professional tarzda yarating.",
     "write_resume": "Rezyume yozish",
+    "submit_application": "Ariza topshirish",
     "find_job": "Ish qidirish",
     "post_job": "Eʼlon berish",
     "search_placeholder": "Kasb yoki kalit soʻz...",
@@ -718,6 +738,7 @@
       "analytics": "Tahlil",
       "systemLogs": "Tizim jurnallari"
     },
+    "settings": "Tizim sozlamalari",
     "system": {
       "database": "Ma'lumotlar bazasi",
       "authentication": "Autentifikatsiya",
@@ -780,7 +801,8 @@
     "experience_entry": "Tajriba",
     "company": "Kompaniya",
     "position": "Lavozim",
-    "experience_details": "Vazifalar yoki yutuqlar"
+    "experience_details": "Vazifalar yoki yutuqlar",
+    "view_profile": "Profilni koʻrish"
   },
   "worker_profile": {
     "verified": "Tasdiqlangan",
@@ -827,7 +849,17 @@
     "ai_label_jobs": "Ish qanday qidiriladi?",
     "ai_label_post": "Ish joylashtirish",
     "ai_label_contract": "Shartnoma tuzish",
-    "ai_label_dispute": "Nizolar"
+    "ai_label_dispute": "Nizolar",
+    "restricted_before_approval": "Chat faqat ariza tasdiqlangandan keyin ochiladi"
+  },
+  "dispute": {
+    "title": "Nizo ochish",
+    "hint": "Muammoni batafsil yozing. Adminlar tez orada koʻrib chiqadi.",
+    "reason_label": "Nizo sababi",
+    "reason_placeholder": "Nima uchun nizo ochmoqchisiz?",
+    "submit": "Nizoni yuborish",
+    "success_title": "Nizo yuborildi",
+    "success_desc": "Adminlar tez orada vaziyatni koʻrib chiqadi."
   },
   "contract": {
     "title": "Shartnoma",

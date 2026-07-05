@@ -76,7 +76,25 @@
     "verified": "Verified",
     "approved": "Approved",
     "resolved": "Resolved",
-    "blocked": "Blocked"
+    "blocked": "Blocked",
+    "optional": "Optional",
+    "delete_confirm": "Are you sure you want to delete?",
+    "contact": "Contact",
+    "duration": "Duration",
+    "recently": "Recently",
+    "search_placeholder": "Search...",
+    "nothing_found": "Nothing found",
+    "try_changing_filters": "Try changing the filters",
+    "noResults": "No results found",
+    "images": "Images",
+    "image_url_placeholder": "Image URL",
+    "post": "Post",
+    "branding": "QULAY ISH",
+    "footer_desc": "Trusted employment platform for Samarkand region",
+    "platform": "Platform",
+    "help": "Help",
+    "all_rights_reserved": "All rights reserved",
+    "made_with_love": "Made with ❤️ for Samarkand"
   },
   "nav": {
     "jobs_link": "Jobs",
@@ -124,8 +142,14 @@
       "contract_audit": "Contract Audit",
       "system_logs": "System Logs",
       "system_settings": "System Settings",
-      "courses": "Free Courses"
-    }
+      "courses": "Free Courses",
+      "saved_jobs": "Saved Jobs"
+    },
+    "about": "About",
+    "faq": "FAQ",
+    "contact": "Contact",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Use"
   },
   "jobs": {
     "title": "Find the Right Job for You",
@@ -178,7 +202,6 @@
     "already_applied": "You have already applied for this job",
     "posted": "Posted",
     "employer": "Employer",
-    "job_details": "Job Details",
     "similar_jobs": "Similar Jobs",
     "job": "Job",
     "deleted_job": "Deleted job"
@@ -258,7 +281,9 @@
       "price_and_duration": "Price and Duration",
       "offered_price": "Offered Price",
       "job_type": "Job Type",
-      "requirement_placeholder": "e.g., Experience required"
+      "requirement_placeholder": "e.g., Experience required",
+      "no_applications": "No applications yet",
+      "price_placeholder": "e.g. 200000"
     }
   },
   "worker": {
@@ -451,6 +476,10 @@
       "save_success": "System settings updated successfully",
       "save_error": "Failed to update system settings",
       "demo_save": "Settings saved (Demo Mode)"
+    },
+    "applications": {
+      "title": "Applications Management",
+      "subtitle": "All job applications on the platform"
     }
   },
   "landing": {
@@ -490,7 +519,8 @@
     "cta_title": "Start Your Activity Today!",
     "cta_subtitle": "Register and connect with the best employers in Samarkand.",
     "register_now": "Register Now",
-    "view_stats": "View Statistics"
+    "view_stats": "View Statistics",
+    "submit_application": "Submit Application"
   },
   "categories": {
     "cleaner": "Cleaner",
@@ -716,7 +746,8 @@
       "jobCompletionRate": "Job Completion Rate",
       "platformSatisfaction": "Platform Satisfaction",
       "systemUptime": "System Uptime"
-    }
+    },
+    "settings": "System Settings"
   },
   "profile": {
     "title": "Personal Cabinet",
@@ -765,7 +796,8 @@
     "company": "Company",
     "position": "Position",
     "experience_details": "Job responsibilities or achievements",
-    "neighborhood": "Neighborhood"
+    "neighborhood": "Neighborhood",
+    "view_profile": "View Profile"
   },
   "worker_profile": {
     "verified": "Verified",
@@ -812,7 +844,8 @@
     "ai_label_jobs": "How to search for jobs?",
     "ai_label_post": "Posting a job",
     "ai_label_contract": "Signing a contract",
-    "ai_label_dispute": "Disputes"
+    "ai_label_dispute": "Disputes",
+    "restricted_before_approval": "Chat is available only after application approval"
   },
   "contract": {
     "title": "Contract",
@@ -896,5 +929,14 @@
     "lighting_note": "Ensure good lighting and that your face and ID are clearly visible in the selfie.",
     "submitting": "Submitting...",
     "submit_btn": "Submit for Verification"
+  },
+  "dispute": {
+    "title": "Open Dispute",
+    "hint": "Describe the issue in detail. Admins will review it soon.",
+    "reason_label": "Dispute reason",
+    "reason_placeholder": "Why do you want to open a dispute?",
+    "submit": "Submit Dispute",
+    "success_title": "Dispute submitted",
+    "success_desc": "Admins will review the situation soon."
   }
 }
