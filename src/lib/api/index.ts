@@ -189,17 +189,28 @@ export const api = {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
       });
-      if (!res.ok) {
-        let message = `Upload ${res.status}`;
+      const raw = await res.text();
+      let body: unknown = null;
+      if (raw) {
         try {
-          const body = await res.json();
-          if (body?.message) message = Array.isArray(body.message) ? body.message.join(', ') : String(body.message);
+          body = JSON.parse(raw);
         } catch {
-          /* ignore */
+          body = raw;
         }
+      }
+      if (!res.ok) {
+        const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+        const msg = record?.message;
+        const message = Array.isArray(msg)
+          ? msg.map(String).join(', ')
+          : typeof msg === 'string'
+            ? msg
+            : typeof body === 'string' && body
+              ? body
+              : `Upload ${res.status}`;
         throw new Error(message);
       }
-      return res.json() as Promise<{
+      return body as {
         success: true;
         url: string;
         filename: string;
@@ -207,7 +218,7 @@ export const api = {
         mimeType: string;
         size: number;
         kind: string;
-      }>;
+      };
     },
   },
 

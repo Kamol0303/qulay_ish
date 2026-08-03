@@ -60,19 +60,25 @@ export async function apiRequest<T>(
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
-  if (!res.ok) {
-    let body: unknown;
+  // Read body once — Response streams can only be consumed a single time.
+  // (Calling res.json() then res.text() throws "Body has already been consumed".)
+  const raw = await res.text();
+  let body: unknown = null;
+  if (raw) {
     try {
-      body = await res.json();
+      body = JSON.parse(raw);
     } catch {
-      body = await res.text();
+      body = raw;
     }
-    const message = extractApiMessage(body) ?? `API ${res.status}`;
+  }
+
+  if (!res.ok) {
+    const message = extractApiMessage(body) ?? (typeof body === 'string' && body ? body : `API ${res.status}`);
     throw new ApiError(message, res.status, body);
   }
 
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  if (res.status === 204 || raw === '') return undefined as T;
+  return body as T;
 }
 
 export function toQuery(params?: Record<string, string | undefined> | null): string {
