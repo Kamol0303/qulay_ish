@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { randomUUID } from 'crypto';
@@ -161,27 +161,134 @@ export class ApplicationsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: { userId: string; role: string } }) {
+    const jobId = String(body.jobId || '');
+    if (!jobId) throw new BadRequestException('jobId majburiy');
+
+    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('Ish e\'loni topilmadi');
+
+    const workerId = req.user.userId;
+    if (req.user.role !== 'worker' && req.user.role !== 'super_admin') {
+      throw new ForbiddenException('Faqat ishchi ariza yubora oladi');
+    }
+
+    const existing = await this.prisma.application.findFirst({
+      where: { jobId, workerId },
+    });
+    if (existing) {
+      throw new BadRequestException('Siz allaqachon bu ishga ariza yuborgansiz');
+    }
+
+    const worker = await this.prisma.user.findUnique({ where: { id: workerId } });
+    const coverLetter = String(body.coverLetter || '');
+    const message = String(body.message || coverLetter || '');
     const id = (body.id as string) || randomUUID();
-    return this.prisma.application.create({
+
+    const created = await this.prisma.application.create({
       data: {
         id,
-        jobId: String(body.jobId),
-        workerId: String(body.workerId),
-        employerId: String(body.employerId),
-        workerName: body.workerName as string,
-        jobTitle: body.jobTitle as string,
-        message: body.message as string,
-        coverLetter: body.coverLetter as string,
-        status: (body.status as any) || 'pending',
+        jobId,
+        workerId,
+        employerId: job.employerId,
+        workerName: (body.workerName as string) || worker?.fullName || null,
+        jobTitle: (body.jobTitle as string) || job.title,
+        message,
+        coverLetter: coverLetter || null,
+        status: 'pending',
       },
     });
+
+    const workerName = created.workerName || 'Nomzod';
+    const jobTitle = created.jobTitle || job.title;
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: job.employerId,
+        title: 'Yangi ariza',
+        message: `${workerName} sizning "${jobTitle}" e'loningizga ariza yubordi`,
+        type: 'application',
+        link: `/employer/applicants?highlight=${created.id}`,
+        read: false,
+      },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: workerId,
+        title: 'Ariza yuborildi',
+        message: `"${jobTitle}" ishiga arizangiz muvaffaqiyatli yuborildi`,
+        type: 'application',
+        link: '/worker/applications',
+        read: false,
+      },
+    });
+
+    const superAdmins = await this.prisma.user.findMany({
+      where: { role: 'super_admin' },
+      select: { id: true },
+    });
+    for (const admin of superAdmins) {
+      await this.prisma.notification.create({
+        data: {
+          id: randomUUID(),
+          userId: admin.id,
+          title: 'Yangi ish arizasi',
+          message: `${workerName} — "${jobTitle}" e'loniga ariza yubordi`,
+          type: 'application',
+          link: '/super-admin/applications',
+          read: false,
+        },
+      });
+    }
+
+    return created;
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.application.update({ where: { id }, data: body as any });
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: { userId: string; role: string } },
+  ) {
+    const existing = await this.prisma.application.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Ariza topilmadi');
+
+    const isEmployer = existing.employerId === req.user.userId;
+    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+    if (!isEmployer && !isAdmin) throw new ForbiddenException();
+
+    const status = body.status as string | undefined;
+    const updated = await this.prisma.application.update({
+      where: { id },
+      data: {
+        ...(status ? { status: status as any } : {}),
+        ...(body.message !== undefined ? { message: body.message as string } : {}),
+        ...(body.coverLetter !== undefined ? { coverLetter: body.coverLetter as string } : {}),
+      },
+    });
+
+    if (status === 'accepted' || status === 'rejected') {
+      await this.prisma.notification.create({
+        data: {
+          id: randomUUID(),
+          userId: existing.workerId,
+          title: status === 'accepted' ? 'Ariza qabul qilindi' : 'Ariza rad etildi',
+          message:
+            status === 'accepted'
+              ? `Sizning "${existing.jobTitle || 'ish'}" arizangiz qabul qilindi!`
+              : `Sizning "${existing.jobTitle || 'ish'}" arizangiz rad etildi`,
+          type: 'application',
+          link: '/worker/applications',
+          read: false,
+        },
+      });
+    }
+
+    return updated;
   }
 }
 

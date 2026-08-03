@@ -75,6 +75,7 @@ export default function Sidebar() {
       { icon: Users, label: t('nav.sidebar.all_users'), path: '/super-admin/users', end: false },
       { icon: Briefcase, label: t('nav.sidebar.all_jobs_admin'), path: '/super-admin/jobs', end: false },
       { icon: ShieldCheck, label: t('nav.sidebar.verification_center'), path: '/super-admin/verification', end: false },
+      { icon: FileText, label: t('nav.sidebar.applications'), path: '/super-admin/applications', end: false },
       { icon: AlertTriangle, label: t('nav.sidebar.disputes'), path: '/super-admin/disputes', end: false },
       { icon: CheckCircle, label: t('nav.sidebar.contract_audit'), path: '/super-admin/contracts', end: false },
       { icon: Activity, label: t('nav.sidebar.system_logs'), path: '/super-admin/logs', end: false },

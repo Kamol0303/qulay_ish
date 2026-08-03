@@ -57,8 +57,13 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         return;
       }
 
-      // Real mode - use application service
-      const applicationId = await applicationService.create({
+      if (!job.employerId) {
+        setError('Ish beruvchi topilmadi. E\'lonni qayta oching.');
+        setLoading(false);
+        return;
+      }
+
+      const result = await applicationService.createWithRateLimit({
         jobId: job.id,
         workerId: profile.uid,
         employerId: job.employerId,
@@ -66,13 +71,13 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         workerEmail: profile.email,
         workerPhone: profile.phoneNumber || '',
         jobTitle: job.title,
-        message: message,
+        message: message || coverLetter,
         coverLetter: coverLetter,
-        expectedSalary: expectedSalary
+        expectedSalary: expectedSalary,
       });
 
-      if (!applicationId) {
-        setError(t('jobs.already_applied'));
+      if (!result.success || !result.applicationId) {
+        setError(result.error || t('jobs.already_applied'));
         setLoading(false);
         return;
       }
@@ -85,10 +90,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
       }, 1500);
     } catch (err) {
       debugLogger.error("Application error:", err);
-      const errorMessage = err instanceof Error && err.message.includes('Already applied')
-        ? t('jobs.already_applied')
-        : t('common.error_occurred');
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : t('common.error_occurred'));
     } finally {
       setLoading(false);
     }

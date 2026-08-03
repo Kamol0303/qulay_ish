@@ -5,6 +5,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Normalize API/Firebase/ISO dates — never call .toDate() directly on createdAt */
+export function toJsDate(value: unknown): Date | null {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === 'object') {
+    const v = value as { toDate?: () => Date; seconds?: number; _seconds?: number };
+    if (typeof v.toDate === 'function') {
+      try {
+        const d = v.toDate();
+        return d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+      } catch {
+        /* fall through */
+      }
+    }
+    const seconds = typeof v.seconds === 'number' ? v.seconds : v._seconds;
+    if (typeof seconds === 'number') {
+      const d = new Date(seconds * 1000);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
+  const d = new Date(value as string | number);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export const normalizeLanguageCode = (lang?: string) => {
   if (!lang) return 'uz';
   const normalized = lang.toLowerCase();
