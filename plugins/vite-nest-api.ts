@@ -1,25 +1,42 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import net from 'node:net';
+import http from 'node:http';
 import path from 'node:path';
-import type { Plugin } from 'vite';
+import type { Plugin, ProxyOptions } from 'vite';
 
-function canConnect(port: number, host = '127.0.0.1'): Promise<boolean> {
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function checkApiHealth(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const socket = net.connect({ port, host }, () => {
-      socket.end();
-      resolve(true);
-    });
-    socket.on('error', () => resolve(false));
-    socket.setTimeout(700, () => {
-      socket.destroy();
+    const req = http.get(
+      { host: '127.0.0.1', port, path: '/api/stats/counts', timeout: 1000 },
+      (res) => {
+        res.resume();
+        resolve((res.statusCode || 500) < 500);
+      },
+    );
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
       resolve(false);
     });
   });
 }
 
+async function waitForApi(port: number, timeoutMs: number, isAlive?: () => boolean) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (await checkApiHealth(port)) return true;
+    if (isAlive && !isAlive()) return false;
+    await sleep(500);
+  }
+  return false;
+}
+
 /**
- * Starts Nest API automatically with `npm run dev` so Vite `/api` proxy
- * does not spam ECONNREFUSED when the backend was never started.
+ * If API is down, start it and BLOCK Vite listen until healthy.
+ * This prevents ECONNREFUSED proxy spam on first page load.
  */
 export function nestApiDevPlugin(): Plugin {
   let child: ChildProcess | null = null;
@@ -42,19 +59,18 @@ export function nestApiDevPlugin(): Plugin {
     apply: 'serve',
     async configureServer(server) {
       if (process.env.SKIP_API === '1' || process.env.VITE_SKIP_API === '1') {
-        console.log('[api] SKIP_API=1 — API avtomatik yoqilmaydi');
         return;
       }
 
       const apiPort = Number(process.env.API_PORT || 4000);
-      if (await canConnect(apiPort)) {
-        console.log(`[api] Allaqachon ishlayapti (:${apiPort})`);
+      if (await checkApiHealth(apiPort)) {
+        console.log(`[api] Tayyor (:${apiPort})`);
         return;
       }
 
       const apiDir = path.resolve(server.config.root, 'api');
       console.log(`[api] Ishga tushirilmoqda → http://localhost:${apiPort}/api`);
-      console.log('[api] Agar Postgres yo‘q bo‘lsa: npm run db:setup');
+      console.log('[api] Vite API tayyor bo‘lguncha kutadi (ECONNREFUSED chiqmasligi uchun)...');
 
       child = spawn('npm', ['run', 'start:dev'], {
         cwd: apiDir,
@@ -64,13 +80,28 @@ export function nestApiDevPlugin(): Plugin {
       });
       startedByUs = true;
 
+      let alive = true;
       child.on('exit', (code, signal) => {
+        alive = false;
         if (startedByUs) {
-          console.warn(`[api] To‘xtadi (code=${code ?? 'null'} signal=${signal ?? 'null'})`);
+          console.error(
+            `[api] To‘xtadi (code=${code ?? 'null'} signal=${signal ?? 'null'}). ` +
+              'Avval: npm run db:setup',
+          );
         }
         child = null;
         startedByUs = false;
       });
+
+      const ready = await waitForApi(apiPort, 90_000, () => alive);
+      if (!ready) {
+        stop();
+        throw new Error(
+          'API 90s ichida ishga tushmadi. Terminalda API xatosini ko‘ring, keyin: npm run db:setup && npm run api:dev',
+        );
+      }
+
+      console.log(`[api] Tayyor (:${apiPort}) — frontend ochilmoqda`);
 
       server.httpServer?.once('close', stop);
       process.once('exit', stop);
@@ -80,28 +111,22 @@ export function nestApiDevPlugin(): Plugin {
   };
 }
 
-/** Throttle noisy proxy errors while API is booting. */
+/** Quiet proxy errors — Vite still logs some, but we answer 503 cleanly. */
 export function attachApiProxyGuards(proxy: {
   on: (event: string, fn: (...args: any[]) => void) => void;
 }) {
-  let lastLog = 0;
   proxy.on('error', (err: NodeJS.ErrnoException, _req: unknown, res: any) => {
-    const now = Date.now();
-    if (now - lastLog > 8000) {
-      console.warn(
-        `[vite] API ulanmadi (${err.code || err.message}). ` +
-          'API avtomatik yoqiladi — bir necha soniya kuting, yoki: npm run api:dev',
-      );
-      lastLog = now;
-    }
     if (res && !res.headersSent && typeof res.writeHead === 'function') {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          message: 'API ishga tushmoqda. Bir necha soniya kuting.',
+          message: 'API vaqtincha mavjud emas',
           statusCode: 503,
+          detail: err.code || err.message,
         }),
       );
     }
   });
 }
+
+export type { ProxyOptions };

@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
+    "dev": "bash scripts/dev.sh",
+    "dev:web": "SKIP_API=1 vite --port=3000 --host=0.0.0.0",
     "dev:web-only": "SKIP_API=1 vite --port=3000 --host=0.0.0.0",
-    "dev:stack": "bash scripts/dev-stack.sh",
+    "dev:stack": "bash scripts/dev.sh",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
