@@ -2,7 +2,14 @@ import { debugLogger } from '../lib/debugLogger';
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { Profile } from '../types';
 import { api } from '../lib/api';
-import { getAccessToken } from '../lib/api/client';
+import {
+  ApiError,
+  cacheSessionProfile,
+  clearAccessToken,
+  getAccessToken,
+  isAccessTokenValid,
+  readCachedSessionProfile,
+} from '../lib/api/client';
 
 type UserRole = 'worker' | 'employer' | 'admin' | 'super_admin';
 
@@ -36,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isDemo = useMemo(
     () => !!(user?.uid?.startsWith('demo_') || profile?.uid?.startsWith('demo_') || localStorage.getItem('qulay_ish_demo_session')),
-    [user, profile]
+    [user, profile],
   );
 
   const setSession = useCallback((p: Profile) => {
@@ -47,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       displayName: p.fullName,
       phoneNumber: p.phoneNumber,
     });
+    cacheSessionProfile(p);
   }, []);
 
   const checkDemoSession = useCallback(() => {
@@ -95,13 +103,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = getAccessToken();
     if (token) {
+      // Expired JWT → require SMS OTP again
+      if (!isAccessTokenValid(token)) {
+        clearAccessToken();
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
       api.auth
         .me()
         .then((p) => setSession(p))
-        .catch(() => {
-          api.auth.logout();
-          setUser(null);
-          setProfile(null);
+        .catch((err) => {
+          // Only force re-login on real auth failure (401/403).
+          // Network/API-down must NOT wipe the 7h SMS session.
+          if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+            clearAccessToken();
+            setUser(null);
+            setProfile(null);
+            return;
+          }
+          const cached = readCachedSessionProfile<Profile>();
+          if (cached?.uid && isAccessTokenValid(token)) {
+            setSession(cached);
+            if (import.meta.env.DEV) {
+              debugLogger.warn('[AuthContext] /auth/me failed; using cached session until API is back');
+            }
+          }
         })
         .finally(() => setLoading(false));
       return;

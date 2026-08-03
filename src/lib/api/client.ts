@@ -8,6 +8,7 @@ function extractApiMessage(body: unknown): string | null {
 }
 
 const TOKEN_KEY = 'qulay_ish_access_token';
+const SESSION_PROFILE_KEY = 'qulay_ish_session_profile';
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -19,6 +20,51 @@ export function setAccessToken(token: string): void {
 
 export function clearAccessToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(SESSION_PROFILE_KEY);
+}
+
+/** JWT `exp` in ms, or null if missing/invalid */
+export function getAccessTokenExpiryMs(token?: string | null): number | null {
+  const value = token ?? getAccessToken();
+  if (!value) return null;
+  try {
+    const part = value.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(json) as { exp?: number };
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isAccessTokenValid(token?: string | null): boolean {
+  const exp = getAccessTokenExpiryMs(token);
+  if (!exp) return false;
+  // 30s clock skew buffer
+  return Date.now() < exp - 30_000;
+}
+
+export function cacheSessionProfile(profile: unknown): void {
+  try {
+    localStorage.setItem(
+      SESSION_PROFILE_KEY,
+      JSON.stringify({ profile, savedAt: Date.now() }),
+    );
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function readCachedSessionProfile<T = unknown>(): T | null {
+  try {
+    const raw = localStorage.getItem(SESSION_PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { profile?: T };
+    return parsed.profile ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function resolveApiBase(): string {

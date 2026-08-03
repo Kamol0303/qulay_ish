@@ -1,9 +1,13 @@
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useMemo, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import systemLogService, { SystemLog } from '../../services/systemLogService';
-import { Activity, AlertCircle, AlertTriangle, Info, Download, ChevronDown } from 'lucide-react';
+import { api } from '../../lib/api';
+import { Profile } from '../../types';
+import { Activity, AlertCircle, AlertTriangle, Info, Download, ChevronDown, User } from 'lucide-react';
 import { toJsDate } from '../../lib/utils';
+import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
 
 const actionLabels: Record<string, string> = {
   LOGIN: 'Tizimga kirish',
@@ -140,12 +144,71 @@ function LogDetails({ details }: { details: unknown }) {
   );
 }
 
+function LogUserCell({
+  log,
+  usersById,
+}: {
+  log: SystemLog;
+  usersById: Record<string, Profile>;
+}) {
+  const user = log.userId ? usersById[log.userId] : undefined;
+  const name = user?.fullName || log.userEmail || null;
+  const phone = user?.phoneNumber || null;
+  const role = user?.role || null;
+
+  if (!log.userId && !log.userEmail) {
+    return <span className="text-sm text-gray-500">Tizim</span>;
+  }
+
+  const content = (
+    <div className="flex items-center gap-3 min-w-0">
+      <div className="w-9 h-9 rounded-xl bg-secondary overflow-hidden flex items-center justify-center shrink-0 border border-border">
+        {user?.photoUrl ? (
+          <img
+            src={mediaUrl(user.photoUrl) || avatarFallback(name || 'User')}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <User size={16} className="text-muted-foreground" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-gray-900 truncate">{name || 'Foydalanuvchi'}</p>
+        <p className="text-[11px] text-gray-500 truncate">
+          {[role, phone || log.userEmail].filter(Boolean).join(' · ') || log.userId}
+        </p>
+      </div>
+    </div>
+  );
+
+  if (!log.userId) return content;
+
+  return (
+    <Link to={`/worker/${log.userId}`} className="block hover:opacity-80 transition-opacity">
+      {content}
+    </Link>
+  );
+}
+
 export default function SuperAdminLogsPage() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
+  const [usersById, setUsersById] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<'all' | LogType>('all');
 
   useEffect(() => {
+    void api.users
+      .list()
+      .then((rows) => {
+        const map: Record<string, Profile> = {};
+        for (const u of rows) {
+          if (u?.uid) map[u.uid] = u;
+        }
+        setUsersById(map);
+      })
+      .catch((err) => debugLogger.error('Error loading users for logs:', err));
+
     const unsubscribe = systemLogService.subscribeLogs(
       100,
       (newLogs) => {
@@ -212,7 +275,7 @@ export default function SuperAdminLogsPage() {
       ...filteredLogs.map((log) => [
         formatTimestamp(log.createdAt || log.timestamp),
         actionLabels[log.action] || log.action,
-        log.userEmail || log.userId || "Noma'lum",
+        usersById[log.userId || '']?.fullName || log.userEmail || log.userId || "Noma'lum",
         detailsSummary(parseDetails(log.details)),
         normalizeLogType(log.type).toUpperCase(),
       ]),
@@ -316,9 +379,7 @@ export default function SuperAdminLogsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700 break-all">
-                            {log.userEmail || log.userId || 'Tizim'}
-                          </span>
+                          <LogUserCell log={log} usersById={usersById} />
                         </td>
                         <td className="px-6 py-4">
                           <LogDetails details={log.details} />
