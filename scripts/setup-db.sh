@@ -55,7 +55,9 @@ if pg_isready -h localhost -p 5432 >/dev/null 2>&1; then
   echo "PostgreSQL allaqachon ishlayapti."
 else
   if start_with_docker; then
+    echo "Docker orqali PostgreSQL ishga tushdi."
   elif start_with_apt; then
+    echo "APT orqali PostgreSQL ishga tushdi."
   else
     echo ""
     echo "PostgreSQL ishga tushmadi."
