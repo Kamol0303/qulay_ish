@@ -4,11 +4,11 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
+import { ApiError } from '../../lib/api/client';
 import { applicationService } from '../../services/applicationService';
 import { contractService } from '../../services/contractService';
 import { jobService } from '../../services/jobService';
 import { Application, Job, Profile } from '../../types';
-import { motion } from 'motion/react';
 import { 
   FileText, 
   ChevronLeft, 
@@ -73,11 +73,12 @@ export default function CreateContract() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!application || !profile) return;
+    if (!application || !profile || !appId) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
       const contractId = await contractService.create({
+        applicationId: appId,
         jobId: application.jobId,
         workerId: application.workerId,
         employerId: profile.uid,
@@ -95,7 +96,13 @@ export default function CreateContract() {
       navigate('/employer/dashboard');
     } catch (error) {
       debugLogger.error('Error creating contract:', error);
-      setSubmitError('Shartnoma yuborilmadi. Qayta urinib ko‘ring.');
+      const msg =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Shartnoma yuborilmadi. Qayta urinib ko‘ring.';
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }

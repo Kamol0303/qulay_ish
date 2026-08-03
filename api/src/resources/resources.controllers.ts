@@ -312,6 +312,16 @@ function toContractDto<T extends Record<string, unknown>>(row: T) {
   };
 }
 
+function parseOptionalDate(value: unknown): Date | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) {
+    throw new BadRequestException(`Noto'g'ri sana: ${String(value)}`);
+  }
+  return d;
+}
+
 function normalizeContractWrite(body: Record<string, unknown>, opts?: { partial?: boolean }) {
   const partial = Boolean(opts?.partial);
   const data: Record<string, unknown> = {};
@@ -328,12 +338,8 @@ function normalizeContractWrite(body: Record<string, unknown>, opts?: { partial?
   if (!partial || body.jobTitle !== undefined) maybeSet('jobTitle', body.jobTitle != null ? String(body.jobTitle) : null);
   if (!partial || body.salary !== undefined) maybeSet('salary', body.salary != null && body.salary !== '' ? Number(body.salary) : null);
   if (!partial || body.amount !== undefined) maybeSet('amount', body.amount != null && body.amount !== '' ? Number(body.amount) : null);
-  if (!partial || body.startDate !== undefined) {
-    maybeSet('startDate', body.startDate ? new Date(String(body.startDate)) : null);
-  }
-  if (!partial || body.endDate !== undefined) {
-    maybeSet('endDate', body.endDate ? new Date(String(body.endDate)) : null);
-  }
+  if (!partial || body.startDate !== undefined) maybeSet('startDate', parseOptionalDate(body.startDate));
+  if (!partial || body.endDate !== undefined) maybeSet('endDate', parseOptionalDate(body.endDate));
   if (!partial || body.status !== undefined) maybeSet('status', body.status || 'draft');
   if (!partial || body.terms !== undefined) maybeSet('terms', body.terms != null ? String(body.terms) : null);
 
@@ -388,6 +394,41 @@ export class ContractsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('from-application/:applicationId')
+  async createFromApplication(
+    @Param('applicationId') applicationId: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: { userId: string; role: string } },
+  ) {
+    const app = await this.prisma.application.findUnique({ where: { id: applicationId } });
+    if (!app) throw new NotFoundException('Ariza topilmadi');
+
+    const isEmployer = app.employerId === req.user.userId;
+    const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+    if (!isEmployer && !isAdmin) throw new ForbiddenException('Faqat ish beruvchi shartnoma yarata oladi');
+
+    return this.create(
+      {
+        jobId: app.jobId,
+        workerId: app.workerId,
+        employerId: app.employerId,
+        workerName: app.workerName,
+        jobTitle: app.jobTitle,
+        amount: body.amount,
+        terms: body.terms,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        status: 'draft',
+        signedByWorker: false,
+        signedByEmployer: false,
+        adminApproved: false,
+        applicationId,
+      },
+      req,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   async create(
     @Body() body: Record<string, unknown>,
@@ -409,26 +450,40 @@ export class ContractsController {
     if (!worker) throw new BadRequestException('Ishchi topilmadi');
     if (!employer) throw new BadRequestException('Ish beruvchi topilmadi');
 
+    // Avoid FK 500 when jobId is stale/missing — keep title/amount from body/app
+    const safeJobId = job ? job.id : null;
+
     const id = (body.id as string) || randomUUID();
-    const created = await this.prisma.contract.create({
-      data: {
-        id,
-        ...data,
-        workerName: (data.workerName as string) || worker.fullName || null,
-        employerName: (data.employerName as string) || employer.fullName || null,
-        jobTitle: (data.jobTitle as string) || job?.title || null,
-        amount:
-          data.amount != null
-            ? Number(data.amount)
-            : job?.price != null
-              ? Number(job.price)
-              : null,
-        status: (data.status as any) || 'draft',
-        signedByWorker: Boolean(data.signedByWorker),
-        signedByEmployer: Boolean(data.signedByEmployer),
-        adminApproved: false,
-      } as any,
-    });
+    let created;
+    try {
+      created = await this.prisma.contract.create({
+        data: {
+          id,
+          jobId: safeJobId,
+          workerId: String(data.workerId),
+          employerId: String(data.employerId),
+          workerName: (data.workerName as string) || worker.fullName || null,
+          employerName: (data.employerName as string) || employer.fullName || null,
+          jobTitle: (data.jobTitle as string) || job?.title || 'Shartnoma',
+          amount:
+            data.amount != null && !Number.isNaN(Number(data.amount))
+              ? Number(data.amount)
+              : job?.price != null
+                ? Number(job.price)
+                : null,
+          startDate: (data.startDate as Date | null | undefined) ?? null,
+          endDate: (data.endDate as Date | null | undefined) ?? null,
+          terms: (data.terms as string) || null,
+          status: 'draft',
+          signedByWorker: false,
+          signedByEmployer: false,
+          adminApproved: false,
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Shartnoma yaratib bo‘lmadi';
+      throw new BadRequestException(message);
+    }
 
     const jobTitle = created.jobTitle || 'Shartnoma';
 
@@ -486,6 +541,7 @@ export class ContractsController {
           workerId: created.workerId,
           employerId: created.employerId,
           amount: created.amount,
+          applicationId: body.applicationId || null,
         },
         type: 'info',
       },

@@ -2,6 +2,7 @@ import { debugLogger } from '../lib/debugLogger';
 import { Contract } from '../types';
 import { notificationService } from './notificationService';
 import { api } from '../lib/api';
+import { ApiError } from '../lib/api/client';
 
 function isSignedByWorker(c: Partial<Contract> | null | undefined) {
   return Boolean(c?.signedByWorker ?? c?.workerSigned);
@@ -13,6 +14,7 @@ function isSignedByEmployer(c: Partial<Contract> | null | undefined) {
 
 export const contractService = {
   async create(contractData: {
+    applicationId?: string;
     jobId: string;
     workerId: string;
     employerId: string;
@@ -24,25 +26,40 @@ export const contractService = {
     workerName?: string;
     employerName?: string;
   }): Promise<string> {
-    const created = await api.contracts.create({
-      jobId: contractData.jobId,
-      workerId: contractData.workerId,
-      employerId: contractData.employerId,
-      jobTitle: contractData.title,
-      workerName: contractData.workerName,
-      employerName: contractData.employerName,
-      amount: contractData.amount,
-      terms: contractData.terms,
-      startDate: contractData.startDate,
-      endDate: contractData.endDate,
-      status: 'draft',
-      signedByWorker: false,
-      signedByEmployer: false,
-      adminApproved: false,
-    });
+    try {
+      // Preferred path: server loads worker/employer/job from the application (avoids FK/mismatch bugs)
+      if (contractData.applicationId) {
+        const created = await api.contracts.createFromApplication(contractData.applicationId, {
+          amount: contractData.amount,
+          terms: contractData.terms,
+          startDate: contractData.startDate,
+          endDate: contractData.endDate,
+        });
+        return created.id;
+      }
 
-    // Notifications + Super Admin alert + CREATE_CONTRACT log are handled by the API
-    return created.id;
+      const created = await api.contracts.create({
+        jobId: contractData.jobId,
+        workerId: contractData.workerId,
+        employerId: contractData.employerId,
+        jobTitle: contractData.title,
+        workerName: contractData.workerName,
+        employerName: contractData.employerName,
+        amount: contractData.amount,
+        terms: contractData.terms,
+        startDate: contractData.startDate,
+        endDate: contractData.endDate,
+        status: 'draft',
+        signedByWorker: false,
+        signedByEmployer: false,
+        adminApproved: false,
+      });
+      return created.id;
+    } catch (error) {
+      debugLogger.error('Error creating contract:', error);
+      if (error instanceof ApiError) throw error;
+      throw new Error('Shartnoma yaratib bo‘lmadi');
+    }
   },
 
   async signByWorker(contractId: string, workerId: string, employerId: string, jobTitle: string): Promise<boolean> {

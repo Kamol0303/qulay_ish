@@ -262,6 +262,15 @@ export const api = {
     create(data: Partial<Contract>) {
       return apiRequest<Contract>('/contracts', { method: 'POST', body: JSON.stringify(data) });
     },
+    createFromApplication(
+      applicationId: string,
+      data: { amount?: number; terms?: string; startDate?: string; endDate?: string },
+    ) {
+      return apiRequest<Contract>(`/contracts/from-application/${applicationId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
     update(id: string, data: Partial<Contract>) {
       return apiRequest<Contract>(`/contracts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
     },
