@@ -7,6 +7,11 @@ export interface AuthResponse {
   user: Profile & { id?: string };
 }
 
+function asJsonArray<T>(value: unknown): T[] {
+  if (!Array.isArray(value)) return [];
+  return value as T[];
+}
+
 function mapUser(u: Record<string, unknown> | null | undefined): Profile | null {
   if (!u || typeof u !== 'object') return null;
   return {
@@ -21,6 +26,13 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     bio: u.bio as string | undefined,
     skills: Array.isArray(u.skills) ? (u.skills as string[]) : [],
     photoUrl: u.photoUrl as string | undefined,
+    coverUrl: u.coverUrl as string | undefined,
+    telegram: u.telegram as string | undefined,
+    languages: asJsonArray<string>(u.languages),
+    availability: (u.availability as Profile['availability']) || 'available',
+    lookingForWork: u.lookingForWork !== false,
+    professionalSummary: u.professionalSummary as string | undefined,
+    preferredContact: u.preferredContact as Profile['preferredContact'],
     experienceLevel: u.experienceLevel as string | undefined,
     isPremium: Boolean(u.isPremium),
     isVerified: Boolean(u.isVerified),
@@ -28,17 +40,32 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     rating: Number(u.rating ?? 0),
     reviewCount: Number(u.reviewCount ?? 0),
     completedJobs: Number(u.completedJobs ?? 0),
-    education: u.education as Profile['education'],
-    experience: u.experience as Profile['experience'],
+    education: asJsonArray(u.education),
+    experience: asJsonArray(u.experience),
+    certificates: asJsonArray(u.certificates),
+    portfolio: asJsonArray(u.portfolio),
+    resumeTemplate: (u.resumeTemplate as Profile['resumeTemplate']) || 'professional',
+    companyName: u.companyName as string | undefined,
+    businessType: u.businessType as string | undefined,
+    industry: u.industry as string | undefined,
+    registrationNumber: u.registrationNumber as string | undefined,
+    tin: u.tin as string | undefined,
+    website: u.website as string | undefined,
+    foundedYear: u.foundedYear as string | undefined,
+    employeeCount: u.employeeCount as string | undefined,
+    officeAddress: u.officeAddress as string | undefined,
+    companyGallery: asJsonArray(u.companyGallery),
+    companyDocuments: asJsonArray(u.companyDocuments),
+    recruiterContacts: asJsonArray(u.recruiterContacts),
     violationCount: Number(u.violationCount ?? 0),
     riskScore: Number(u.riskScore ?? 0),
     isBlocked: Boolean(u.isBlocked),
     blockReason: u.blockReason as string | undefined,
     trustScore: Number(u.trustScore ?? 100),
     behaviorFlags: Array.isArray(u.behaviorFlags) ? (u.behaviorFlags as string[]) : [],
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt,
-    lastActive: u.lastActive,
+    createdAt: u.createdAt as string | Date | undefined,
+    updatedAt: u.updatedAt as string | Date | undefined,
+    lastActive: u.lastActive as string | Date | undefined,
   };
 }
 
@@ -133,6 +160,40 @@ export const api = {
         if (!user) throw new Error('User not found');
         return user;
       });
+    },
+  },
+
+  uploads: {
+    async upload(file: File, kind: 'photo' | 'cover' | 'certificate' | 'portfolio' | 'document' | 'file' = 'file') {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('kind', kind);
+      const token = (await import('./client')).getAccessToken();
+      const base = (await import('./client')).API_BASE;
+      const res = await fetch(`${base}/uploads`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      if (!res.ok) {
+        let message = `Upload ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body?.message) message = Array.isArray(body.message) ? body.message.join(', ') : String(body.message);
+        } catch {
+          /* ignore */
+        }
+        throw new Error(message);
+      }
+      return res.json() as Promise<{
+        success: true;
+        url: string;
+        filename: string;
+        originalName: string;
+        mimeType: string;
+        size: number;
+        kind: string;
+      }>;
     },
   },
 

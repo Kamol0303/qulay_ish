@@ -92,6 +92,13 @@ model User {
   bio                String?
   skills             String[]           @default([])
   photoUrl           String?            @map("photo_url")
+  coverUrl           String?            @map("cover_url")
+  telegram           String?
+  languages          Json?
+  availability       String?            @default("available")
+  lookingForWork     Boolean            @default(true) @map("looking_for_work")
+  professionalSummary String?           @map("professional_summary")
+  preferredContact   String?            @map("preferred_contact")
   experienceLevel    String?            @map("experience_level")
   isPremium          Boolean            @default(false) @map("is_premium")
   isVerified         Boolean            @default(false) @map("is_verified")
@@ -101,6 +108,21 @@ model User {
   completedJobs      Int                @default(0) @map("completed_jobs")
   education          Json?
   experience         Json?
+  certificates       Json?
+  portfolio          Json?
+  resumeTemplate     String?            @default("professional") @map("resume_template")
+  companyName        String?            @map("company_name")
+  businessType       String?            @map("business_type")
+  industry           String?
+  registrationNumber String?            @map("registration_number")
+  tin                String?
+  website            String?
+  foundedYear        String?            @map("founded_year")
+  employeeCount      String?            @map("employee_count")
+  officeAddress      String?            @map("office_address")
+  companyGallery     Json?              @map("company_gallery")
+  companyDocuments   Json?              @map("company_documents")
+  recruiterContacts  Json?              @map("recruiter_contacts")
   violationCount     Int                @default(0) @map("violation_count")
   riskScore          Int                @default(0) @map("risk_score")
   lastViolation      DateTime?          @map("last_violation")

@@ -1,0 +1,23 @@
+-- Profile system: worker + employer extended fields
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "cover_url" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "languages" JSONB;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "availability" TEXT DEFAULT 'available';
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "looking_for_work" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "professional_summary" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "preferred_contact" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "certificates" JSONB;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "portfolio" JSONB;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "resume_template" TEXT DEFAULT 'professional';
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "company_name" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "business_type" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "industry" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "registration_number" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tin" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "website" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "founded_year" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "employee_count" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "office_address" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "company_gallery" JSONB;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "company_documents" JSONB;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "recruiter_contacts" JSONB;

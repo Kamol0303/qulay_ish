@@ -14,6 +14,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { performanceUtils } from '../../lib/performance';
 import { demoStore } from '../../lib/demoStore';
+import { getWorkerCompletion, getEmployerCompletion } from '../../lib/profileCompletion';
+import { downloadResumePdf } from '../../lib/resumePdf';
+import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
+import { Link } from 'react-router-dom';
 
 // Safe date parser
 function safeDate(val: any): Date | null {
@@ -74,6 +78,8 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'uz' ? uz : i18n.language === 'ru' ? ru : enUS;
+  const completion =
+    user.role === 'employer' ? getEmployerCompletion(user) : getWorkerCompletion(user);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -91,17 +97,26 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
         </div>
 
         <div className="p-6 space-y-4">
+          {user.coverUrl && (
+            <img src={mediaUrl(user.coverUrl)} alt="" className="h-24 w-full rounded-2xl object-cover" />
+          )}
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center overflow-hidden border border-blue-100">
-              {user.photoUrl
-                ? <img src={user.photoUrl} alt={user.fullName} className="w-full h-full object-cover" />
-                : <Users size={24} className="text-blue-400" />}
+              <img
+                src={mediaUrl(user.photoUrl) || avatarFallback(user.fullName)}
+                alt={user.fullName}
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
-              <p className="font-black text-gray-900 text-lg">{user.fullName}</p>
+              <p className="font-black text-gray-900 text-lg">
+                {user.role === 'employer' ? user.companyName || user.fullName : user.fullName}
+              </p>
               <span className="inline-block px-3 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
                 {t(`auth.${user.role}`)}
               </span>
+              <p className="mt-1 text-xs text-gray-500">UID: {user.uid}</p>
+              <p className="text-xs font-semibold text-emerald-700">Profil: {completion.percent}%</p>
             </div>
           </div>
 
@@ -144,10 +159,43 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
                   ? t('admin.users.verified_status')
                   : t('admin.users.pending_status')}
             </span>
-            {(user as any).verificationStatus && (
+            {user.verificationStatus && (
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-50 text-gray-600">
-                {(user as any).verificationStatus}
+                {user.verificationStatus}
               </span>
+            )}
+            {(user.skills?.length ?? 0) > 0 && (
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-50 text-slate-600">
+                {user.skills?.length} skills
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to={user.role === 'employer' ? `/my-profile` : `/worker/${user.uid}`}
+              className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+              onClick={onClose}
+            >
+              Profilni ochish
+            </Link>
+            {user.role === 'worker' && (
+              <>
+                <Link
+                  to={`/resume/${user.uid}`}
+                  className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                  onClick={onClose}
+                >
+                  Rezyume
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void downloadResumePdf(user)}
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700"
+                >
+                  PDF yuklash
+                </button>
+              </>
             )}
           </div>
         </div>

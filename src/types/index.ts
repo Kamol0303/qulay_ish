@@ -1,9 +1,34 @@
+import type {
+  AvailabilityStatus,
+  PreferredContact,
+  ResumeTemplateId,
+  EducationRecord,
+  ExperienceRecord,
+  CertificateRecord,
+  PortfolioItem,
+  RecruiterContact,
+  CompanyDocument,
+} from './profile';
+
+export type {
+  AvailabilityStatus,
+  PreferredContact,
+  ResumeTemplateId,
+  EducationRecord,
+  ExperienceRecord,
+  CertificateRecord,
+  PortfolioItem,
+  RecruiterContact,
+  CompanyDocument,
+  ProfileTab,
+} from './profile';
+
 export interface Profile {
   uid: string;
   fullName: string;
   email: string;
   phoneNumber?: string;
-  passwordHash?: string; // Hashed password for authentication
+  passwordHash?: string;
   role: 'worker' | 'employer' | 'admin' | 'super_admin';
   region: string;
   district?: string;
@@ -11,27 +36,47 @@ export interface Profile {
   bio?: string;
   skills?: string[];
   photoUrl?: string;
+  coverUrl?: string;
+  telegram?: string;
+  languages?: string[];
+  availability?: AvailabilityStatus | string;
+  lookingForWork?: boolean;
+  professionalSummary?: string;
+  preferredContact?: PreferredContact | string;
   experienceLevel?: 'beginner' | 'intermediate' | 'expert' | string;
   isPremium?: boolean;
-  createdAt?: any;
-  updatedAt?: any;
-  lastActive?: any;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+  lastActive?: string | Date;
   isVerified?: boolean;
   verificationStatus?: 'none' | 'pending' | 'verified' | 'rejected';
   rating?: number;
   reviewCount?: number;
   completedJobs?: number;
-  education?: Array<{ institution: string; degree: string; startYear?: string; endYear?: string; notes?: string }>;
-  experience?: Array<{ company: string; position: string; startYear?: string; endYear?: string; details?: string }>;
-  // New moderation fields
+  education?: EducationRecord[];
+  experience?: ExperienceRecord[];
+  certificates?: CertificateRecord[];
+  portfolio?: PortfolioItem[];
+  resumeTemplate?: ResumeTemplateId | string;
+  companyName?: string;
+  businessType?: string;
+  industry?: string;
+  registrationNumber?: string;
+  tin?: string;
+  website?: string;
+  foundedYear?: string;
+  employeeCount?: string;
+  officeAddress?: string;
+  companyGallery?: PortfolioItem[];
+  companyDocuments?: CompanyDocument[];
+  recruiterContacts?: RecruiterContact[];
   violationCount?: number;
   riskScore?: number;
-  lastViolation?: any;
+  lastViolation?: string | Date;
   isBlocked?: boolean;
-  blockUntil?: any;
+  blockUntil?: string | Date;
   blockReason?: string;
-  blockedAt?: any;
-  // Behavior tracking
+  blockedAt?: string | Date;
   trustScore?: number;
   behaviorFlags?: string[];
 }

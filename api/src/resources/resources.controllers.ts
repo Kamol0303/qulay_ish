@@ -34,7 +34,33 @@ export class UsersController {
     if (req.user.userId !== id && !['admin', 'super_admin'].includes(req.user.role)) {
       throw new ForbiddenException();
     }
-    const { passwordHash, ...data } = body;
+
+    const allowed = [
+      'fullName', 'email', 'phoneNumber', 'region', 'district', 'neighborhood',
+      'bio', 'skills', 'photoUrl', 'coverUrl', 'telegram', 'languages',
+      'availability', 'lookingForWork', 'professionalSummary', 'preferredContact',
+      'experienceLevel', 'education', 'experience', 'certificates', 'portfolio',
+      'resumeTemplate', 'companyName', 'businessType', 'industry',
+      'registrationNumber', 'tin', 'website', 'foundedYear', 'employeeCount',
+      'officeAddress', 'companyGallery', 'companyDocuments', 'recruiterContacts',
+      'isPremium',
+    ] as const;
+
+    const adminOnly = [
+      'isVerified', 'verificationStatus', 'isBlocked', 'blockUntil',
+      'blockReason', 'blockedAt', 'role', 'trustScore', 'riskScore',
+    ] as const;
+
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in body) data[key] = body[key];
+    }
+    if (['admin', 'super_admin'].includes(req.user.role)) {
+      for (const key of adminOnly) {
+        if (key in body) data[key] = body[key];
+      }
+    }
+
     return this.prisma.user.update({ where: { id }, data: data as any });
   }
 }

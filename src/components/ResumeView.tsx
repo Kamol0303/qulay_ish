@@ -1,74 +1,172 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { Download, ArrowLeft, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
-import { Profile } from '../types';
+import type { Profile } from '../types';
+import { downloadResumePdf, RESUME_TEMPLATES } from '../lib/resumePdf';
+import { mediaUrl, avatarFallback } from '../lib/mediaUrl';
+import Layout from './Layout';
 
 export default function ResumeView() {
   const { userId } = useParams();
-  const [profile, setProfile] = React.useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!userId) return;
-    const fetch = async () => {
+    let cancelled = false;
+    void (async () => {
       try {
         const user = await api.users.get(userId);
-        setProfile(user);
+        if (!cancelled) setProfile(user);
       } catch {
-        setProfile(null);
+        if (!cancelled) setProfile(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    fetch();
   }, [userId]);
 
-  if (!profile) return <div className="p-6">No resume available.</div>;
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Layout>
+        <div className="mx-auto max-w-3xl px-4 py-10 text-center">
+          <p className="font-medium">Rezyume topilmadi</p>
+          <Link to="/workers" className="mt-3 inline-flex text-sm text-primary hover:underline">
+            Ishchilar ro\'yxatiga
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
+
+  const templateName =
+    RESUME_TEMPLATES.find((t) => t.id === profile.resumeTemplate)?.name || 'Professional';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-2xl p-6 border border-border">
-        <h3 className="text-xl font-bold mb-2">{profile.fullName}</h3>
-        <div className="text-sm text-muted-foreground mb-4">{profile.region} {profile.district ? `, ${profile.district}` : ''}</div>
-
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Phone</div>
-          <div className="text-sm">{profile.phoneNumber || '-'}</div>
+    <Layout>
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <Link to={`/worker/${profile.uid}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> Profilga qaytish
+          </Link>
+          <button
+            type="button"
+            onClick={() => void downloadResumePdf(profile)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            <Download className="h-4 w-4" /> PDF yuklash ({templateName})
+          </button>
         </div>
 
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Skills</div>
-          <div className="flex flex-wrap gap-2">
-            {profile.skills?.map((s, i) => <span key={i} className="bg-gray-100 px-3 py-1 rounded-full text-sm">{s}</span>)}
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Experience</div>
-          {profile.experience?.map((e, i) => (
-            <div key={i} className="mb-2">
-              <div className="font-bold">{e.position} — {e.company}</div>
-              <div className="text-sm text-muted-foreground">{e.startYear} — {e.endYear || 'Hozirgi kungacha'}</div>
-              <div className="text-sm mt-1">{e.details}</div>
+        <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="flex items-center gap-4 border-b border-border bg-slate-900 px-6 py-5 text-white">
+            <img
+              src={mediaUrl(profile.photoUrl) || avatarFallback(profile.fullName)}
+              alt=""
+              className="h-16 w-16 rounded-xl object-cover"
+            />
+            <div>
+              <h1 className="text-xl font-bold">{profile.fullName}</h1>
+              <p className="text-sm text-white/75">
+                {[profile.experienceLevel, profile.region, profile.district].filter(Boolean).join(' · ')}
+              </p>
+              <p className="mt-1 text-xs text-white/60">
+                {[profile.phoneNumber, profile.email, profile.telegram].filter(Boolean).join(' · ')}
+              </p>
             </div>
-          ))}
-        </div>
-
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Education</div>
-          {profile.education?.map((ed, i) => (
-            <div key={i} className="mb-2">
-              <div className="font-bold">{ed.institution} — {ed.degree}</div>
-              <div className="text-sm text-muted-foreground">{ed.startYear} — {ed.endYear || ''}</div>
-              <div className="text-sm mt-1">{ed.notes}</div>
-            </div>
-          ))}
-        </div>
-
-        <div>
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Certificates</div>
-          <div className="text-sm">
-            {profile['certificates'] ? (profile['certificates'] as string[]).map((c, i) => <div key={i}>{c}</div>) : '-'}
           </div>
-        </div>
+
+          <div className="space-y-6 p-6">
+            {(profile.professionalSummary || profile.bio) && (
+              <section>
+                <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Summary</h2>
+                <p className="text-sm leading-relaxed">{profile.professionalSummary || profile.bio}</p>
+              </section>
+            )}
+
+            {(profile.skills?.length ?? 0) > 0 && (
+              <section>
+                <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Skills</h2>
+                <div className="flex flex-wrap gap-2">
+                  {profile.skills?.map((s) => (
+                    <span key={s} className="rounded-full bg-muted px-3 py-1 text-sm">{s}</span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {(profile.experience?.length ?? 0) > 0 && (
+              <section>
+                <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Experience</h2>
+                <div className="space-y-3">
+                  {profile.experience?.map((e) => (
+                    <div key={e.id || `${e.company}-${e.position}`}>
+                      <p className="font-semibold">{e.position} — {e.company}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {e.startYear} — {e.current ? 'hozir' : e.endYear || ''}
+                      </p>
+                      {e.details && <p className="mt-1 text-sm">{e.details}</p>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {(profile.education?.length ?? 0) > 0 && (
+              <section>
+                <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Education</h2>
+                <div className="space-y-3">
+                  {profile.education?.map((ed) => (
+                    <div key={ed.id || `${ed.institution}-${ed.degree}`}>
+                      <p className="font-semibold">{ed.degree} — {ed.institution}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ed.startYear} — {ed.endYear}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {(profile.certificates?.length ?? 0) > 0 && (
+              <section>
+                <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Certificates</h2>
+                <ul className="space-y-1 text-sm">
+                  {profile.certificates?.map((c) => (
+                    <li key={c.id || c.title}>
+                      {c.fileUrl ? (
+                        <a href={mediaUrl(c.fileUrl)} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                          {c.title}
+                        </a>
+                      ) : (
+                        c.title
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              QR / tekshiruv: {window.location.origin}/worker/{profile.uid}
+            </p>
+          </div>
+        </article>
       </div>
-    </div>
+    </Layout>
   );
 }
