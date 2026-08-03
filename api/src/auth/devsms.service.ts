@@ -26,6 +26,9 @@ type DevSmsResponse = {
   };
 };
 
+type OtpPurpose = 'login' | 'register';
+type OtpSendMode = 'universal_otp' | 'eskiz';
+
 @Injectable()
 export class DevSmsService implements OnModuleInit {
   private readonly logger = new Logger(DevSmsService.name);
@@ -34,6 +37,8 @@ export class DevSmsService implements OnModuleInit {
   private readonly from: string | undefined;
   private readonly devMode: boolean;
   private readonly balanceWarnThreshold: number;
+  private readonly otpMode: string;
+  private readonly serviceName: string;
 
   constructor() {
     this.baseUrl = (process.env.DEVSMS_BASE_URL || 'https://devsms.uz/api').replace(/\/$/, '');
@@ -46,6 +51,8 @@ export class DevSmsService implements OnModuleInit {
       process.env.DEVSMS_DEV_MODE === 'true' ||
       (!this.token && process.env.NODE_ENV !== 'production');
     this.balanceWarnThreshold = Number(process.env.DEVSMS_BALANCE_WARN_THRESHOLD || 10000);
+    this.otpMode = (process.env.DEVSMS_OTP_MODE || 'auto').toLowerCase();
+    this.serviceName = process.env.DEVSMS_SERVICE_NAME?.trim() || 'ishliayol.uz';
   }
 
   onModuleInit() {
@@ -54,18 +61,16 @@ export class DevSmsService implements OnModuleInit {
         this.logger.warn(
           'DEVSMS_TOKEN yo\'q — dev rejim: SMS telefonga BORMAYDI, OTP faqat shu terminalda [DEV OTP] bilan chiqadi',
         );
-        this.logger.warn('Token qo\'yish: api/.env ichida DEVSMS_TOKEN=... (loyiha ildizidagi .env emas!)');
+        this.logger.warn('Token: api/.env ichida DEVSMS_TOKEN=...');
         return;
       }
       this.logger.error('DEVSMS_TOKEN topilmadi — OTP yuborilmaydi');
       return;
     }
-    this.logger.log(`DevSMS token yuklandi (${this.maskToken(this.token)}) — SMS telefonga yuboriladi`);
+    this.logger.log(`DevSMS token yuklandi (${this.maskToken(this.token)})`);
+    this.logger.log(`DevSMS OTP rejim: ${this.otpMode} | service: ${this.serviceName}`);
     if (this.from) {
       this.logger.log(`DevSMS from: ${this.from}`);
-    }
-    if (process.env.DEVSMS_DEV_MODE === 'true') {
-      this.logger.warn('DEVSMS_DEV_MODE=true, lekin token bor — haqiqiy SMS yuboriladi');
     }
   }
 
@@ -85,12 +90,29 @@ export class DevSmsService implements OnModuleInit {
     return e164Phone.replace(/\D/g, '');
   }
 
+  private resolveOtpModes(): OtpSendMode[] {
+    if (this.otpMode === 'universal_otp') return ['universal_otp'];
+    if (this.otpMode === 'eskiz') return ['eskiz'];
+    // auto: avval universal (moderatsiya kerak emas), keyin eskiz shablon
+    return ['universal_otp', 'eskiz'];
+  }
+
+  private buildEskizMessage(code: string, purpose: OtpPurpose): string {
+    const fromEnv = process.env.DEVSMS_OTP_TEMPLATE?.trim();
+    if (fromEnv) {
+      return fromEnv.replace(/\{code\}/g, code);
+    }
+    return buildOtpSmsMessage(code, purpose);
+  }
+
   private async call(body: Record<string, unknown>): Promise<{ smsId: number; requestId: string }> {
     if (!this.token) {
       throw new DevSmsError('TOKEN_MISSING', 'DevSMS token sozlanmagan');
     }
 
     const url = `${this.baseUrl}/send_sms.php`;
+    this.logger.debug(`DevSMS POST ${url} body=${JSON.stringify(body)}`);
+
     let res: Response;
     try {
       res = await fetch(url, {
@@ -114,7 +136,7 @@ export class DevSmsService implements OnModuleInit {
     }
 
     if (!data.success) {
-      const message = data.error || 'UNKNOWN_ERROR';
+      const message = data.error || data.message || 'UNKNOWN_ERROR';
       const code = res.status === 401 ? 'ACCESS_TOKEN_INVALID' : this.inferCode(message);
       this.logger.warn(`DevSMS send failed (${res.status}): ${message}`);
       throw new DevSmsError(code, message, data);
@@ -142,48 +164,81 @@ export class DevSmsService implements OnModuleInit {
     const upper = message.toUpperCase();
     if (upper.includes('BALANS') || upper.includes('BALANCE')) return 'INSUFFICIENT_BALANCE';
     if (upper.includes('TOKEN') || upper.includes('AUTENTIFIKATSIYA')) return 'ACCESS_TOKEN_INVALID';
+    if (upper.includes('МОДЕРАЦ') || upper.includes('MODERAT') || upper.includes('ШАБЛОН')) {
+      return 'TEMPLATE_NOT_MODERATED';
+    }
     return 'SEND_FAILED';
+  }
+
+  private async sendUniversalOtp(
+    phone: string,
+    code: string,
+    purpose: OtpPurpose,
+  ): Promise<{ smsId: number; requestId: string }> {
+    const templateType = purpose === 'register' ? 3 : 4;
+    this.logger.log(
+      `DevSMS universal_otp: template_type=${templateType}, service=${this.serviceName}, code=${code}`,
+    );
+    return this.call({
+      phone: this.toDevSmsPhone(phone),
+      type: 'universal_otp',
+      template_type: templateType,
+      service_name: this.serviceName,
+      otp_code: code,
+    });
+  }
+
+  private async sendEskizTemplate(
+    phone: string,
+    code: string,
+    purpose: OtpPurpose,
+  ): Promise<{ smsId: number; requestId: string }> {
+    const message = this.buildEskizMessage(code, purpose);
+    this.logger.log(`DevSMS eskiz matn: ${message}`);
+    const body: Record<string, unknown> = {
+      phone: this.toDevSmsPhone(phone),
+      message,
+    };
+    if (this.from) {
+      body.from = this.from;
+    }
+    return this.call(body);
   }
 
   /** DevSMS orqali OTP SMS yuborish */
   async sendOtpSms(
     phone: string,
     code: string,
-    purpose: 'login' | 'register' = 'login',
+    purpose: OtpPurpose = 'login',
   ): Promise<{ smsId: number; requestId: string }> {
     if (!this.token && this.devMode) {
-      const message = buildOtpSmsMessage(code, purpose);
+      const message = this.buildEskizMessage(code, purpose);
       this.logger.warn(`[DEV OTP] ${phone} → ${code}`);
       this.logger.warn(`[DEV OTP] SMS matni: ${message}`);
       return { smsId: 0, requestId: `dev-${randomUUID()}` };
     }
 
-    const otpMode = (process.env.DEVSMS_OTP_MODE || 'eskiz').toLowerCase();
+    const modes = this.resolveOtpModes();
+    let lastError: DevSmsError | undefined;
 
-    if (otpMode === 'universal_otp') {
-      const serviceName =
-        process.env.DEVSMS_SERVICE_NAME?.trim() || 'ishliayol.uz';
-      const templateType = purpose === 'register' ? 3 : 4;
-      this.logger.log(
-        `DevSMS universal_otp: template_type=${templateType}, service=${serviceName}, code=${code}`,
-      );
-      return this.call({
-        phone: this.toDevSmsPhone(phone),
-        type: 'universal_otp',
-        template_type: templateType,
-        service_name: serviceName,
-        otp_code: code,
-        ...(this.from ? { from: this.from } : {}),
-      });
+    for (let i = 0; i < modes.length; i++) {
+      const mode = modes[i];
+      try {
+        if (mode === 'universal_otp') {
+          return await this.sendUniversalOtp(phone, code, purpose);
+        }
+        return await this.sendEskizTemplate(phone, code, purpose);
+      } catch (err) {
+        if (!(err instanceof DevSmsError)) throw err;
+        lastError = err;
+        const hasNext = i < modes.length - 1;
+        if (hasNext) {
+          this.logger.warn(`DevSMS ${mode} xato (${err.message}) — keyingi usul sinanmoqda...`);
+          continue;
+        }
+      }
     }
 
-    const message = buildOtpSmsMessage(code, purpose);
-    this.logger.log(`DevSMS eskiz matn: ${message}`);
-    return this.call({
-      phone: this.toDevSmsPhone(phone),
-      message,
-      type: 'eskiz',
-      ...(this.from ? { from: this.from } : {}),
-    });
+    throw lastError ?? new DevSmsError('SEND_FAILED', 'SMS yuborib bo\'lmadi');
   }
 }
