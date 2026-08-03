@@ -38,7 +38,10 @@ export class DevSmsService implements OnModuleInit {
   constructor() {
     this.baseUrl = (process.env.DEVSMS_BASE_URL || 'https://devsms.uz/api').replace(/\/$/, '');
     this.token = this.normalizeToken(process.env.DEVSMS_TOKEN);
-    this.from = process.env.DEVSMS_FROM?.trim() || undefined;
+    this.from =
+      process.env.DEVSMS_FROM?.trim() ||
+      process.env.DEVSMS_SENDER?.trim() ||
+      undefined;
     this.devMode =
       process.env.DEVSMS_DEV_MODE === 'true' ||
       (!this.token && process.env.NODE_ENV !== 'production');
@@ -49,14 +52,21 @@ export class DevSmsService implements OnModuleInit {
     if (!this.token) {
       if (this.devMode) {
         this.logger.warn(
-          'DEVSMS_TOKEN yo\'q — dev rejim: OTP kodlari konsolga chiqariladi (production uchun token qo\'ying)',
+          'DEVSMS_TOKEN yo\'q — dev rejim: SMS telefonga BORMAYDI, OTP faqat shu terminalda [DEV OTP] bilan chiqadi',
         );
+        this.logger.warn('Token qo\'yish: api/.env ichida DEVSMS_TOKEN=... (loyiha ildizidagi .env emas!)');
         return;
       }
       this.logger.error('DEVSMS_TOKEN topilmadi — OTP yuborilmaydi');
       return;
     }
-    this.logger.log(`DevSMS token yuklandi (${this.maskToken(this.token)})`);
+    this.logger.log(`DevSMS token yuklandi (${this.maskToken(this.token)}) — SMS telefonga yuboriladi`);
+    if (this.from) {
+      this.logger.log(`DevSMS from: ${this.from}`);
+    }
+    if (process.env.DEVSMS_DEV_MODE === 'true') {
+      this.logger.warn('DEVSMS_DEV_MODE=true, lekin token bor — haqiqiy SMS yuboriladi');
+    }
   }
 
   private normalizeToken(raw: string | undefined): string {
@@ -148,6 +158,7 @@ export class DevSmsService implements OnModuleInit {
     return this.call({
       phone: this.toDevSmsPhone(phone),
       message,
+      type: 'universal_otp',
       ...(this.from ? { from: this.from } : {}),
     });
   }
