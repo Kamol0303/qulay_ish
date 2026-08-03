@@ -57,6 +57,7 @@ export default function AuthPage() {
     setState((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  // Valid 7h SMS session → skip OTP form and go straight to dashboard
   useEffect(() => {
     if (authLoading) return;
     if (!user || !profile || !profile.role) return;

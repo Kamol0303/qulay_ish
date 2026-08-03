@@ -4,6 +4,8 @@ import { join } from 'path';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { ResourcesModule } from './resources/resources.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { VerificationModule } from './verification/verification.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { ResourcesModule } from './resources/resources.module';
     PrismaModule,
     AuthModule,
     ResourcesModule,
+    UploadsModule,
+    VerificationModule,
   ],
 })
 export class AppModule {}

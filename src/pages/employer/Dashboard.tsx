@@ -15,7 +15,7 @@ import { motion } from 'motion/react';
 
 import { useTranslation } from 'react-i18next';
 import { ru, enUS } from 'date-fns/locale';
-import { getDistrictKey } from '../../lib/utils';
+import { getDistrictKey, toJsDate } from '../../lib/utils';
 
 export default function EmployerDashboard() {
   const { profile, isDemo } = useAuth();
@@ -61,7 +61,7 @@ export default function EmployerDashboard() {
         setMyJobs(employerJobs.slice(0, 5));
         setStats(prev => ({
           ...prev,
-          activeJobs: employerJobs.filter(j => j.status === 'open').length,
+          activeJobs: employerJobs.filter(j => j.status === 'open' || j.status === 'active').length,
           totalApplicants: apps.length,
           activeContracts: contracts.filter(c => c.status === 'active').length,
           totalSpent: contracts.filter(c => c.status === 'completed').reduce((acc, c) => acc + (c.amount || 0), 0),
@@ -172,7 +172,7 @@ export default function EmployerDashboard() {
                         <h4 className="font-black text-slate-900 group-hover:text-blue-600 transition-colors text-lg">{job.title}</h4>
                         <div className="flex items-center gap-4 mt-1.5 text-xs font-bold text-slate-400">
                           <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-blue-400" /> {t(`districts.${getDistrictKey(job.district)}`)}</span>
-                          <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {format(job.createdAt?.toDate?.() || new Date(), 'd MMM', { locale: getDateLocale() })}</span>
+                          <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {format(toJsDate(job.createdAt) || new Date(), 'd MMM', { locale: getDateLocale() })}</span>
                         </div>
                       </div>
                     </div>
@@ -180,9 +180,9 @@ export default function EmployerDashboard() {
                       <div className="text-right">
                         <p className="text-lg font-black text-blue-600 tracking-tight">{(job.price ?? 0).toLocaleString()} {t('common.uzs')}</p>
                         <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest mt-1 ${
-                          job.status === 'open' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          (job.status === 'open' || job.status === 'active') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'
                         }`}>
-                          {job.status === 'open' ? t('employer.dashboard.active') : t('employer.dashboard.closed')}
+                          {(job.status === 'open' || job.status === 'active') ? t('employer.dashboard.active') : t('employer.dashboard.closed')}
                         </span>
                       </div>
                       <Link to={`/employer/jobs/${job.id}`} className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-blue-500 hover:text-white transition-all shadow-sm">

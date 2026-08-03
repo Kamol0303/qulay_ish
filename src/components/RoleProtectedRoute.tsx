@@ -68,10 +68,5 @@ export default function RoleProtectedRoute({
     return <Navigate to={roleHome[profile.role] ?? '/'} replace />;
   }
 
-  debugLogger.log('[RoleProtectedRoute] Access granted', {
-    uid: user.uid,
-    role: profile.role,
-  });
-
   return <>{children}</>;
 }

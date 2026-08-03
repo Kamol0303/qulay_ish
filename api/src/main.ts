@@ -1,9 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? [
@@ -13,6 +16,18 @@ async function bootstrap() {
     credentials: true,
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
+  const uploadsDir = join(process.cwd(), 'uploads');
+  const publicDir = join(uploadsDir, 'public');
+  if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
+  if (!existsSync(publicDir)) mkdirSync(publicDir, { recursive: true });
+  // Block direct public access to private verification files
+  app.use('/uploads/private', (_req, res) => {
+    res.status(403).json({ message: 'Forbidden' });
+  });
+  app.useStaticAssets(publicDir, { prefix: '/uploads/public/' });
+  // Legacy non-private uploads (profile photos before public/ split)
+  app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
 
   const port = Number(process.env.API_PORT || 4000);
   await app.listen(port);

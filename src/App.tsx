@@ -114,7 +114,8 @@ export default function App() {
         <Route path="/admin/jobs" element={<RoleProtectedRoute allowedRoles={['admin', 'super_admin']}><JobsManagement /></RoleProtectedRoute>} />
         <Route path="/admin/contracts" element={<RoleProtectedRoute allowedRoles={['admin', 'super_admin']}><AdminContracts /></RoleProtectedRoute>} />
         <Route path="/admin/disputes" element={<RoleProtectedRoute allowedRoles={['admin', 'super_admin']}><AdminDisputes /></RoleProtectedRoute>} />
-        <Route path="/admin/verification" element={<RoleProtectedRoute allowedRoles={['admin', 'super_admin']}><VerificationManagement /></RoleProtectedRoute>} />
+        {/* Verification Center: Super Admin only (legacy admin path redirects) */}
+        <Route path="/admin/verification" element={<Navigate to="/super-admin/verification" replace />} />
 
         {/* Super Admin Routes */}
         <Route path="/super-admin/dashboard" element={<RoleProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></RoleProtectedRoute>} />

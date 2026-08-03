@@ -27,3 +27,4 @@ data/firestore-export/
 api/.env
 api/node_modules/
 api/dist/
+api/uploads/

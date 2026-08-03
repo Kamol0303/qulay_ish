@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Profile, Review } from '../types';
-import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Calendar, Briefcase } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Calendar, Briefcase, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
@@ -12,6 +12,9 @@ import { uz, ru, enUS } from 'date-fns/locale';
 import { getDistrictKey } from '../lib/utils';
 import { relationshipService } from '../services/relationshipService';
 import { SKILLS } from '../constants/categories';
+import { mediaUrl, avatarFallback } from '../lib/mediaUrl';
+import { downloadResumePdf } from '../lib/resumePdf';
+import { VerificationStatusCard } from '../components/verification/VerificationStatusCard';
 
 export default function ProfilePage() {
   const { t, i18n } = useTranslation();
@@ -106,11 +109,17 @@ export default function ProfilePage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-[40px] shadow-xl border border-gray-100 overflow-hidden">
           {/* Header/Cover */}
-          <div className="h-48 bg-gradient-to-r from-blue-600 to-blue-400 relative">
-            <div className="absolute -bottom-16 left-12">
+          <div className="h-48 relative overflow-hidden">
+            {worker.coverUrl ? (
+              <img src={mediaUrl(worker.coverUrl)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-700 to-cyan-900" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+            <div className="absolute -bottom-16 left-6 sm:left-12">
               <div className="w-32 h-32 rounded-[32px] border-4 border-white overflow-hidden shadow-2xl bg-white">
                 <img
-                  src={worker.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.fullName)}&background=random`}
+                  src={mediaUrl(worker.photoUrl) || avatarFallback(worker.fullName)}
                   alt={worker.fullName}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
@@ -142,6 +151,10 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="mb-8">
+                  <VerificationStatusCard profile={worker} showAction={false} />
+                </div>
+
+                <div className="mb-8">
                   <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">{t('worker_profile.about_me')}</h3>
                   <p className="text-gray-600 leading-relaxed">
                     {worker.bio || t('worker_profile.no_bio')}
@@ -168,6 +181,20 @@ export default function ProfilePage() {
                     className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-600 transition-all shadow-lg mb-3"
                   >
                     <MessageSquare size={20} className="mr-2" /> {t('worker_profile.start_chat')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadResumePdf(worker)}
+                    className="w-full bg-white text-gray-900 border border-gray-200 py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-gray-50 transition-all mb-3"
+                  >
+                    <Download size={20} className="mr-2" /> Rezyume PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/resume/${worker.uid}`)}
+                    className="w-full text-sm font-semibold text-blue-600 hover:underline mb-3"
+                  >
+                    Online rezyume →
                   </button>
                   {canViewPhone ? (
                     <a

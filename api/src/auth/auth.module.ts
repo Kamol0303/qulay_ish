@@ -12,7 +12,8 @@ import { DevSmsService } from './devsms.service';
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'dev-secret',
-      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as `${number}d` },
+      // 7h default: SMS OTP session lasts 7 hours without re-sending OTP
+      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '7h') as any },
     }),
   ],
   controllers: [AuthController],

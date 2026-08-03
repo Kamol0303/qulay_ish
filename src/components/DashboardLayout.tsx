@@ -3,17 +3,44 @@ import Sidebar from './Sidebar';
 import BackButton from './BackButton';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Bell, Search, User, Globe, ChevronDown } from 'lucide-react';
+import { Bell, Search, User, Globe, ChevronDown, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn, normalizeLanguageCode } from '../lib/utils';
 import { Link } from 'react-router-dom';
+import { api } from '../lib/api';
 
 export default function DashboardLayout({ children, title }: { children: React.ReactNode, title?: string }) {
   const { profile, loading } = useAuth();
   const { t, i18n } = useTranslation();
   const [isLangOpen, setIsLangOpen] = React.useState(false);
+  const [unreadCount, setUnreadCount] = React.useState(0);
   const location = useLocation();
+
+  React.useEffect(() => {
+    if (!profile?.uid) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const rows = await api.notifications.list(profile.uid);
+        const next = rows.filter((n) => !n.read).length;
+        if (!cancelled) setUnreadCount((prev) => (prev === next ? prev : next));
+      } catch {
+        /* ignore */
+      }
+    };
+    void load();
+    const interval = setInterval(load, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [profile?.uid, location.pathname]);
+
+  const notificationsPath =
+    profile?.role === 'super_admin' ? '/super-admin/notifications' : '/notifications';
+  const messagesPath =
+    profile?.role === 'super_admin' ? '/super-admin/messages' : '/chat';
 
   if (loading) {
     return (
@@ -99,11 +126,24 @@ export default function DashboardLayout({ children, title }: { children: React.R
             </div>
 
             <Link
-              to="/notifications"
+              to={messagesPath}
               className="relative p-4 rounded-2xl bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-300 group"
+              title="Xabarlar"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </Link>
+
+            <Link
+              to={notificationsPath}
+              className="relative p-4 rounded-2xl bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-300 group"
+              title="Bildirishnomalar"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-3.5 right-3.5 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background animate-pulse"></span>
+              {unreadCount > 0 && (
+                <span className="absolute top-2.5 right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-black text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
 
             <div className="flex items-center gap-4 pl-6 border-l border-border">
@@ -123,13 +163,8 @@ export default function DashboardLayout({ children, title }: { children: React.R
         </header>
 
         <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-background/50">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            {children}
-          </motion.div>
+          {/* Plain container — motion remount/opacity flicker breaks chat input focus */}
+          {children}
         </div>
       </main>
     </div>

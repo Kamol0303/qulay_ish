@@ -4,17 +4,16 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
 import { performanceUtils } from '../../lib/performance';
-import { Job, Profile, Contract, VerificationRequest } from '../../types';
+import { Job, Profile } from '../../types';
 import {
   Users,
   Briefcase,
   CheckCircle,
   AlertTriangle,
-  ShieldCheck,
-  ChevronRight,
   UserCheck,
   FileText,
-  Clock
+  Clock,
+  ChevronRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
@@ -46,7 +45,6 @@ export default function AdminDashboard() {
   });
   const [recentUsers, setRecentUsers] = useState<Profile[]>([]);
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
-  const [pendingVerifications, setPendingVerifications] = useState<VerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,25 +59,22 @@ export default function AdminDashboard() {
       setLoading(true);
       try {
         const counts = await performanceUtils.getStatsCounts();
-        const [verifications, disputes, users, jobs, verificationsList] = await Promise.all([
-          api.verificationRequests.list({ status: 'pending' }),
+        const [disputes, users, jobs] = await Promise.all([
           api.disputes.list(),
           api.users.list(),
           api.jobs.list(),
-          api.verificationRequests.list({ status: 'pending' }),
         ]);
 
         setStats({
           totalUsers: counts.users,
           totalJobs: counts.jobs,
           totalContracts: counts.contracts,
-          pendingVerifications: verifications.length,
+          pendingVerifications: 0,
           activeDisputes: disputes.filter(d => d.status === 'pending').length,
         });
 
         setRecentUsers(performanceUtils.sortByCreatedAtDesc(users).slice(0, 5));
         setRecentJobs(performanceUtils.sortByCreatedAtDesc(jobs).slice(0, 5));
-        setPendingVerifications(verificationsList.slice(0, 5));
 
         setLoading(false);
       } catch (err) {
@@ -221,25 +216,19 @@ export default function AdminDashboard() {
           </motion.div>
         </div>
 
-        {pendingVerifications.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6"
-          >
-            <h3 className="text-lg font-bold text-yellow-900 mb-4 flex items-center gap-2">
-              <UserCheck size={20} />
-              {t('admin.dashboard.pending_verifications')} ({pendingVerifications.length})
-            </h3>
-            <Link
-              to="/admin/verification"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-xl font-semibold hover:bg-yellow-700 transition-colors"
-            >
-              {t('admin.dashboard.verify')}
-              <ChevronRight size={16} />
-            </Link>
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-slate-50 border border-slate-200 rounded-2xl p-6"
+        >
+          <h3 className="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <UserCheck size={20} />
+            {t('admin.dashboard.pending_verifications')}
+          </h3>
+          <p className="text-sm text-slate-600">
+            Shaxsni tasdiqlash hujjatlari faqat Super Admin — Verification Center orqali ko‘riladi va tasdiqlanadi.
+          </p>
+        </motion.div>
       </div>
     </DashboardLayout>
   );

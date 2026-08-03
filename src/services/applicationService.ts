@@ -1,9 +1,9 @@
 import { debugLogger } from '../lib/debugLogger';
-import { Application, Profile, Job } from '../types';
-import { notificationService } from './notificationService';
+import { Application } from '../types';
 import rateLimitService from './rateLimitService';
 import systemLogService from './systemLogService';
 import { api } from '../lib/api';
+import { ApiError } from '../lib/api/client';
 
 export interface ApplicationCreationResult {
   success: boolean;
@@ -35,7 +35,7 @@ export const applicationService = {
           limit: limitCheck.limit,
           jobId: applicationData.jobId,
         });
-        return { success: false, error: limitCheck.message || `Kunlik limit ${maxAppsPerDay} ta ishtiromidan oshib kaldi.` };
+        return { success: false, error: limitCheck.message || `Kunlik limit ${maxAppsPerDay} ta arizadan oshib ketdi.` };
       }
 
       const existing = await api.applications.list({
@@ -43,11 +43,17 @@ export const applicationService = {
         workerId: applicationData.workerId,
       });
       if (existing.length > 0) {
-        return { success: false, error: 'Siz allaqachon bu ishga ishtiromi qilgansiz' };
+        return { success: false, error: 'Siz allaqachon bu ishga ariza yuborgansiz' };
       }
 
       const created = await api.applications.create({
-        ...applicationData,
+        jobId: applicationData.jobId,
+        workerId: applicationData.workerId,
+        employerId: applicationData.employerId,
+        workerName: applicationData.workerName,
+        jobTitle: applicationData.jobTitle,
+        message: applicationData.message || applicationData.coverLetter || '',
+        coverLetter: applicationData.coverLetter,
         status: 'pending',
       });
 
@@ -56,21 +62,14 @@ export const applicationService = {
         applicationId: created.id,
       }, 'info');
 
-      const worker = await api.users.get(applicationData.workerId).catch(() => null);
-      const job = await api.jobs.get(applicationData.jobId).catch(() => null);
-      if (worker && job) {
-        await notificationService.notifyNewApplication(
-          applicationData.employerId,
-          worker.fullName,
-          job.title,
-          created.id
-        );
-      }
-
+      // Notifications are created server-side for employer, worker, and super admins.
       return { success: true, applicationId: created.id };
     } catch (error) {
       debugLogger.error('Error creating application with rate limit:', error);
-      return { success: false, error: 'Ishtiromi yaratishda xatolik yuz berdi' };
+      if (error instanceof ApiError) {
+        return { success: false, error: error.message };
+      }
+      return { success: false, error: 'Ariza yaratishda xatolik yuz berdi' };
     }
   },
 
@@ -87,7 +86,10 @@ export const applicationService = {
     expectedSalary?: string;
   }): Promise<string | null> {
     const result = await this.createWithRateLimit(applicationData);
-    return result.success ? result.applicationId ?? null : null;
+    if (!result.success) {
+      throw new Error(result.error || 'Ariza yuborilmadi');
+    }
+    return result.applicationId ?? null;
   },
 
   async update(applicationId: string, updates: Partial<Application>): Promise<boolean> {

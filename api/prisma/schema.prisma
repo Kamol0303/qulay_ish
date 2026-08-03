@@ -17,8 +17,10 @@ enum UserRole {
 enum VerificationStatus {
   none
   pending
+  under_review
   verified
   rejected
+  need_reupload
 }
 
 enum JobStatus {
@@ -92,6 +94,13 @@ model User {
   bio                String?
   skills             String[]           @default([])
   photoUrl           String?            @map("photo_url")
+  coverUrl           String?            @map("cover_url")
+  telegram           String?
+  languages          Json?
+  availability       String?            @default("available")
+  lookingForWork     Boolean            @default(true) @map("looking_for_work")
+  professionalSummary String?           @map("professional_summary")
+  preferredContact   String?            @map("preferred_contact")
   experienceLevel    String?            @map("experience_level")
   isPremium          Boolean            @default(false) @map("is_premium")
   isVerified         Boolean            @default(false) @map("is_verified")
@@ -101,6 +110,21 @@ model User {
   completedJobs      Int                @default(0) @map("completed_jobs")
   education          Json?
   experience         Json?
+  certificates       Json?
+  portfolio          Json?
+  resumeTemplate     String?            @default("professional") @map("resume_template")
+  companyName        String?            @map("company_name")
+  businessType       String?            @map("business_type")
+  industry           String?
+  registrationNumber String?            @map("registration_number")
+  tin                String?
+  website            String?
+  foundedYear        String?            @map("founded_year")
+  employeeCount      String?            @map("employee_count")
+  officeAddress      String?            @map("office_address")
+  companyGallery     Json?              @map("company_gallery")
+  companyDocuments   Json?              @map("company_documents")
+  recruiterContacts  Json?              @map("recruiter_contacts")
   violationCount     Int                @default(0) @map("violation_count")
   riskScore          Int                @default(0) @map("risk_score")
   lastViolation      DateTime?          @map("last_violation")
@@ -306,23 +330,30 @@ model Notification {
 }
 
 model VerificationRequest {
-  id           String             @id
-  userId       String             @map("user_id")
-  userName     String?            @map("user_name")
-  documentType String?            @map("document_type")
-  documentUrl  String?            @map("document_url")
-  idPhotoUrl   String?            @map("id_photo_url")
-  selfieUrl    String?            @map("selfie_url")
-  status       VerificationStatus @default(pending)
-  reviewedBy   String?            @map("reviewed_by")
-  reviewNote   String?            @map("review_note")
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  id               String             @id
+  userId           String             @map("user_id")
+  userName         String?            @map("user_name")
+  accountType      String?            @map("account_type") // worker | employer
+  documentType     String?            @map("document_type")
+  documentUrl      String?            @map("document_url")
+  idPhotoUrl       String?            @map("id_photo_url")
+  selfieUrl        String?            @map("selfie_url")
+  addressProofUrl  String?            @map("address_proof_url")
+  additionalFiles  Json?              @map("additional_files")
+  status           VerificationStatus @default(pending)
+  reviewedBy       String?            @map("reviewed_by")
+  reviewNote       String?            @map("review_note") // user-visible note
+  adminNotes       String?            @map("admin_notes") // super-admin internal only
+  rejectionReason  String?            @map("rejection_reason")
+  approvedAt       DateTime?          @map("approved_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
+  @@index([accountType])
   @@map("verification_requests")
 }
 

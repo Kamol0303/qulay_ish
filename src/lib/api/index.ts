@@ -1,10 +1,15 @@
 import { apiRequest, setAccessToken, clearAccessToken, toQuery } from './client';
 import { ensureArray } from './errors';
-import type { Profile, Job, Application, Contract, Notification, ChatMessage, Dispute, VerificationRequest, Review, ServicePost } from '../../types';
+import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost } from '../../types';
 
 export interface AuthResponse {
   accessToken: string;
   user: Profile & { id?: string };
+}
+
+function asJsonArray<T>(value: unknown): T[] {
+  if (!Array.isArray(value)) return [];
+  return value as T[];
 }
 
 function mapUser(u: Record<string, unknown> | null | undefined): Profile | null {
@@ -21,6 +26,13 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     bio: u.bio as string | undefined,
     skills: Array.isArray(u.skills) ? (u.skills as string[]) : [],
     photoUrl: u.photoUrl as string | undefined,
+    coverUrl: u.coverUrl as string | undefined,
+    telegram: u.telegram as string | undefined,
+    languages: asJsonArray<string>(u.languages),
+    availability: (u.availability as Profile['availability']) || 'available',
+    lookingForWork: u.lookingForWork !== false,
+    professionalSummary: u.professionalSummary as string | undefined,
+    preferredContact: u.preferredContact as Profile['preferredContact'],
     experienceLevel: u.experienceLevel as string | undefined,
     isPremium: Boolean(u.isPremium),
     isVerified: Boolean(u.isVerified),
@@ -28,17 +40,32 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     rating: Number(u.rating ?? 0),
     reviewCount: Number(u.reviewCount ?? 0),
     completedJobs: Number(u.completedJobs ?? 0),
-    education: u.education as Profile['education'],
-    experience: u.experience as Profile['experience'],
+    education: asJsonArray(u.education),
+    experience: asJsonArray(u.experience),
+    certificates: asJsonArray(u.certificates),
+    portfolio: asJsonArray(u.portfolio),
+    resumeTemplate: (u.resumeTemplate as Profile['resumeTemplate']) || 'professional',
+    companyName: u.companyName as string | undefined,
+    businessType: u.businessType as string | undefined,
+    industry: u.industry as string | undefined,
+    registrationNumber: u.registrationNumber as string | undefined,
+    tin: u.tin as string | undefined,
+    website: u.website as string | undefined,
+    foundedYear: u.foundedYear as string | undefined,
+    employeeCount: u.employeeCount as string | undefined,
+    officeAddress: u.officeAddress as string | undefined,
+    companyGallery: asJsonArray(u.companyGallery),
+    companyDocuments: asJsonArray(u.companyDocuments),
+    recruiterContacts: asJsonArray(u.recruiterContacts),
     violationCount: Number(u.violationCount ?? 0),
     riskScore: Number(u.riskScore ?? 0),
     isBlocked: Boolean(u.isBlocked),
     blockReason: u.blockReason as string | undefined,
     trustScore: Number(u.trustScore ?? 100),
     behaviorFlags: Array.isArray(u.behaviorFlags) ? (u.behaviorFlags as string[]) : [],
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt,
-    lastActive: u.lastActive,
+    createdAt: u.createdAt as string | Date | undefined,
+    updatedAt: u.updatedAt as string | Date | undefined,
+    lastActive: u.lastActive as string | Date | undefined,
   };
 }
 
@@ -71,10 +98,10 @@ export const api = {
       if (!user) throw new Error('Invalid auth response');
       return { ...res, user };
     },
-    async superAdminLogin(email: string, password: string) {
+    async superAdminLogin(login: string, password: string) {
       const res = await apiRequest<AuthResponse>('/auth/super-admin/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ login, password }),
       }, false);
       setAccessToken(res.accessToken);
       const user = mapUser(res.user as unknown as Record<string, unknown>);
@@ -136,6 +163,65 @@ export const api = {
     },
   },
 
+  uploads: {
+    async upload(
+      file: File,
+      kind:
+        | 'photo'
+        | 'cover'
+        | 'certificate'
+        | 'portfolio'
+        | 'document'
+        | 'file'
+        | 'verification'
+        | 'verification_id'
+        | 'verification_selfie'
+        | 'verification_address'
+        | 'verification_extra' = 'file',
+    ) {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('kind', kind);
+      const token = (await import('./client')).getAccessToken();
+      const base = (await import('./client')).API_BASE;
+      const res = await fetch(`${base}/uploads`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      const raw = await res.text();
+      let body: unknown = null;
+      if (raw) {
+        try {
+          body = JSON.parse(raw);
+        } catch {
+          body = raw;
+        }
+      }
+      if (!res.ok) {
+        const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+        const msg = record?.message;
+        const message = Array.isArray(msg)
+          ? msg.map(String).join(', ')
+          : typeof msg === 'string'
+            ? msg
+            : typeof body === 'string' && body
+              ? body
+              : `Upload ${res.status}`;
+        throw new Error(message);
+      }
+      return body as {
+        success: true;
+        url: string;
+        filename: string;
+        originalName: string;
+        mimeType: string;
+        size: number;
+        kind: string;
+      };
+    },
+  },
+
   jobs: {
     list(params?: Record<string, string>) {
       return apiRequest<unknown>(`/jobs${toQuery(params ?? {})}`).then(mapJobs);
@@ -176,6 +262,15 @@ export const api = {
     create(data: Partial<Contract>) {
       return apiRequest<Contract>('/contracts', { method: 'POST', body: JSON.stringify(data) });
     },
+    createFromApplication(
+      applicationId: string,
+      data: { amount?: number; terms?: string; startDate?: string; endDate?: string },
+    ) {
+      return apiRequest<Contract>(`/contracts/from-application/${applicationId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
     update(id: string, data: Partial<Contract>) {
       return apiRequest<Contract>(`/contracts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
     },
@@ -196,6 +291,9 @@ export const api = {
   chatMessages: {
     list(userA: string, userB: string) {
       return apiRequest<ChatMessage[]>(`/chat-messages${toQuery({ userA, userB })}`).then((rows) => ensureArray<ChatMessage>(rows));
+    },
+    inbox() {
+      return apiRequest<ChatThread[]>('/chat-messages/inbox').then((rows) => ensureArray<ChatThread>(rows));
     },
     create(data: Partial<ChatMessage>) {
       return apiRequest<ChatMessage>('/chat-messages', { method: 'POST', body: JSON.stringify(data) });
@@ -219,13 +317,31 @@ export const api = {
 
   verificationRequests: {
     list(params?: Record<string, string>) {
-      return apiRequest<VerificationRequest[]>(`/verification-requests${toQuery(params ?? {})}`).then((rows) => ensureArray<VerificationRequest>(rows));
+      return apiRequest<unknown>(`/verification-requests${toQuery(params ?? {})}`).then((rows) =>
+        ensureArray<VerificationRequest & { user?: Record<string, unknown> }>(rows).map((row) => ({
+          ...row,
+          user: row.user ? mapUser(row.user) || undefined : undefined,
+        })),
+      );
+    },
+    mine() {
+      return apiRequest<VerificationRequest | null>('/verification-requests/mine');
     },
     create(data: Partial<VerificationRequest>) {
       return apiRequest<VerificationRequest>('/verification-requests', { method: 'POST', body: JSON.stringify(data) });
     },
-    update(id: string, data: Partial<VerificationRequest>) {
+    update(id: string, data: Partial<VerificationRequest> & { action?: string }) {
       return apiRequest<VerificationRequest>(`/verification-requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    bulk(data: { ids: string[]; action: 'approve' | 'reject'; rejectionReason?: string; reason?: string }) {
+      return apiRequest<{ success: true; count: number }>('/verification-requests/bulk', {
+        method: 'POST',
+        body: JSON.stringify({
+          ids: data.ids,
+          action: data.action,
+          reason: data.rejectionReason || data.reason,
+        }),
+      });
     },
   },
 

@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
-import { getDistrictKey } from '../lib/utils';
+import { getDistrictKey, toJsDate } from '../lib/utils';
 
 interface JobCardProps {
   job: Job;
@@ -14,9 +14,7 @@ interface JobCardProps {
 
 export default function JobCard({ job, onApply }: JobCardProps) {
   const { t, i18n } = useTranslation();
-  const date = job.createdAt 
-    ? (job.createdAt.toDate ? job.createdAt.toDate() : new Date(typeof job.createdAt === 'number' ? job.createdAt * 1000 : job.createdAt.seconds * 1000 || Date.now()))
-    : new Date();
+  const date = toJsDate(job.createdAt) || new Date();
   
   const getLocale = () => {
     if (i18n.language === 'ru') return ru;

@@ -81,12 +81,20 @@ export default function ContractPage() {
 
     try {
       const updates: Partial<Contract> = {};
-      if (profile.role === 'worker') updates.workerSigned = true;
-      if (profile.role === 'employer') updates.employerSigned = true;
+      if (profile.role === 'worker') {
+        updates.signedByWorker = true;
+        updates.workerSigned = true;
+      }
+      if (profile.role === 'employer') {
+        updates.signedByEmployer = true;
+        updates.employerSigned = true;
+      }
 
-      if ((profile.role === 'worker' && contract.employerSigned) ||
-          (profile.role === 'employer' && contract.workerSigned)) {
-        updates.status = 'signed';
+      const otherAlreadySigned =
+        (profile.role === 'worker' && (contract.signedByEmployer ?? contract.employerSigned)) ||
+        (profile.role === 'employer' && (contract.signedByWorker ?? contract.workerSigned));
+      if (otherAlreadySigned) {
+        updates.status = 'active';
       }
 
       await api.contracts.update(contract.id, updates);

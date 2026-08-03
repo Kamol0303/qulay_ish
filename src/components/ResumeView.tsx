@@ -1,74 +1,101 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, Download, Loader2, Printer } from 'lucide-react';
 import { api } from '../lib/api';
-import { Profile } from '../types';
+import type { Profile } from '../types';
+import { downloadResumePdf, RESUME_TEMPLATES } from '../lib/resumePdf';
+import { PremiumResume } from './resume/PremiumResume';
+import Layout from './Layout';
 
 export default function ResumeView() {
   const { userId } = useParams();
-  const [profile, setProfile] = React.useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!userId) return;
-    const fetch = async () => {
+    let cancelled = false;
+    void (async () => {
       try {
         const user = await api.users.get(userId);
-        setProfile(user);
+        if (!cancelled) setProfile(user);
       } catch {
-        setProfile(null);
+        if (!cancelled) setProfile(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    fetch();
   }, [userId]);
 
-  if (!profile) return <div className="p-6">No resume available.</div>;
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" aria-label="Yuklanmoqda" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Layout>
+        <div className="mx-auto max-w-3xl px-4 py-10 text-center">
+          <p className="font-medium">Rezyume topilmadi</p>
+          <Link to="/workers" className="mt-3 inline-flex text-sm text-primary hover:underline">
+            Ishchilar ro&apos;yxatiga
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
+
+  const templateName =
+    RESUME_TEMPLATES.find((t) => t.id === profile.resumeTemplate)?.name || 'Professional';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-2xl p-6 border border-border">
-        <h3 className="text-xl font-bold mb-2">{profile.fullName}</h3>
-        <div className="text-sm text-muted-foreground mb-4">{profile.region} {profile.district ? `, ${profile.district}` : ''}</div>
-
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Phone</div>
-          <div className="text-sm">{profile.phoneNumber || '-'}</div>
-        </div>
-
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Skills</div>
+    <Layout>
+      <div className="mx-auto max-w-5xl px-3 py-6 sm:px-4 md:px-6 md:py-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <Link
+            to={`/worker/${profile.uid}`}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Profilga qaytish
+          </Link>
           <div className="flex flex-wrap gap-2">
-            {profile.skills?.map((s, i) => <span key={i} className="bg-gray-100 px-3 py-1 rounded-full text-sm">{s}</span>)}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium"
+            >
+              <Printer className="h-4 w-4" /> Print
+            </button>
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  await downloadResumePdf(profile);
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              PDF yuklash ({templateName})
+            </button>
           </div>
         </div>
 
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Experience</div>
-          {profile.experience?.map((e, i) => (
-            <div key={i} className="mb-2">
-              <div className="font-bold">{e.position} — {e.company}</div>
-              <div className="text-sm text-muted-foreground">{e.startYear} — {e.endYear || 'Hozirgi kungacha'}</div>
-              <div className="text-sm mt-1">{e.details}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mb-4">
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Education</div>
-          {profile.education?.map((ed, i) => (
-            <div key={i} className="mb-2">
-              <div className="font-bold">{ed.institution} — {ed.degree}</div>
-              <div className="text-sm text-muted-foreground">{ed.startYear} — {ed.endYear || ''}</div>
-              <div className="text-sm mt-1">{ed.notes}</div>
-            </div>
-          ))}
-        </div>
-
-        <div>
-          <div className="text-xs font-bold uppercase text-muted-foreground mb-2">Certificates</div>
-          <div className="text-sm">
-            {profile['certificates'] ? (profile['certificates'] as string[]).map((c, i) => <div key={i}>{c}</div>) : '-'}
-          </div>
-        </div>
+        <PremiumResume profile={profile} />
       </div>
-    </div>
+    </Layout>
   );
 }

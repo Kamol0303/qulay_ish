@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
-import { getDistrictKey } from '../../lib/utils';
+import { getDistrictKey, toJsDate } from '../../lib/utils';
 
 export default function EmployerApplications() {
   const { t, i18n } = useTranslation();
@@ -174,13 +174,13 @@ export default function EmployerApplications() {
                         </div>
                         
                         <div className="bg-secondary/30 p-5 rounded-2xl border border-border/50 italic text-muted-foreground text-sm leading-relaxed">
-                          "{app.message}"
+                          "{app.coverLetter || app.message || '—'}"
                         </div>
 
                         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground font-medium">
                           <span className="flex items-center gap-1.5">
                             <Clock size={14} />
-                            {app.createdAt ? format(app.createdAt.toDate(), 'd-MMMM, HH:mm', { locale: getDateLocale() }) : t('common.recently')}
+                            {toJsDate(app.createdAt) ? format(toJsDate(app.createdAt)!, 'd-MMMM, HH:mm', { locale: getDateLocale() }) : t('common.recently')}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <MapPin size={14} />

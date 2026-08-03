@@ -4,11 +4,11 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
+import { ApiError } from '../../lib/api/client';
 import { applicationService } from '../../services/applicationService';
 import { contractService } from '../../services/contractService';
 import { jobService } from '../../services/jobService';
 import { Application, Job, Profile } from '../../types';
-import { motion } from 'motion/react';
 import { 
   FileText, 
   ChevronLeft, 
@@ -34,6 +34,7 @@ export default function CreateContract() {
   const [worker, setWorker] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     amount: 0,
@@ -72,20 +73,36 @@ export default function CreateContract() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!application || !profile) return;
+    if (!application || !profile || !appId) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await contractService.create({
+      const contractId = await contractService.create({
+        applicationId: appId,
         jobId: application.jobId,
         workerId: application.workerId,
         employerId: profile.uid,
         title: job?.title || application.jobTitle || 'Shartnoma',
         amount: formData.amount,
         terms: formData.terms,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        workerName: worker?.fullName,
+        employerName: profile.fullName,
       });
+      if (!contractId) {
+        throw new Error('Shartnoma yaratilmadi');
+      }
       navigate('/employer/dashboard');
     } catch (error) {
       debugLogger.error('Error creating contract:', error);
+      const msg =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Shartnoma yuborilmadi. Qayta urinib ko‘ring.';
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -175,6 +192,12 @@ export default function CreateContract() {
                   {t('contracts.warning_desc')}
                 </p>
               </div>
+
+              {submitError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {submitError}
+                </div>
+              )}
 
               <button
                 type="submit"
