@@ -88,10 +88,14 @@ export default function SuperAdminContractsPage() {
         startDate: c.startDate || new Date().toISOString(),
         endDate: c.endDate,
         description: c.terms,
-        termsAccepted: Boolean(c.workerSigned && c.employerSigned),
+        termsAccepted: Boolean((c.signedByWorker ?? c.workerSigned) && (c.signedByEmployer ?? c.employerSigned)),
         signatures: {
-          worker: c.workerSigned ? { date: c.updatedAt || new Date().toISOString(), signature: 'signed' } : undefined,
-          employer: c.employerSigned ? { date: c.updatedAt || new Date().toISOString(), signature: 'signed' } : undefined,
+          worker: (c.signedByWorker ?? c.workerSigned)
+            ? { date: c.updatedAt || new Date().toISOString(), signature: 'signed' }
+            : undefined,
+          employer: (c.signedByEmployer ?? c.employerSigned)
+            ? { date: c.updatedAt || new Date().toISOString(), signature: 'signed' }
+            : undefined,
         },
         adminApproved: adminStatus,
         createdAt: c.createdAt,

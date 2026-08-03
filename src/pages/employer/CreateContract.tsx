@@ -34,6 +34,7 @@ export default function CreateContract() {
   const [worker, setWorker] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     amount: 0,
@@ -74,18 +75,27 @@ export default function CreateContract() {
     e.preventDefault();
     if (!application || !profile) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await contractService.create({
+      const contractId = await contractService.create({
         jobId: application.jobId,
         workerId: application.workerId,
         employerId: profile.uid,
         title: job?.title || application.jobTitle || 'Shartnoma',
         amount: formData.amount,
         terms: formData.terms,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        workerName: worker?.fullName,
+        employerName: profile.fullName,
       });
+      if (!contractId) {
+        throw new Error('Shartnoma yaratilmadi');
+      }
       navigate('/employer/dashboard');
     } catch (error) {
       debugLogger.error('Error creating contract:', error);
+      setSubmitError('Shartnoma yuborilmadi. Qayta urinib ko‘ring.');
     } finally {
       setSubmitting(false);
     }
@@ -175,6 +185,12 @@ export default function CreateContract() {
                   {t('contracts.warning_desc')}
                 </p>
               </div>
+
+              {submitError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {submitError}
+                </div>
+              )}
 
               <button
                 type="submit"

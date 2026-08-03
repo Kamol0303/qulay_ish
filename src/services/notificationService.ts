@@ -71,7 +71,7 @@ export const notificationService = {
       title: 'Yangi shartnoma',
       message: `"${jobTitle}" ishi uchun yangi shartnoma yaratildi`,
       type: 'contract',
-      link: role === 'worker' ? `/worker/contracts` : `/employer/contracts`,
+      link: role === 'worker' ? '/worker/contracts' : `/employer/contracts?highlight=${contractId}`,
     });
   },
 

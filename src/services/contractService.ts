@@ -3,6 +3,14 @@ import { Contract } from '../types';
 import { notificationService } from './notificationService';
 import { api } from '../lib/api';
 
+function isSignedByWorker(c: Partial<Contract> | null | undefined) {
+  return Boolean(c?.signedByWorker ?? c?.workerSigned);
+}
+
+function isSignedByEmployer(c: Partial<Contract> | null | undefined) {
+  return Boolean(c?.signedByEmployer ?? c?.employerSigned);
+}
+
 export const contractService = {
   async create(contractData: {
     jobId: string;
@@ -11,34 +19,37 @@ export const contractService = {
     title: string;
     amount: number;
     terms?: string;
-  }): Promise<string | null> {
-    try {
-      const created = await api.contracts.create({
-        jobId: contractData.jobId,
-        workerId: contractData.workerId,
-        employerId: contractData.employerId,
-        jobTitle: contractData.title,
-        amount: contractData.amount,
-        terms: contractData.terms,
-        status: 'draft',
-        workerSigned: false,
-        employerSigned: false,
-      });
+    startDate?: string;
+    endDate?: string;
+    workerName?: string;
+    employerName?: string;
+  }): Promise<string> {
+    const created = await api.contracts.create({
+      jobId: contractData.jobId,
+      workerId: contractData.workerId,
+      employerId: contractData.employerId,
+      jobTitle: contractData.title,
+      workerName: contractData.workerName,
+      employerName: contractData.employerName,
+      amount: contractData.amount,
+      terms: contractData.terms,
+      startDate: contractData.startDate,
+      endDate: contractData.endDate,
+      status: 'draft',
+      signedByWorker: false,
+      signedByEmployer: false,
+      adminApproved: false,
+    });
 
-      await notificationService.notifyNewContract(contractData.workerId, 'worker', contractData.title, created.id);
-      await notificationService.notifyNewContract(contractData.employerId, 'employer', contractData.title, created.id);
-      return created.id;
-    } catch (error) {
-      debugLogger.error('Error creating contract:', error);
-      return null;
-    }
+    // Notifications + Super Admin alert + CREATE_CONTRACT log are handled by the API
+    return created.id;
   },
 
   async signByWorker(contractId: string, workerId: string, employerId: string, jobTitle: string): Promise<boolean> {
     try {
       const contract = await api.contracts.get(contractId);
-      const updates: Partial<Contract> = { workerSigned: true, signedByWorker: true };
-      if (contract.employerSigned) {
+      const updates: Partial<Contract> = { signedByWorker: true, workerSigned: true };
+      if (isSignedByEmployer(contract)) {
         updates.status = 'active';
         updates.startDate = new Date().toISOString();
       }
@@ -54,8 +65,8 @@ export const contractService = {
   async signByEmployer(contractId: string, employerId: string, workerId: string, jobTitle: string): Promise<boolean> {
     try {
       const contract = await api.contracts.get(contractId);
-      const updates: Partial<Contract> = { employerSigned: true, signedByEmployer: true };
-      if (contract.workerSigned) {
+      const updates: Partial<Contract> = { signedByEmployer: true, employerSigned: true };
+      if (isSignedByWorker(contract)) {
         updates.status = 'active';
         updates.startDate = new Date().toISOString();
       }

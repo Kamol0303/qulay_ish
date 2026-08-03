@@ -303,6 +303,67 @@ export class ApplicationsController {
   }
 }
 
+function toContractDto<T extends Record<string, unknown>>(row: T) {
+  return {
+    ...row,
+    // Frontend aliases (legacy field names)
+    workerSigned: Boolean(row.signedByWorker),
+    employerSigned: Boolean(row.signedByEmployer),
+  };
+}
+
+function normalizeContractWrite(body: Record<string, unknown>, opts?: { partial?: boolean }) {
+  const partial = Boolean(opts?.partial);
+  const data: Record<string, unknown> = {};
+
+  const maybeSet = (key: string, value: unknown) => {
+    if (value !== undefined) data[key] = value;
+  };
+
+  if (!partial || body.jobId !== undefined) maybeSet('jobId', body.jobId ? String(body.jobId) : null);
+  if (!partial || body.workerId !== undefined) maybeSet('workerId', body.workerId ? String(body.workerId) : undefined);
+  if (!partial || body.employerId !== undefined) maybeSet('employerId', body.employerId ? String(body.employerId) : undefined);
+  if (!partial || body.workerName !== undefined) maybeSet('workerName', body.workerName != null ? String(body.workerName) : null);
+  if (!partial || body.employerName !== undefined) maybeSet('employerName', body.employerName != null ? String(body.employerName) : null);
+  if (!partial || body.jobTitle !== undefined) maybeSet('jobTitle', body.jobTitle != null ? String(body.jobTitle) : null);
+  if (!partial || body.salary !== undefined) maybeSet('salary', body.salary != null && body.salary !== '' ? Number(body.salary) : null);
+  if (!partial || body.amount !== undefined) maybeSet('amount', body.amount != null && body.amount !== '' ? Number(body.amount) : null);
+  if (!partial || body.startDate !== undefined) {
+    maybeSet('startDate', body.startDate ? new Date(String(body.startDate)) : null);
+  }
+  if (!partial || body.endDate !== undefined) {
+    maybeSet('endDate', body.endDate ? new Date(String(body.endDate)) : null);
+  }
+  if (!partial || body.status !== undefined) maybeSet('status', body.status || 'draft');
+  if (!partial || body.terms !== undefined) maybeSet('terms', body.terms != null ? String(body.terms) : null);
+
+  if (
+    !partial ||
+    body.signedByWorker !== undefined ||
+    body.workerSigned !== undefined
+  ) {
+    maybeSet(
+      'signedByWorker',
+      Boolean(body.signedByWorker ?? body.workerSigned ?? false),
+    );
+  }
+  if (
+    !partial ||
+    body.signedByEmployer !== undefined ||
+    body.employerSigned !== undefined
+  ) {
+    maybeSet(
+      'signedByEmployer',
+      Boolean(body.signedByEmployer ?? body.employerSigned ?? false),
+    );
+  }
+  if (!partial || body.adminApproved !== undefined) {
+    maybeSet('adminApproved', Boolean(body.adminApproved ?? false));
+  }
+
+  return data;
+}
+
 @Controller('contracts')
 export class ContractsController {
   constructor(private readonly prisma: PrismaService) {}
@@ -313,25 +374,138 @@ export class ContractsController {
     if (query.workerId) where.workerId = query.workerId;
     if (query.employerId) where.employerId = query.employerId;
     if (query.status) where.status = query.status;
-    return this.prisma.contract.findMany({ where: where as any, orderBy: { createdAt: 'desc' } });
+    const rows = await this.prisma.contract.findMany({
+      where: where as any,
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => toContractDto(row as unknown as Record<string, unknown>));
   }
 
   @Get(':id')
   async get(@Param('id') id: string) {
-    return this.prisma.contract.findUniqueOrThrow({ where: { id } });
+    const row = await this.prisma.contract.findUniqueOrThrow({ where: { id } });
+    return toContractDto(row as unknown as Record<string, unknown>);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
+  async create(
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: { userId: string; role: string } },
+  ) {
+    const data = normalizeContractWrite(body);
+    if (!data.workerId || !data.employerId) {
+      throw new BadRequestException('workerId va employerId majburiy');
+    }
+
+    // Enrich names/title when missing
+    const [worker, employer, job] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: String(data.workerId) } }),
+      this.prisma.user.findUnique({ where: { id: String(data.employerId) } }),
+      data.jobId
+        ? this.prisma.job.findUnique({ where: { id: String(data.jobId) } })
+        : Promise.resolve(null),
+    ]);
+    if (!worker) throw new BadRequestException('Ishchi topilmadi');
+    if (!employer) throw new BadRequestException('Ish beruvchi topilmadi');
+
     const id = (body.id as string) || randomUUID();
-    return this.prisma.contract.create({ data: { id, ...body } as any });
+    const created = await this.prisma.contract.create({
+      data: {
+        id,
+        ...data,
+        workerName: (data.workerName as string) || worker.fullName || null,
+        employerName: (data.employerName as string) || employer.fullName || null,
+        jobTitle: (data.jobTitle as string) || job?.title || null,
+        amount:
+          data.amount != null
+            ? Number(data.amount)
+            : job?.price != null
+              ? Number(job.price)
+              : null,
+        status: (data.status as any) || 'draft',
+        signedByWorker: Boolean(data.signedByWorker),
+        signedByEmployer: Boolean(data.signedByEmployer),
+        adminApproved: false,
+      } as any,
+    });
+
+    const jobTitle = created.jobTitle || 'Shartnoma';
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: created.workerId,
+        title: 'Yangi shartnoma',
+        message: `"${jobTitle}" ishi uchun yangi shartnoma yaratildi`,
+        type: 'contract',
+        link: '/worker/contracts',
+        read: false,
+      },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: created.employerId,
+        title: 'Shartnoma yuborildi',
+        message: `"${jobTitle}" uchun shartnoma Super Admin tekshiruviga yuborildi`,
+        type: 'contract',
+        link: '/employer/contracts',
+        read: false,
+      },
+    });
+
+    const superAdmins = await this.prisma.user.findMany({
+      where: { role: 'super_admin' },
+      select: { id: true },
+    });
+    for (const admin of superAdmins) {
+      await this.prisma.notification.create({
+        data: {
+          id: randomUUID(),
+          userId: admin.id,
+          title: 'Yangi shartnoma',
+          message: `${created.employerName || 'Ish beruvchi'} — "${jobTitle}" shartnomasi tekshiruvga yuborildi`,
+          type: 'contract',
+          link: '/super-admin/contracts',
+          read: false,
+        },
+      });
+    }
+
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'CREATE_CONTRACT',
+        userId: req.user.userId,
+        userEmail: employer.email || undefined,
+        details: {
+          contractId: created.id,
+          jobId: created.jobId,
+          workerId: created.workerId,
+          employerId: created.employerId,
+          amount: created.amount,
+        },
+        type: 'info',
+      },
+    });
+
+    return toContractDto(created as unknown as Record<string, unknown>);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.contract.update({ where: { id }, data: body as any });
+    const data = normalizeContractWrite(body, { partial: true });
+    // Never let client force unknown Prisma keys (workerSigned etc.)
+    delete (data as any).workerSigned;
+    delete (data as any).employerSigned;
+    const updated = await this.prisma.contract.update({
+      where: { id },
+      data: data as any,
+    });
+    return toContractDto(updated as unknown as Record<string, unknown>);
   }
 }
 
