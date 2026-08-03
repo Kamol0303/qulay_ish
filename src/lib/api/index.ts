@@ -1,6 +1,6 @@
 import { apiRequest, setAccessToken, clearAccessToken, toQuery } from './client';
 import { ensureArray } from './errors';
-import type { Profile, Job, Application, Contract, Notification, ChatMessage, Dispute, VerificationRequest, Review, ServicePost } from '../../types';
+import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost } from '../../types';
 
 export interface AuthResponse {
   accessToken: string;
@@ -282,6 +282,9 @@ export const api = {
   chatMessages: {
     list(userA: string, userB: string) {
       return apiRequest<ChatMessage[]>(`/chat-messages${toQuery({ userA, userB })}`).then((rows) => ensureArray<ChatMessage>(rows));
+    },
+    inbox() {
+      return apiRequest<ChatThread[]>('/chat-messages/inbox').then((rows) => ensureArray<ChatThread>(rows));
     },
     create(data: Partial<ChatMessage>) {
       return apiRequest<ChatMessage>('/chat-messages', { method: 'POST', body: JSON.stringify(data) });

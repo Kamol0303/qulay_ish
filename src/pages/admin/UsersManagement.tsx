@@ -173,6 +173,15 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
 
           <div className="flex flex-wrap gap-2">
             <Link
+              to={window.location.pathname.startsWith('/super-admin')
+                ? `/super-admin/messages?with=${user.uid}`
+                : `/chat?with=${user.uid}`}
+              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
+              onClick={onClose}
+            >
+              Xabar yozish
+            </Link>
+            <Link
               to={user.role === 'employer' ? `/my-profile` : `/worker/${user.uid}`}
               className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
               onClick={onClose}

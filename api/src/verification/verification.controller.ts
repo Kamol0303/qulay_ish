@@ -159,6 +159,35 @@ export class VerificationRequestsController {
       },
     });
 
+    const supers = await this.prisma.user.findMany({
+      where: { role: 'super_admin' },
+      select: { id: true },
+    });
+    for (const admin of supers) {
+      await this.prisma.notification.create({
+        data: {
+          id: randomUUID(),
+          userId: admin.id,
+          title: 'Yangi tasdiqlash arizasi',
+          message: `${user.fullName} (${created.accountType || user.role}) shaxsni tasdiqlash hujjatlarini yubordi`,
+          type: 'system',
+          link: '/super-admin/verification',
+          read: false,
+        },
+      });
+    }
+
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'VERIFICATION_SUBMIT',
+        userId: req.user.userId,
+        userEmail: user.email || undefined,
+        details: { verificationId: created.id, accountType: created.accountType },
+        type: 'info',
+      },
+    });
+
     return toUserView(created as unknown as Record<string, unknown>);
   }
 
@@ -241,6 +270,15 @@ export class VerificationRequestsController {
           type: 'system',
           link: '/my-profile',
           read: false,
+        },
+      });
+      await this.prisma.systemLog.create({
+        data: {
+          id: randomUUID(),
+          action: 'VERIFICATION_APPROVE',
+          userId: admin.userId,
+          details: { targetUserId: userId, verificationId: id },
+          type: 'info',
         },
       });
     } else if (action === 'reject' || body.status === 'rejected') {

@@ -197,6 +197,7 @@ export interface ChatMessage {
   id: string;
   senderId: string;
   receiverId: string;
+  content?: string;
   message?: string;
   text?: string;
   read?: boolean;
@@ -206,6 +207,16 @@ export interface ChatMessage {
   contractId?: string;
   participants?: string[];
   createdAt?: any;
+}
+
+export interface ChatThread {
+  peerId: string;
+  peerName?: string;
+  peerRole?: string;
+  peerPhotoUrl?: string;
+  lastMessage?: string;
+  lastAt?: string | Date;
+  unreadCount?: number;
 }
 
 export interface EmploymentStat {

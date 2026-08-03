@@ -204,7 +204,7 @@ export default function VerificationManagement() {
   const { profile } = useAuth();
   const [requests, setRequests] = useState<(VerificationRequest & { user?: Partial<Profile> })[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('pending');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [accountType, setAccountType] = useState<'all' | 'worker' | 'employer'>('all');
   const [region, setRegion] = useState('');
   const [search, setSearch] = useState('');

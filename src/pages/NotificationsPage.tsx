@@ -21,6 +21,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
+import { toJsDate } from '../lib/utils';
 
 export default function NotificationsPage() {
   const { t, i18n } = useTranslation();
@@ -146,7 +147,9 @@ export default function NotificationsPage() {
                           {notification.title}
                         </h4>
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                          {format(notification.createdAt?.toDate?.() || new Date(), 'd MMM, HH:mm', { locale: getDateLocale() })}
+                          {toJsDate(notification.createdAt)
+                            ? format(toJsDate(notification.createdAt)!, 'd MMM, HH:mm', { locale: getDateLocale() })
+                            : '—'}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">

@@ -244,6 +244,17 @@ export class ApplicationsController {
       });
     }
 
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'APPLY_JOB',
+        userId: workerId,
+        userEmail: worker?.email || undefined,
+        details: { jobId, applicationId: created.id, employerId: job.employerId },
+        type: 'info',
+      },
+    });
+
     return created;
   }
 
@@ -354,9 +365,61 @@ export class NotificationsController {
 export class ChatMessagesController {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Conversation inbox for the authenticated user (or queried userId for own inbox) */
+  @UseGuards(JwtAuthGuard)
+  @Get('inbox')
+  async inbox(@Req() req: { user: { userId: string; role: string } }, @Query('userId') userId?: string) {
+    const me = userId && ['admin', 'super_admin'].includes(req.user.role) ? userId : req.user.userId;
+    const rows = await this.prisma.chatMessage.findMany({
+      where: { OR: [{ senderId: me }, { receiverId: me }] },
+      orderBy: { createdAt: 'desc' },
+      take: 400,
+    });
+
+    const peerMap = new Map<
+      string,
+      { peerId: string; lastMessage: string; lastAt: Date; unreadCount: number }
+    >();
+    for (const row of rows) {
+      const peerId = row.senderId === me ? row.receiverId : row.senderId;
+      const existing = peerMap.get(peerId);
+      if (!existing) {
+        peerMap.set(peerId, {
+          peerId,
+          lastMessage: row.content,
+          lastAt: row.createdAt,
+          unreadCount: row.receiverId === me && !row.read ? 1 : 0,
+        });
+      } else if (row.receiverId === me && !row.read) {
+        existing.unreadCount += 1;
+      }
+    }
+
+    const peers = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(peerMap.keys()) } },
+      select: { id: true, fullName: true, role: true, photoUrl: true, companyName: true },
+    });
+    const peerInfo = new Map(peers.map((p) => [p.id, p]));
+
+    return Array.from(peerMap.values())
+      .map((t) => {
+        const u = peerInfo.get(t.peerId);
+        return {
+          peerId: t.peerId,
+          peerName: u?.companyName || u?.fullName || 'Foydalanuvchi',
+          peerRole: u?.role,
+          peerPhotoUrl: u?.photoUrl,
+          lastMessage: t.lastMessage,
+          lastAt: t.lastAt,
+          unreadCount: t.unreadCount,
+        };
+      })
+      .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
+  }
+
   @Get()
   async list(@Query('userA') userA: string, @Query('userB') userB: string) {
-    return this.prisma.chatMessage.findMany({
+    const rows = await this.prisma.chatMessage.findMany({
       where: {
         OR: [
           { senderId: userA, receiverId: userB },
@@ -365,26 +428,67 @@ export class ChatMessagesController {
       },
       orderBy: { createdAt: 'asc' },
     });
+    // Frontend historically used `text` — expose both for compatibility
+    return rows.map((r) => ({ ...r, text: r.content, message: r.content }));
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: { userId: string } }) {
     const id = (body.id as string) || randomUUID();
-    const content = String(body.content || body.message || body.text || '');
-    return this.prisma.chatMessage.create({
+    const content = String(body.content || body.message || body.text || '').trim();
+    if (!content) throw new BadRequestException('Xabar bo\'sh');
+    const senderId = req.user.userId;
+    const receiverId = String(body.receiverId || '');
+    if (!receiverId) throw new BadRequestException('receiverId majburiy');
+
+    const created = await this.prisma.chatMessage.create({
       data: {
         id,
-        senderId: String(body.senderId),
-        receiverId: String(body.receiverId),
+        senderId,
+        receiverId,
         content,
-        read: Boolean(body.read),
-        delivered: Boolean(body.delivered),
-        status: body.status as string,
+        read: false,
+        delivered: true,
+        status: 'sent',
         jobId: body.jobId as string,
         contractId: body.contractId as string,
       },
     });
+
+    const sender = await this.prisma.user.findUnique({
+      where: { id: senderId },
+      select: { fullName: true, role: true },
+    });
+    const chatLink =
+      (await this.prisma.user.findUnique({ where: { id: receiverId }, select: { role: true } }))?.role ===
+      'super_admin'
+        ? `/super-admin/messages?with=${senderId}`
+        : `/chat?with=${senderId}`;
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: receiverId,
+        title: 'Yangi xabar',
+        message: `${sender?.fullName || 'Foydalanuvchi'}: ${content.slice(0, 80)}`,
+        type: 'message',
+        link: chatLink,
+        read: false,
+      },
+    });
+
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'SEND_MESSAGE',
+        userId: senderId,
+        details: { receiverId, preview: content.slice(0, 80) },
+        type: 'info',
+      },
+    });
+
+    return { ...created, text: created.content, message: created.content };
   }
 
   @UseGuards(JwtAuthGuard)

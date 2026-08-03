@@ -10,18 +10,22 @@ const actionLabels: Record<string, string> = {
   'LOGIN': 'Tizimga kirish',
   'LOGOUT': 'Tizimdan chiqish',
   'VIEW_JOB': 'Ishni ko\'rish',
-  'APPLY_JOB': 'Ishga ishtiromi',
+  'APPLY_JOB': 'Ishga ariza',
   'POST_JOB': 'Ish e\'loni',
   'CREATE_CONTRACT': 'Shartnoma yaratish',
   'UPDATE_PROFILE': 'Profilni yangilash',
-  'UPDATE_GLOBAL_SETTINGS': 'Tizim sozlamalarini o\'zgartirilish',
+  'UPDATE_GLOBAL_SETTINGS': 'Tizim sozlamalarini o\'zgartirish',
   'RATE_LIMIT_EXCEEDED_JOB': 'Ish limitiga yetildi',
   'RATE_LIMIT_EXCEEDED_SERVICE': 'Xizmat limitiga yetildi',
-  'RATE_LIMIT_EXCEEDED_APPLICATION': 'Ishtiromi limitiga yetildi',
-  'APPROVE_APPLICATION': 'Ishtiromi tasdiqlash',
-  'REJECT_APPLICATION': 'Ishtiromi rad etish',
+  'RATE_LIMIT_EXCEEDED_APPLICATION': 'Ariza limitiga yetildi',
+  'APPROVE_APPLICATION': 'Arizani tasdiqlash',
+  'REJECT_APPLICATION': 'Arizani rad etish',
   'APPROVE_CONTRACT': 'Shartnomani tasdiqlash',
-  'REJECT_CONTRACT': 'Shartnomani rad etish'
+  'REJECT_CONTRACT': 'Shartnomani rad etish',
+  'VERIFICATION_SUBMIT': 'Tasdiqlash arizasi',
+  'VERIFICATION_APPROVE': 'Tasdiqlash qabul qilindi',
+  'VERIFICATION_REJECT': 'Tasdiqlash rad etildi',
+  'SEND_MESSAGE': 'Xabar yuborildi',
 };
 
 export default function SuperAdminLogsPage() {
@@ -73,9 +77,14 @@ export default function SuperAdminLogsPage() {
     }
   };
 
-  const formatTimestamp = (timestamp: any) => {
+  const formatTimestamp = (timestamp: unknown) => {
     try {
-      const date = timestamp?.toDate?.() || new Date(timestamp);
+      const raw =
+        timestamp && typeof timestamp === 'object' && typeof (timestamp as { toDate?: () => Date }).toDate === 'function'
+          ? (timestamp as { toDate: () => Date }).toDate()
+          : timestamp;
+      const date = raw ? new Date(raw as string | number | Date) : null;
+      if (!date || Number.isNaN(date.getTime())) return 'N/A';
       return new Intl.DateTimeFormat('uz-UZ', {
         year: 'numeric',
         month: 'short',
@@ -83,7 +92,7 @@ export default function SuperAdminLogsPage() {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        timeZone: 'Asia/Tashkent'
+        timeZone: 'Asia/Tashkent',
       }).format(date);
     } catch {
       return 'N/A';
@@ -94,7 +103,7 @@ export default function SuperAdminLogsPage() {
     const csvContent = [
       ['VAQT', 'HARAKAT', 'FOYDALANUVCHI', 'TURI'],
       ...filteredLogs.map(log => [
-        formatTimestamp(log.timestamp),
+        formatTimestamp(log.createdAt || log.timestamp),
         actionLabels[log.action] || log.action,
         log.userEmail || log.userId || 'Noma\'lum',
         log.type.toUpperCase()
@@ -207,7 +216,7 @@ export default function SuperAdminLogsPage() {
                         className={`${typeColor.bg} border-l-4 border-l-${typeColor.dot}`}
                       >
                         <td className="px-6 py-4">
-                          <span className="text-xs font-mono text-gray-600">{formatTimestamp(log.timestamp)}</span>
+                          <span className="text-xs font-mono text-gray-600">{formatTimestamp(log.createdAt || log.timestamp)}</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-sm font-bold text-gray-900">
