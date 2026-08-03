@@ -18,6 +18,18 @@ import { randomUUID } from 'crypto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
+type UploadedMulterFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer?: Buffer;
+};
+
 const UPLOAD_ROOT = join(process.cwd(), 'uploads');
 
 const ALLOWED = new Set([
@@ -69,7 +81,7 @@ export class UploadsController {
     }),
   )
   async upload(
-    @UploadedFile() file: Express.Multer.File | undefined,
+    @UploadedFile() file: UploadedMulterFile | undefined,
     @Req() req: { user: { userId: string } },
     @Body() body: { kind?: string },
   ) {
