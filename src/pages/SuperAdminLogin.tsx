@@ -6,14 +6,10 @@ import { api } from '../lib/api';
 import { toUserMessage } from '../lib/api/errors';
 import { useAuth } from '../hooks/useAuth';
 
-const SUPER_ADMIN_PHONE = import.meta.env.VITE_SUPER_ADMIN_PHONE || '';
-const SUPER_ADMIN_PASSWORD = import.meta.env.VITE_SUPER_ADMIN_PASSWORD || '';
-const SUPER_ADMIN_EMAIL = import.meta.env.VITE_SUPER_ADMIN_EMAIL || '';
-
 export default function SuperAdminLogin() {
   const navigate = useNavigate();
   const { setAuthProfile } = useAuth();
-  const [phone, setPhone] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,26 +20,14 @@ export default function SuperAdminLogin() {
     setLoading(true);
     setError(null);
 
-    // Validate credentials from environment
-    if (!SUPER_ADMIN_PHONE || !SUPER_ADMIN_PASSWORD || !SUPER_ADMIN_EMAIL) {
-      setError('Super Admin muhit konfiguratsiyasi yaroqsiz. Iltimos, administrator bilan bogʻlaning.');
-      setLoading(false);
-      return;
-    }
-
-    if (phone !== SUPER_ADMIN_PHONE || password !== SUPER_ADMIN_PASSWORD) {
-      setError("Telefon raqam yoki parol noto'g'ri. Faqat Super Admin kirishi mumkin.");
-      setLoading(false);
-      return;
-    }
-
     try {
       localStorage.removeItem('qulay_ish_demo_session');
-      const result = await api.auth.superAdminLogin(SUPER_ADMIN_EMAIL, password);
+      // Credentials are validated on the API (api/.env) — no VITE_* gate on the frontend.
+      const result = await api.auth.superAdminLogin(login.trim(), password);
       setAuthProfile(result.user);
       navigate('/super-admin/dashboard');
     } catch (err) {
-      setError(toUserMessage(err, "Kirish muvaffaqiyatsiz. Ma'lumotlarni tekshirib qayta urinib ko'ring."));
+      setError(toUserMessage(err, "Telefon/email yoki parol noto'g'ri."));
     } finally {
       setLoading(false);
     }
@@ -51,12 +35,14 @@ export default function SuperAdminLogin() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 flex items-center justify-center p-4">
-      {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-          backgroundSize: '40px 40px'
-        }} />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+            backgroundSize: '40px 40px',
+          }}
+        />
       </div>
 
       <motion.div
@@ -64,7 +50,6 @@ export default function SuperAdminLogin() {
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-md"
       >
-        {/* Security Badge */}
         <div className="absolute -top-12 left-1/2 -translate-x-1/2">
           <div className="bg-red-600 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-2xl border-2 border-red-400">
             <Shield className="inline w-4 h-4 mr-2" />
@@ -73,20 +58,14 @@ export default function SuperAdminLogin() {
         </div>
 
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[40px] p-10 shadow-2xl">
-          {/* Header */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
               <Shield size={40} className="text-white" />
             </div>
-            <h1 className="text-3xl font-black text-white mb-2 tracking-tight">
-              Super Admin
-            </h1>
-            <p className="text-red-200 text-sm font-medium">
-              Platform Control Center
-            </p>
+            <h1 className="text-3xl font-black text-white mb-2 tracking-tight">Super Admin</h1>
+            <p className="text-red-200 text-sm font-medium">Platform Control Center</p>
           </div>
 
-          {/* Error Message */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -98,26 +77,25 @@ export default function SuperAdminLogin() {
             </motion.div>
           )}
 
-          {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-xs font-bold text-white/80 uppercase tracking-wider mb-2">
-                Telefon raqam
+                Email yoki telefon
               </label>
               <input
-                type="tel"
+                type="text"
                 required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
                 className="w-full px-5 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/40 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
-                placeholder="+998 90 070 70 81"
-                autoComplete="tel"
+                placeholder="superadmin@qulay-ish.local yoki +998..."
+                autoComplete="username"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-white/80 uppercase tracking-wider mb-2">
-                Password
+                Parol
               </label>
               <div className="relative">
                 <input
@@ -147,32 +125,29 @@ export default function SuperAdminLogin() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Authenticating...
+                  Tekshirilmoqda...
                 </>
               ) : (
                 <>
                   <Lock size={20} />
-                  Secure Login
+                  Kirish
                 </>
               )}
             </button>
           </form>
 
-          {/* Security Notice */}
           <div className="mt-8 pt-6 border-t border-white/10">
             <p className="text-xs text-white/60 text-center leading-relaxed">
-              This is a restricted area. All access attempts are logged and monitored.
-              Unauthorized access is prohibited.
+              Faqat Super Admin. Kirish maʼlumotlari serverdagi <code className="text-white/80">api/.env</code> orqali tekshiriladi.
             </p>
           </div>
 
-          {/* Back Link */}
           <div className="mt-6 text-center">
             <button
               onClick={() => navigate('/')}
               className="text-sm text-white/60 hover:text-white transition-colors font-medium"
             >
-              ← Back to Platform
+              ← Platformaga qaytish
             </button>
           </div>
         </div>
