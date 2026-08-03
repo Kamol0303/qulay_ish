@@ -48,24 +48,56 @@ export class AuthService {
     }
 
     const normalizedLogin = login.trim();
+    const loginDigits = normalizedLogin.replace(/\D/g, '');
+    const envPhoneDigits = envPhone.replace(/\D/g, '');
     const loginOk =
       (envEmail && normalizedLogin.toLowerCase() === envEmail.toLowerCase()) ||
-      (envPhone && normalizedLogin.replace(/\s+/g, '') === envPhone.replace(/\s+/g, ''));
+      (envPhone && (
+        normalizedLogin.replace(/\s+/g, '') === envPhone.replace(/\s+/g, '') ||
+        (loginDigits.length >= 9 && envPhoneDigits.endsWith(loginDigits))
+      ));
 
     if (!loginOk || password !== envPassword) {
       throw new UnauthorizedException('Super Admin login yoki parol noto\'g\'ri');
     }
 
-    const email = envEmail || `superadmin@qulay-ish.local`;
-    let user = await this.prisma.user.findFirst({
-      where: { role: UserRole.super_admin },
-    });
-    if (!user) {
+    const email = envEmail || 'superadmin@qulay-ish.local';
+
+    try {
+      let user = await this.prisma.user.findFirst({
+        where: { role: UserRole.super_admin },
+      });
+
+      if (user) {
+        // Keep password hash in sync with api/.env for local/dev convenience
+        const hash = await bcrypt.hash(envPassword, 10);
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            email,
+            passwordHash: hash,
+            isVerified: true,
+            verificationStatus: 'verified',
+          },
+        });
+        return user;
+      }
+
+      // phoneNumber is UNIQUE — do not attach env phone if another user already owns it
+      let phoneNumber: string | null = envPhone || null;
+      if (phoneNumber) {
+        const taken = await this.prisma.user.findFirst({
+          where: { phoneNumber },
+          select: { id: true, role: true },
+        });
+        if (taken) phoneNumber = null;
+      }
+
       user = await this.prisma.user.create({
         data: {
           id: `super_admin_${Date.now()}`,
           email,
-          phoneNumber: envPhone || null,
+          phoneNumber,
           fullName: 'Super Admin',
           role: UserRole.super_admin,
           region: 'Samarqand viloyati',
@@ -74,8 +106,14 @@ export class AuthService {
           verificationStatus: 'verified',
         },
       });
+      return user;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("Can't reach database") || message.includes('P1001')) {
+        throw new UnauthorizedException('Database ishlamayapti (PostgreSQL localhost:5432)');
+      }
+      throw new UnauthorizedException(`Super Admin kirish xatosi: ${message}`);
     }
-    return user;
   }
 
   signToken(user: User) {
