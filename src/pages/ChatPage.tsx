@@ -16,6 +16,85 @@ function messageBody(msg: ChatMessage) {
   return msg.content || msg.text || msg.message || '';
 }
 
+/** Must live outside ChatPage — defining layout wrappers inside causes remount on every keystroke */
+function ChatShell({
+  useDashboard,
+  children,
+}: {
+  useDashboard: boolean;
+  children: React.ReactNode;
+}) {
+  if (useDashboard) return <DashboardLayout>{children}</DashboardLayout>;
+  return <Layout>{children}</Layout>;
+}
+
+const ChatComposer = React.memo(function ChatComposer({
+  disabled,
+  blocked,
+  moderationError,
+  placeholder,
+  onSend,
+}: {
+  disabled?: boolean;
+  blocked?: boolean;
+  moderationError?: string | null;
+  placeholder: string;
+  onSend: (text: string) => Promise<void>;
+}) {
+  const [text, setText] = React.useState('');
+  const [sending, setSending] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = text.trim();
+    if (!value || sending || disabled || blocked) return;
+    setSending(true);
+    try {
+      await onSend(value);
+      setText('');
+      inputRef.current?.focus();
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="border-t border-border bg-card p-4">
+      {moderationError && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <AlertCircle size={16} />
+          <span>{moderationError}</span>
+        </div>
+      )}
+      {blocked && (
+        <div className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-center text-sm font-bold text-yellow-700">
+          Siz vaqtincha bloklangansiz.
+        </div>
+      )}
+      <div className="flex items-center space-x-3 rounded-2xl border border-border bg-secondary/40 p-2 focus-within:border-blue-200 focus-within:ring-2 focus-within:ring-blue-50">
+        <input
+          ref={inputRef}
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={placeholder}
+          disabled={Boolean(blocked || disabled || sending)}
+          className="flex-1 border-none bg-transparent px-3 py-2 text-sm outline-none focus:ring-0 disabled:opacity-50"
+          autoComplete="off"
+        />
+        <button
+          type="submit"
+          disabled={!text.trim() || Boolean(blocked || disabled || sending)}
+          className="rounded-xl bg-blue-500 p-3 text-white shadow-lg transition-all hover:bg-blue-600 disabled:opacity-50 disabled:shadow-none"
+        >
+          <Send size={18} />
+        </button>
+      </div>
+    </form>
+  );
+});
+
 export default function ChatPage() {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
@@ -25,7 +104,6 @@ export default function ChatPage() {
 
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [threads, setThreads] = React.useState<ChatThread[]>([]);
-  const [inputText, setInputText] = React.useState('');
   const [chatPartner, setChatPartner] = React.useState<Profile | null>(null);
   const [superAdminId, setSuperAdminId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -37,9 +115,6 @@ export default function ChatPage() {
   const isDashboardUser = Boolean(profile?.role);
   const chatBase =
     profile?.role === 'super_admin' ? '/super-admin/messages' : '/chat';
-
-  const Shell = ({ children }: { children: React.ReactNode }) =>
-    isDashboardUser ? <DashboardLayout>{children}</DashboardLayout> : <Layout>{children}</Layout>;
 
   React.useEffect(() => {
     if (!user) {
@@ -86,21 +161,22 @@ export default function ChatPage() {
     const loadMessages = async () => {
       try {
         const allMsgs = await api.chatMessages.list(user.uid, withUserId);
-        setMessages(
-          allMsgs.sort((a, b) => {
-            const timeA = toJsDate(a.createdAt)?.getTime() || 0;
-            const timeB = toJsDate(b.createdAt)?.getTime() || 0;
-            return timeA - timeB;
-          }),
-        );
-        // Mark inbound unread as read
-        for (const msg of allMsgs) {
+        const sorted = allMsgs.sort((a, b) => {
+          const timeA = toJsDate(a.createdAt)?.getTime() || 0;
+          const timeB = toJsDate(b.createdAt)?.getTime() || 0;
+          return timeA - timeB;
+        });
+        setMessages((prev) => {
+          const prevIds = prev.map((m) => m.id).join(',');
+          const nextIds = sorted.map((m) => m.id).join(',');
+          return prevIds === nextIds && prev.length === sorted.length ? prev : sorted;
+        });
+        for (const msg of sorted) {
           if (msg.receiverId === user.uid && !msg.read && msg.id) {
             void api.chatMessages.update(msg.id, { read: true, status: 'read' }).catch(() => undefined);
           }
         }
         setLoading(false);
-        setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
       } catch (err) {
         debugLogger.error('Message load error:', err);
         setLoading(false);
@@ -108,30 +184,23 @@ export default function ChatPage() {
     };
 
     void loadMessages();
-    const interval = setInterval(loadMessages, 4000);
+    const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
   }, [user, withUserId, navigate, profile?.role]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim() || !user || !withUserId) return;
-    if (isBlocked) {
-      setModerationError('Siz vaqtincha bloklangansiz. Iltimos, keyinroq urinib ko\'ring.');
-      return;
-    }
-
-    const text = inputText;
-    setInputText('');
-    setModerationError(null);
-
-    try {
+  const sendMessage = React.useCallback(
+    async (text: string) => {
+      if (!user || !withUserId) return;
+      if (isBlocked) {
+        setModerationError('Siz vaqtincha bloklangansiz. Iltimos, keyinroq urinib ko\'ring.');
+        throw new Error('blocked');
+      }
+      setModerationError(null);
       const moderationResult = await moderationService.moderateMessage(user.uid, text);
       if (!moderationResult.isAllowed) {
         setModerationError(moderationResult.reason || 'Xabar yuborishda xatolik');
-        setInputText(text);
-        return;
+        throw new Error('moderation');
       }
-
       const created = await api.chatMessages.create({
         senderId: user.uid,
         receiverId: withUserId,
@@ -142,24 +211,21 @@ export default function ChatPage() {
       });
       setMessages((prev) => [...prev, created]);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
-    } catch (error) {
-      debugLogger.error('Send error:', error);
-      setInputText(text);
-      setModerationError(error instanceof Error ? error.message : 'Yuborib bo\'lmadi');
-    }
-  };
+    },
+    [user, withUserId, isBlocked],
+  );
 
   if (loading) {
     return (
-      <Shell>
+      <ChatShell useDashboard={isDashboardUser}>
         <div className="rounded-3xl bg-card p-8 text-center text-muted-foreground">{t('common.loading')}...</div>
-      </Shell>
+      </ChatShell>
     );
   }
 
   if (!withUserId) {
     return (
-      <Shell>
+      <ChatShell useDashboard={isDashboardUser}>
         <div className="mx-auto flex max-w-3xl flex-col gap-6">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">{t('chat.title')}</h2>
@@ -239,12 +305,12 @@ export default function ChatPage() {
             </div>
           )}
         </div>
-      </Shell>
+      </ChatShell>
     );
   }
 
   return (
-    <Shell>
+    <ChatShell useDashboard={isDashboardUser}>
       <div className="mx-auto flex h-[calc(100vh-180px)] max-w-4xl flex-col">
         <div className="flex flex-1 flex-col overflow-hidden rounded-[40px] border border-border bg-card shadow-xl">
           <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
@@ -276,7 +342,10 @@ export default function ChatPage() {
               </div>
             </div>
             {canViewPhone && chatPartner?.phoneNumber && (
-              <a href={`tel:${chatPartner.phoneNumber}`} className="rounded-full p-2 text-blue-600 hover:bg-blue-50">
+              <a
+                href={`tel:${String(chatPartner.phoneNumber).replace(/[^\d+]/g, '')}`}
+                className="rounded-full p-2 text-blue-600 hover:bg-blue-50"
+              >
                 <Phone size={20} />
               </a>
             )}
@@ -329,38 +398,14 @@ export default function ChatPage() {
             <div ref={scrollRef} />
           </div>
 
-          <form onSubmit={handleSendMessage} className="border-t border-border bg-card p-4">
-            {moderationError && (
-              <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                <AlertCircle size={16} />
-                <span>{moderationError}</span>
-              </div>
-            )}
-            {isBlocked && (
-              <div className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-center text-sm font-bold text-yellow-700">
-                Siz vaqtincha bloklangansiz.
-              </div>
-            )}
-            <div className="flex items-center space-x-3 rounded-2xl border border-border bg-secondary/40 p-2 focus-within:border-blue-200 focus-within:ring-2 focus-within:ring-blue-50">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={t('chat.placeholder')}
-                disabled={isBlocked}
-                className="flex-1 border-none bg-transparent px-3 py-2 text-sm outline-none focus:ring-0 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={!inputText.trim() || isBlocked}
-                className="rounded-xl bg-blue-500 p-3 text-white shadow-lg transition-all hover:bg-blue-600 disabled:opacity-50 disabled:shadow-none"
-              >
-                <Send size={18} />
-              </button>
-            </div>
-          </form>
+          <ChatComposer
+            blocked={isBlocked}
+            moderationError={moderationError}
+            placeholder={t('chat.placeholder')}
+            onSend={sendMessage}
+          />
         </div>
       </div>
-    </Shell>
+    </ChatShell>
   );
 }

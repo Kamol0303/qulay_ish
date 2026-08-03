@@ -162,10 +162,12 @@ export default function DashboardLayout({ children, title }: { children: React.R
         </header>
 
         <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-background/50">
+          {/* Animate only on route change — avoid remount flicker on parent re-renders (e.g. chat typing) */}
           <motion.div
+            key={location.pathname}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.35 }}
           >
             {children}
           </motion.div>
