@@ -146,19 +146,43 @@ export class DevSmsService implements OnModuleInit {
   }
 
   /** DevSMS orqali OTP SMS yuborish */
-  async sendOtpSms(phone: string, code: string): Promise<{ smsId: number; requestId: string }> {
+  async sendOtpSms(
+    phone: string,
+    code: string,
+    purpose: 'login' | 'register' = 'login',
+  ): Promise<{ smsId: number; requestId: string }> {
     if (!this.token && this.devMode) {
-      const message = buildOtpSmsMessage(code);
+      const message = buildOtpSmsMessage(code, purpose);
       this.logger.warn(`[DEV OTP] ${phone} → ${code}`);
       this.logger.warn(`[DEV OTP] SMS matni: ${message}`);
       return { smsId: 0, requestId: `dev-${randomUUID()}` };
     }
 
-    const message = buildOtpSmsMessage(code);
+    const otpMode = (process.env.DEVSMS_OTP_MODE || 'eskiz').toLowerCase();
+
+    if (otpMode === 'universal_otp') {
+      const serviceName =
+        process.env.DEVSMS_SERVICE_NAME?.trim() || 'ishliayol.uz';
+      const templateType = purpose === 'register' ? 3 : 4;
+      this.logger.log(
+        `DevSMS universal_otp: template_type=${templateType}, service=${serviceName}, code=${code}`,
+      );
+      return this.call({
+        phone: this.toDevSmsPhone(phone),
+        type: 'universal_otp',
+        template_type: templateType,
+        service_name: serviceName,
+        otp_code: code,
+        ...(this.from ? { from: this.from } : {}),
+      });
+    }
+
+    const message = buildOtpSmsMessage(code, purpose);
+    this.logger.log(`DevSMS eskiz matn: ${message}`);
     return this.call({
       phone: this.toDevSmsPhone(phone),
       message,
-      type: 'universal_otp',
+      type: 'eskiz',
       ...(this.from ? { from: this.from } : {}),
     });
   }

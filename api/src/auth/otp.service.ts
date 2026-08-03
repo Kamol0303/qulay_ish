@@ -80,11 +80,19 @@ export class OtpService {
 
   private throwSmsError(err: unknown): never {
     if (err instanceof DevSmsError) {
-      this.logger.warn(`DevSMS xatosi: ${err.code}`);
+      this.logger.warn(`DevSMS xatosi: ${err.code} — ${err.message}`);
     } else {
       this.logger.error('DevSMS noma\'lum xato', err);
     }
-    throw new BadRequestException('SMS yuborib bo\'lmadi. Birozdan keyin qayta urinib ko\'ring');
+    const detail =
+      err instanceof DevSmsError && process.env.NODE_ENV !== 'production'
+        ? err.message
+        : null;
+    throw new BadRequestException(
+      detail
+        ? `SMS yuborib bo'lmadi: ${detail}`
+        : 'SMS yuborib bo\'lmadi. Birozdan keyin qayta urinib ko\'ring',
+    );
   }
 
   /** POST /auth/send-otp — spec */
@@ -127,7 +135,7 @@ export class OtpService {
     });
 
     try {
-      const smsMeta = await this.devSms.sendOtpSms(phone, code);
+      const smsMeta = await this.devSms.sendOtpSms(phone, code, purpose);
       await this.prisma.otpSession.update({
         where: { id: sessionId },
         data: { metadata: smsMeta },
