@@ -1,63 +1,113 @@
-import { debugLogger } from '../lib/debugLogger';
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState, type ReactNode, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Camera,
+  CheckCircle,
+  Clock,
+  FileText,
+  Loader2,
+  ShieldCheck,
+  Upload,
+} from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
-import { VerificationRequest } from '../types';
-import { ShieldCheck, Upload, CheckCircle, Clock, AlertTriangle, User, FileText, Camera, ChevronRight, ArrowLeft } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import type { VerificationRequest } from '../types';
+import { SecureImage } from '../components/verification/SecureMedia';
+import { VerificationStatusCard } from '../components/verification/VerificationStatusCard';
+
+type FormState = {
+  idPhotoUrl: string;
+  selfieUrl: string;
+  addressProofUrl: string;
+  additionalUrl: string;
+};
 
 export default function VerificationPage() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [request, setRequest] = useState<VerificationRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [forceForm, setForceForm] = useState(false);
+  const [formData, setFormData] = useState<FormState>({
     idPhotoUrl: '',
-    selfieUrl: ''
+    selfieUrl: '',
+    addressProofUrl: '',
+    additionalUrl: '',
   });
 
+  const canResubmit =
+    !request ||
+    request.status === 'rejected' ||
+    request.status === 'need_reupload';
+
   useEffect(() => {
-    async function fetchRequest() {
+    void (async () => {
       if (!profile?.uid) return;
       try {
-        const rows = await api.verificationRequests.list({ userId: profile.uid });
-        if (rows.length > 0) {
-          setRequest(rows[0]);
-        }
-      } catch (error) {
-        debugLogger.error('Error fetching verification request:', error);
+        const mine = await api.verificationRequests.mine();
+        setRequest(mine);
+      } catch {
+        setRequest(null);
       } finally {
         setLoading(false);
       }
-    }
-    fetchRequest();
-  }, [profile]);
+    })();
+  }, [profile?.uid]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const uploadField = async (file: File | undefined, field: keyof FormState, kind: string) => {
+    if (!file) return;
+    setUploading(field);
+    setError('');
+    try {
+      const res = await api.uploads.upload(file, kind as 'verification');
+      setFormData((prev) => ({ ...prev, [field]: res.url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yuklash xatosi');
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!profile?.uid) return;
+    if (!formData.idPhotoUrl || !formData.selfieUrl) {
+      setError('ID hujjat va selfi majburiy');
+      return;
+    }
     setSubmitting(true);
-
+    setError('');
     try {
-      // In a real app, we would upload files to Storage first
-      // For this demo, we'll use placeholder URLs
-      const created = await api.verificationRequests.create({
-        userId: profile.uid,
-        idPhotoUrl: formData.idPhotoUrl || 'https://picsum.photos/seed/id/800/600',
-        selfieUrl: formData.selfieUrl || 'https://picsum.photos/seed/selfie/800/600',
-        status: 'pending',
-      });
-      setRequest(created);
+      const payload = {
+        idPhotoUrl: formData.idPhotoUrl,
+        documentUrl: formData.idPhotoUrl,
+        selfieUrl: formData.selfieUrl,
+        addressProofUrl: formData.addressProofUrl || undefined,
+        additionalFiles: formData.additionalUrl
+          ? [{ url: formData.additionalUrl, title: 'Qo\'shimcha hujjat' }]
+          : undefined,
+        documentType: 'id_card',
+      };
 
-      await api.users.update(profile.uid, { verificationStatus: 'pending' });
-
-    } catch (error) {
-      debugLogger.error('Error submitting verification request:', error);
+      let next: VerificationRequest;
+      if (request && (request.status === 'rejected' || request.status === 'need_reupload')) {
+        next = await api.verificationRequests.update(request.id, payload);
+      } else {
+        next = await api.verificationRequests.create(payload);
+      }
+      setRequest(next);
+      setForceForm(false);
+      await refreshProfile();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yuborishda xatolik');
     } finally {
       setSubmitting(false);
     }
@@ -66,184 +116,156 @@ export default function VerificationPage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="flex h-96 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </DashboardLayout>
     );
   }
 
+  const showForm = !request || forceForm;
+
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="mx-auto max-w-3xl space-y-8">
         <button
+          type="button"
           onClick={() => navigate(-1)}
-          className="mb-4 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-2xl text-gray-900 dark:text-white font-bold transition-all shadow-sm"
+          className="mb-2 flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2 font-bold shadow-sm"
         >
           <ArrowLeft size={18} />
           {t('common.back')}
         </button>
+
         <div className="flex items-center gap-4">
-          <div className="p-4 bg-primary/10 rounded-3xl text-primary">
-            <ShieldCheck className="w-8 h-8" />
+          <div className="rounded-3xl bg-primary/10 p-4 text-primary">
+            <ShieldCheck className="h-8 w-8" />
           </div>
           <div>
-            <h2 className="text-3xl font-bold text-foreground tracking-tight">{t('verification.title')}</h2>
-            <p className="text-muted-foreground mt-1">{t('verification.subtitle')}</p>
+            <h2 className="text-3xl font-bold tracking-tight">{t('verification.title')}</h2>
+            <p className="mt-1 text-muted-foreground">
+              {profile?.role === 'employer'
+                ? 'Kompaniya / ish beruvchi shaxsni tasdiqlash'
+                : t('verification.subtitle')}
+            </p>
           </div>
         </div>
 
-        {request ? (
-          <div className="bg-card p-10 rounded-[2.5rem] border border-border shadow-sm text-center space-y-6">
-            {request.status === 'pending' ? (
+        {profile && <VerificationStatusCard profile={profile} showAction={false} />}
+
+        {request && !showForm && (
+          <div className="space-y-6 rounded-[2.5rem] border border-border bg-card p-8 text-center shadow-sm">
+            {(request.status === 'pending' || request.status === 'under_review') && (
               <>
-                <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
-                  <Clock className="w-10 h-10" />
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                  <Clock className="h-10 w-10" />
                 </div>
-                <h3 className="text-2xl font-bold text-foreground">{t('verification.pending_title')}</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  {t('verification.pending_desc')}
-                </p>
-                <div className="pt-6 grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                  <div className="p-4 bg-secondary/50 rounded-2xl border border-border">
-                    <p className="text-xs font-bold text-muted-foreground uppercase">{t('verification.id_submitted')}</p>
-                    <CheckCircle className="w-5 h-5 text-green-500 mx-auto mt-2" />
-                  </div>
-                  <div className="p-4 bg-secondary/50 rounded-2xl border border-border">
-                    <p className="text-xs font-bold text-muted-foreground uppercase">{t('verification.selfie_submitted')}</p>
-                    <CheckCircle className="w-5 h-5 text-green-500 mx-auto mt-2" />
-                  </div>
+                <h3 className="text-2xl font-bold">{t('verification.pending_title')}</h3>
+                <p className="mx-auto max-w-md text-muted-foreground">{t('verification.pending_desc')}</p>
+                <div className="mx-auto grid max-w-md grid-cols-2 gap-4 pt-4">
+                  <StatusSlot label={t('verification.id_submitted')} ok={Boolean(request.idPhotoUrl)} />
+                  <StatusSlot label={t('verification.selfie_submitted')} ok={Boolean(request.selfieUrl)} />
                 </div>
-              </>
-            ) : request.status === 'approved' ? (
-              <>
-                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                  <ShieldCheck className="w-10 h-10" />
-                </div>
-                <h3 className="text-2xl font-bold text-foreground">{t('verification.approved_title')}</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  {t('verification.approved_desc')}
-                </p>
-                <div className="pt-6">
-                  <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold">
-                    <ShieldCheck className="w-5 h-5" />
-                    {t('verification.verified_user')}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-                  <AlertTriangle className="w-10 h-10" />
-                </div>
-                <h3 className="text-2xl font-bold text-foreground">{t('verification.rejected_title')}</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  {t('verification.rejected_desc')}
-                </p>
-                <button
-                  onClick={() => setRequest(null)}
-                  className="mt-6 px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all"
-                >
-                  {t('verification.try_again')}
-                </button>
               </>
             )}
+            {request.status === 'verified' && (
+              <>
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-600">
+                  <ShieldCheck className="h-10 w-10" />
+                </div>
+                <h3 className="text-2xl font-bold">{t('verification.approved_title')}</h3>
+                <p className="text-muted-foreground">{t('verification.approved_desc')}</p>
+              </>
+            )}
+            {(request.status === 'rejected' || request.status === 'need_reupload') && (
+              <>
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <AlertTriangle className="h-10 w-10" />
+                </div>
+                <h3 className="text-2xl font-bold">
+                  {request.status === 'need_reupload' ? 'Qayta yuklash kerak' : t('verification.rejected_title')}
+                </h3>
+                <p className="text-muted-foreground">
+                  {request.rejectionReason || request.reviewNote || t('verification.rejected_desc')}
+                </p>
+                {canResubmit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForceForm(true);
+                      setFormData({
+                        idPhotoUrl: '',
+                        selfieUrl: '',
+                        addressProofUrl: '',
+                        additionalUrl: '',
+                      });
+                    }}
+                    className="mt-4 rounded-2xl bg-primary px-8 py-3 font-bold text-primary-foreground"
+                  >
+                    {t('verification.try_again')}
+                  </button>
+                )}
+              </>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Yuklangan pasport/ID/selfi faqat Super Adminga ko‘rinadi.
+            </p>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="bg-card p-10 rounded-[2.5rem] border border-border shadow-sm space-y-8">
-              <section className="space-y-6">
-                <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  {t('verification.id_document')}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('verification.id_desc')}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="relative group">
-                    <div className="aspect-[4/3] bg-secondary/50 rounded-3xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 group-hover:border-primary transition-all overflow-hidden">
-                      {formData.idPhotoUrl ? (
-                        <img src={formData.idPhotoUrl} alt="ID" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                        <>
-                          <div className="p-4 bg-primary/10 rounded-2xl text-primary">
-                            <Upload className="w-8 h-8" />
-                          </div>
-                          <p className="text-sm font-bold text-muted-foreground">{t('verification.upload_id')}</p>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        onChange={(e) => setFormData(prev => ({ ...prev, idPhotoUrl: 'https://picsum.photos/seed/id-front/800/600' }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10 space-y-3">
-                    <h4 className="font-bold text-primary flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4" />
-                      {t('verification.requirements')}
-                    </h4>
-                    <ul className="text-xs text-muted-foreground space-y-2">
-                      <li className="flex items-center gap-2"><CheckCircle className="w-3 h-3 text-green-500" /> {t('verification.req_name')}</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="w-3 h-3 text-green-500" /> {t('verification.req_clear')}</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="w-3 h-3 text-green-500" /> {t('verification.req_valid')}</li>
-                    </ul>
-                  </div>
-                </div>
-              </section>
+        )}
 
-              <section className="space-y-6">
-                <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-primary" />
-                  {t('verification.selfie_verification')}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('verification.selfie_desc')}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="relative group">
-                    <div className="aspect-square bg-secondary/50 rounded-3xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 group-hover:border-primary transition-all overflow-hidden">
-                      {formData.selfieUrl ? (
-                        <img src={formData.selfieUrl} alt="Selfie" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                        <>
-                          <div className="p-4 bg-primary/10 rounded-2xl text-primary">
-                            <Camera className="w-8 h-8" />
-                          </div>
-                          <p className="text-sm font-bold text-muted-foreground">{t('verification.take_selfie')}</p>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        onChange={(e) => setFormData(prev => ({ ...prev, selfieUrl: 'https://picsum.photos/seed/selfie-user/800/800' }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="p-6 bg-secondary/30 rounded-3xl border border-border">
-                      <p className="text-sm font-medium text-foreground italic">
-                        {t('verification.privacy_note')}
-                      </p>
-                    </div>
-                    <div className="p-6 bg-amber-500/10 rounded-3xl border border-amber-500/20 flex gap-3">
-                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                      <p className="text-xs text-amber-700">
-                        {t('verification.lighting_note')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </section>
+        {showForm && (
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-8 rounded-[2.5rem] border border-border bg-card p-8 shadow-sm">
+              <UploadSlot
+                title={t('verification.id_document')}
+                desc={t('verification.id_desc')}
+                icon={<FileText className="h-8 w-8" />}
+                url={formData.idPhotoUrl}
+                loading={uploading === 'idPhotoUrl'}
+                onFile={(f) => void uploadField(f, 'idPhotoUrl', 'verification_id')}
+                onClear={() => setFormData((p) => ({ ...p, idPhotoUrl: '' }))}
+              />
+              <UploadSlot
+                title={t('verification.selfie_verification')}
+                desc={t('verification.selfie_desc')}
+                icon={<Camera className="h-8 w-8" />}
+                url={formData.selfieUrl}
+                loading={uploading === 'selfieUrl'}
+                square
+                onFile={(f) => void uploadField(f, 'selfieUrl', 'verification_selfie')}
+                onClear={() => setFormData((p) => ({ ...p, selfieUrl: '' }))}
+              />
+              <UploadSlot
+                title="Manzil tasdiqlovchi hujjat (ixtiyoriy)"
+                desc="Kommunal to‘lov yoki manzilni tasdiqlovchi boshqa hujjat"
+                icon={<Upload className="h-8 w-8" />}
+                url={formData.addressProofUrl}
+                loading={uploading === 'addressProofUrl'}
+                onFile={(f) => void uploadField(f, 'addressProofUrl', 'verification_address')}
+                onClear={() => setFormData((p) => ({ ...p, addressProofUrl: '' }))}
+              />
+              <UploadSlot
+                title="Qo‘shimcha hujjat (ixtiyoriy)"
+                desc="Litsenziya, guvohnoma yoki boshqa fayl"
+                icon={<FileText className="h-8 w-8" />}
+                url={formData.additionalUrl}
+                loading={uploading === 'additionalUrl'}
+                onFile={(f) => void uploadField(f, 'additionalUrl', 'verification_extra')}
+                onClear={() => setFormData((p) => ({ ...p, additionalUrl: '' }))}
+              />
             </div>
+
+            {error && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={submitting || !formData.idPhotoUrl || !formData.selfieUrl}
-                className="px-12 py-4 bg-primary text-primary-foreground rounded-2xl font-bold shadow-xl shadow-primary/20 hover:scale-105 transition-all disabled:opacity-50"
+                disabled={submitting || !formData.idPhotoUrl || !formData.selfieUrl || Boolean(uploading)}
+                className="rounded-2xl bg-primary px-12 py-4 font-bold text-primary-foreground shadow-xl disabled:opacity-50"
               >
                 {submitting ? t('verification.submitting') : t('verification.submit_btn')}
               </button>
@@ -252,5 +274,78 @@ export default function VerificationPage() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+function StatusSlot({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className="rounded-2xl border border-border bg-secondary/50 p-4">
+      <p className="text-xs font-bold uppercase text-muted-foreground">{label}</p>
+      {ok ? (
+        <CheckCircle className="mx-auto mt-2 h-5 w-5 text-green-500" />
+      ) : (
+        <Clock className="mx-auto mt-2 h-5 w-5 text-muted-foreground" />
+      )}
+    </div>
+  );
+}
+
+function UploadSlot({
+  title,
+  desc,
+  icon,
+  url,
+  loading,
+  square,
+  onFile,
+  onClear,
+}: {
+  title: string;
+  desc: string;
+  icon: ReactNode;
+  url: string;
+  loading?: boolean;
+  square?: boolean;
+  onFile: (file?: File) => void;
+  onClear?: () => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-xl font-bold">{title}</h3>
+        {url && onClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
+          >
+            O‘chirish
+          </button>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground">{desc}</p>
+      <div className="relative">
+        <div
+          className={`${square ? 'aspect-square max-w-sm' : 'aspect-[4/3]'} flex flex-col items-center justify-center gap-3 overflow-hidden rounded-3xl border-2 border-dashed border-border bg-secondary/50`}
+        >
+          {loading ? (
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          ) : url ? (
+            <SecureImage url={url} alt={title} className="h-full w-full object-cover" />
+          ) : (
+            <>
+              <div className="rounded-2xl bg-primary/10 p-4 text-primary">{icon}</div>
+              <p className="text-sm font-bold text-muted-foreground">Fayl tanlang</p>
+            </>
+          )}
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            className="absolute inset-0 cursor-pointer opacity-0"
+            onChange={(e) => onFile(e.target.files?.[0])}
+          />
+        </div>
+      </div>
+    </section>
   );
 }

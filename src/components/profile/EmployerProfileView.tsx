@@ -20,6 +20,8 @@ import { ProfileTabs } from './ProfileTabs';
 import { ProfileProgress } from './ProfileProgress';
 import { ProfileCard, EmptyState } from './ProfileCard';
 import { AvatarUploader, CoverUploader, FileUploadButton } from './MediaUploader';
+import { VerificationStatusCard } from '../verification/VerificationStatusCard';
+import { Link } from 'react-router-dom';
 
 const EMPLOYER_TABS = [
   { id: 'overview' as const, label: 'Kompaniya' },
@@ -75,7 +77,7 @@ export function EmployerProfileView({
               <h1 className="truncate text-2xl font-bold md:text-3xl">{companyTitle}</h1>
               {draft.isVerified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-semibold">
-                  <BadgeCheck className="h-3.5 w-3.5" /> Verified
+                  <BadgeCheck className="h-3.5 w-3.5" /> Tasdiqlangan
                 </span>
               )}
             </div>
@@ -96,6 +98,8 @@ export function EmployerProfileView({
           </div>
         </div>
       </CoverUploader>
+
+      <VerificationStatusCard profile={draft} showAction={editable} />
 
       {editable && (
         <button
@@ -276,10 +280,10 @@ export function EmployerProfileView({
         )}
 
         {tab === 'certificates' && (
-          <ProfileCard
-            title="Litsenziya va hujjatlar"
-            action={
-              editable ? (
+          editable ? (
+            <ProfileCard
+              title="Ichki kompaniya fayllari"
+              action={
                 <FileUploadButton
                   label="Hujjat yuklash"
                   accept=".pdf,image/*"
@@ -293,17 +297,18 @@ export function EmployerProfileView({
                     });
                   }}
                 />
-              ) : undefined
-            }
-          >
-            {(draft.companyDocuments || []).length === 0 ? (
-              <EmptyState title="Hujjat yo'q" />
-            ) : (
-              <ul className="space-y-2">
-                {(draft.companyDocuments || []).map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between rounded-xl border px-3 py-2 text-sm">
-                    <a href={mediaUrl(doc.fileUrl)} target="_blank" rel="noreferrer" className="truncate hover:underline">{doc.title}</a>
-                    {editable && (
+              }
+            >
+              <p className="mb-3 text-xs text-muted-foreground">
+                Pasport, litsenziya va soliq hujjatlari ommaga ko‘rinmaydi. Shaxsni tasdiqlash — «Shaxsni tasdiqlash» bo‘limida.
+              </p>
+              {(draft.companyDocuments || []).length === 0 ? (
+                <EmptyState title="Hujjat yo'q" />
+              ) : (
+                <ul className="space-y-2">
+                  {(draft.companyDocuments || []).map((doc) => (
+                    <li key={doc.id} className="flex items-center justify-between rounded-xl border px-3 py-2 text-sm">
+                      <a href={mediaUrl(doc.fileUrl)} target="_blank" rel="noreferrer" className="truncate hover:underline">{doc.title}</a>
                       <button
                         type="button"
                         className="text-destructive"
@@ -311,12 +316,19 @@ export function EmployerProfileView({
                       >
                         O\'chirish
                       </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ProfileCard>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ProfileCard>
+          ) : (
+            <ProfileCard title="Tasdiqlash holati">
+              <VerificationStatusCard profile={draft} showAction={false} />
+              <p className="mt-3 text-xs text-muted-foreground">
+                Ro‘yxatdan o‘tish, pasport va soliq hujjatlari faqat Super Admin panelida ko‘rinadi.
+              </p>
+            </ProfileCard>
+          )
         )}
 
         {tab === 'jobs' && (
@@ -332,9 +344,9 @@ export function EmployerProfileView({
             <p className="text-sm text-muted-foreground">
               Bildirishnomalar va maxfiylik sozlamalari platforma sozlamalaridan boshqariladi.
             </p>
-            <a href="/verification" className="mt-3 inline-flex text-sm text-primary hover:underline">
-              Kompaniyani tasdiqlash →
-            </a>
+            <Link to="/verification" className="mt-3 inline-flex text-sm text-primary hover:underline">
+              Shaxsni tasdiqlash →
+            </Link>
           </ProfileCard>
         )}
       </motion.div>

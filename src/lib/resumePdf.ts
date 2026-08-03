@@ -114,20 +114,20 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
     leftY += lines.length * 3.6 + 2;
   };
 
-  leftSection('Contact');
+  leftSection('Aloqa');
   if (model.phone) leftText(model.phone);
   if (model.email) leftText(model.email);
   if (model.telegram) leftText(model.telegram);
   if (model.address) leftText(model.address);
-  if (model.availability) leftText(`Status: ${model.availability}`);
+  if (model.availability) leftText(`Holat: ${model.availability}`);
 
   if (model.skills.length) {
-    leftSection('Skills');
+    leftSection("Ko'nikmalar");
     leftText(model.skills.join('  ·  '), 7.5);
   }
 
   if (model.languages.length) {
-    leftSection('Languages');
+    leftSection('Tillar');
     for (const lang of model.languages) {
       if (leftY > PAGE_H - 18) break;
       doc.setTextColor(255, 255, 255);
@@ -146,12 +146,12 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
   }
 
   if (model.softSkills.length) {
-    leftSection('Soft Skills');
+    leftSection("Yumshoq ko'nikmalar");
     leftText(model.softSkills.join('  ·  '), 7.5);
   }
 
   if (qrData && leftY < PAGE_H - 45) {
-    leftSection('QR Verify');
+    leftSection('QR tasdiqlash');
     try {
       doc.addImage(qrData, 'PNG', 16, leftY, 28, 28);
       leftY += 32;
@@ -173,8 +173,8 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
     // continuation label on sidebar
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.text('Qulay Ish Resume', 8, 16);
-    doc.text(`Page ${page}`, 8, 22);
+    doc.text('Qulay Ish rezyume', 8, 16);
+    doc.text(`Sahifa ${page}`, 8, 22);
     y = 16;
   };
 
@@ -216,28 +216,28 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
   if (model.isVerified) {
     doc.setFontSize(8);
     doc.setTextColor(6, 95, 70);
-    doc.text('✓ Verified Qulay Ish Profile', RIGHT_X, y);
+    doc.text("✓ Qulay Ish tomonidan tasdiqlangan", RIGHT_X, y);
     y += 6;
   }
   y += 2;
 
   if (model.summary) {
-    rightSection('About Me');
+    rightSection('Men haqimda');
     rightPara(model.summary, 9);
   }
 
   if (model.experience.length) {
-    rightSection('Work Experience');
+    rightSection('Ish tajribasi');
     for (const exp of model.experience) {
       ensureSpace(18);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(15, 23, 42);
-      doc.text(safe(exp.position || 'Role'), RIGHT_X, y);
+      doc.text(safe(exp.position || 'Lavozim'), RIGHT_X, y);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      const dates = `${exp.startYear || ''} – ${exp.current ? 'Present' : exp.endYear || ''}`;
+      const dates = `${exp.startYear || ''} – ${exp.current ? 'Hozirgacha' : exp.endYear || ''}`;
       doc.text(safe(dates), RIGHT_X + RIGHT_W, y, { align: 'right' });
       y += 4.5;
       doc.setTextColor(rgb[0], rgb[1], rgb[2]);
@@ -251,13 +251,13 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
   }
 
   if (model.education.length) {
-    rightSection('Education');
+    rightSection("Ta'lim");
     for (const edu of model.education) {
       ensureSpace(14);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(15, 23, 42);
-      doc.text(safe(edu.degree || 'Degree'), RIGHT_X, y);
+      doc.text(safe(edu.degree || "Mutaxassislik"), RIGHT_X, y);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
@@ -273,7 +273,7 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
   }
 
   if (model.certificates.length) {
-    rightSection('Certificates');
+    rightSection('Sertifikatlar');
     for (const cert of model.certificates) {
       ensureSpace(10);
       doc.setFontSize(9);
@@ -284,7 +284,7 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 116, 139);
       doc.setFontSize(8);
-      const meta = [cert.issuer, cert.issuedAt, cert.fileName || (cert.fileUrl ? 'file attached' : '')]
+      const meta = [cert.issuer, cert.issuedAt, cert.fileName || (cert.fileUrl ? 'fayl biriktirilgan' : '')]
         .filter(Boolean)
         .map(safe)
         .join(' · ');
@@ -317,7 +317,7 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
   }
 
   if (model.uploadedFiles.length) {
-    rightSection('Uploaded Files');
+    rightSection('Yuklangan fayllar');
     for (const file of model.uploadedFiles) {
       ensureSpace(8);
       doc.setFontSize(8.5);
@@ -333,19 +333,19 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
 
   // Verification card
   ensureSpace(28);
-  rightSection('Verification');
+  rightSection('Tasdiqlash');
   doc.setFillColor(236, 253, 245);
   doc.setDrawColor(167, 243, 208);
   doc.roundedRect(RIGHT_X, y, RIGHT_W, 24, 2, 2, 'FD');
   doc.setTextColor(6, 95, 70);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(model.isVerified ? '✓ Verified on Qulay Ish' : 'Qulay Ish Profile', RIGHT_X + 3, y + 6);
+  doc.text(model.isVerified ? '✓ Qulay Ishda tasdiqlangan' : 'Qulay Ish profili', RIGHT_X + 3, y + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text(`Profile ID: ${safe(model.profileId)}`, RIGHT_X + 3, y + 11);
+  doc.text(`Profil ID: ${safe(model.profileId)}`, RIGHT_X + 3, y + 11);
   if (model.verificationDate) {
-    doc.text(`Updated: ${safe(model.verificationDate)}`, RIGHT_X + 3, y + 15);
+    doc.text(`Yangilangan: ${safe(model.verificationDate)}`, RIGHT_X + 3, y + 15);
   }
   const verifyLines = doc.splitTextToSize(safe(model.verifyUrl), RIGHT_W - 28);
   doc.text(verifyLines, RIGHT_X + 3, y + 19);

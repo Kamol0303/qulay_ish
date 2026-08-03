@@ -24,6 +24,7 @@ import { ProfileCard, EmptyState } from './ProfileCard';
 import { AvatarUploader, CoverUploader, FileUploadButton } from './MediaUploader';
 import { SkillsSelector } from './SkillsSelector';
 import { EducationEditor, ExperienceEditor } from './TimelineEditors';
+import { VerificationStatusCard } from '../verification/VerificationStatusCard';
 
 const WORKER_TABS = [
   { id: 'overview' as const, label: 'Umumiy' },
@@ -89,7 +90,7 @@ export function WorkerProfileView({
               <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">{draft.fullName}</h1>
               {draft.isVerified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-semibold">
-                  <BadgeCheck className="h-3.5 w-3.5" /> Verified
+                  <BadgeCheck className="h-3.5 w-3.5" /> Tasdiqlangan
                 </span>
               )}
             </div>
@@ -108,6 +109,8 @@ export function WorkerProfileView({
           </div>
         </div>
       </CoverUploader>
+
+      <VerificationStatusCard profile={draft} showAction={editable} />
 
       <div className="flex flex-wrap gap-2">
         {editable && (
@@ -477,9 +480,9 @@ export function WorkerProfileView({
                 />
                 Profil ochiq — ish beruvchilar ko\'rishi mumkin
               </label>
-              <a href="/verification" className="inline-flex text-primary hover:underline">
-                Hisobni tasdiqlash →
-              </a>
+              <Link to="/verification" className="inline-flex text-primary hover:underline">
+                Shaxsni tasdiqlash →
+              </Link>
             </div>
           </ProfileCard>
         )}

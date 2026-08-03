@@ -164,7 +164,21 @@ export const api = {
   },
 
   uploads: {
-    async upload(file: File, kind: 'photo' | 'cover' | 'certificate' | 'portfolio' | 'document' | 'file' = 'file') {
+    async upload(
+      file: File,
+      kind:
+        | 'photo'
+        | 'cover'
+        | 'certificate'
+        | 'portfolio'
+        | 'document'
+        | 'file'
+        | 'verification'
+        | 'verification_id'
+        | 'verification_selfie'
+        | 'verification_address'
+        | 'verification_extra' = 'file',
+    ) {
       const form = new FormData();
       form.append('file', file);
       form.append('kind', kind);
@@ -280,13 +294,31 @@ export const api = {
 
   verificationRequests: {
     list(params?: Record<string, string>) {
-      return apiRequest<VerificationRequest[]>(`/verification-requests${toQuery(params ?? {})}`).then((rows) => ensureArray<VerificationRequest>(rows));
+      return apiRequest<unknown>(`/verification-requests${toQuery(params ?? {})}`).then((rows) =>
+        ensureArray<VerificationRequest & { user?: Record<string, unknown> }>(rows).map((row) => ({
+          ...row,
+          user: row.user ? mapUser(row.user) || undefined : undefined,
+        })),
+      );
+    },
+    mine() {
+      return apiRequest<VerificationRequest | null>('/verification-requests/mine');
     },
     create(data: Partial<VerificationRequest>) {
       return apiRequest<VerificationRequest>('/verification-requests', { method: 'POST', body: JSON.stringify(data) });
     },
-    update(id: string, data: Partial<VerificationRequest>) {
+    update(id: string, data: Partial<VerificationRequest> & { action?: string }) {
       return apiRequest<VerificationRequest>(`/verification-requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    bulk(data: { ids: string[]; action: 'approve' | 'reject'; rejectionReason?: string; reason?: string }) {
+      return apiRequest<{ success: true; count: number }>('/verification-requests/bulk', {
+        method: 'POST',
+        body: JSON.stringify({
+          ids: data.ids,
+          action: data.action,
+          reason: data.rejectionReason || data.reason,
+        }),
+      });
     },
   },
 

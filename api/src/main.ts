@@ -18,7 +18,15 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   const uploadsDir = join(process.cwd(), 'uploads');
+  const publicDir = join(uploadsDir, 'public');
   if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
+  if (!existsSync(publicDir)) mkdirSync(publicDir, { recursive: true });
+  // Block direct public access to private verification files
+  app.use('/uploads/private', (_req, res) => {
+    res.status(403).json({ message: 'Forbidden' });
+  });
+  app.useStaticAssets(publicDir, { prefix: '/uploads/public/' });
+  // Legacy non-private uploads (profile photos before public/ split)
   app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
 
   const port = Number(process.env.API_PORT || 4000);

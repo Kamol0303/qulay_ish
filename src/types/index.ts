@@ -49,7 +49,7 @@ export interface Profile {
   updatedAt?: string | Date;
   lastActive?: string | Date;
   isVerified?: boolean;
-  verificationStatus?: 'none' | 'pending' | 'verified' | 'rejected';
+  verificationStatus?: 'none' | 'pending' | 'under_review' | 'verified' | 'rejected' | 'need_reupload';
   rating?: number;
   reviewCount?: number;
   completedJobs?: number;
@@ -162,19 +162,35 @@ export interface Notification {
   createdAt?: any;
 }
 
+export type VerificationRequestStatus =
+  | 'none'
+  | 'pending'
+  | 'under_review'
+  | 'verified'
+  | 'rejected'
+  | 'need_reupload'
+  | 'approved'; // legacy alias
+
 export interface VerificationRequest {
   id: string;
   userId: string;
   userName?: string;
+  accountType?: 'worker' | 'employer' | string;
   documentType?: string;
   documentUrl?: string;
   idPhotoUrl?: string;
   selfieUrl?: string;
-  status: 'pending' | 'verified' | 'rejected' | 'approved';
+  addressProofUrl?: string;
+  additionalFiles?: Array<{ url: string; title?: string }>;
+  status: VerificationRequestStatus;
   reviewedBy?: string;
   reviewNote?: string;
-  createdAt?: any;
-  updatedAt?: any;
+  adminNotes?: string;
+  rejectionReason?: string;
+  approvedAt?: string | Date;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+  user?: Partial<Profile>;
 }
 
 export interface ChatMessage {

@@ -3,6 +3,19 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { randomUUID } from 'crypto';
 
+/** Strip identity / private verification docs from public profile payloads */
+function toPublicUser(user: Record<string, unknown>, opts?: { includePrivateDocs?: boolean }) {
+  const {
+    passwordHash: _p,
+    companyDocuments,
+    ...rest
+  } = user;
+  if (opts?.includePrivateDocs) {
+    return { ...rest, companyDocuments };
+  }
+  return rest;
+}
+
 @Controller('users')
 export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
@@ -13,7 +26,7 @@ export class UsersController {
     @Query('region') region?: string,
     @Query('district') district?: string,
   ) {
-    return this.prisma.user.findMany({
+    const rows = await this.prisma.user.findMany({
       where: {
         ...(role ? { role: role as any } : {}),
         ...(region ? { region } : {}),
@@ -21,11 +34,15 @@ export class UsersController {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return rows.map((u) => toPublicUser(u as unknown as Record<string, unknown>));
   }
 
   @Get(':id')
   async get(@Param('id') id: string) {
-    return this.prisma.user.findUniqueOrThrow({ where: { id } });
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id } });
+    // Public profiles never expose company/identity verification documents.
+    // Owners load private docs via /auth/me; Super Admin via Verification Center.
+    return toPublicUser(user as unknown as Record<string, unknown>);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -46,10 +63,11 @@ export class UsersController {
       'isPremium',
     ] as const;
 
+    // Moderators/admins may block users, but only Super Admin can change verification flags
     const adminOnly = [
-      'isVerified', 'verificationStatus', 'isBlocked', 'blockUntil',
-      'blockReason', 'blockedAt', 'role', 'trustScore', 'riskScore',
+      'isBlocked', 'blockUntil', 'blockReason', 'blockedAt', 'trustScore', 'riskScore',
     ] as const;
+    const superOnly = ['isVerified', 'verificationStatus', 'role'] as const;
 
     const data: Record<string, unknown> = {};
     for (const key of allowed) {
@@ -57,6 +75,11 @@ export class UsersController {
     }
     if (['admin', 'super_admin'].includes(req.user.role)) {
       for (const key of adminOnly) {
+        if (key in body) data[key] = body[key];
+      }
+    }
+    if (req.user.role === 'super_admin') {
+      for (const key of superOnly) {
         if (key in body) data[key] = body[key];
       }
     }
@@ -291,35 +314,6 @@ export class DisputesController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
     return this.prisma.dispute.update({ where: { id }, data: body as any });
-  }
-}
-
-@Controller('verification-requests')
-export class VerificationRequestsController {
-  constructor(private readonly prisma: PrismaService) {}
-
-  @Get()
-  async list(@Query('userId') userId?: string, @Query('status') status?: string) {
-    return this.prisma.verificationRequest.findMany({
-      where: {
-        ...(userId ? { userId } : {}),
-        ...(status ? { status: status as any } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Post()
-  async create(@Body() body: Record<string, unknown>) {
-    const id = (body.id as string) || randomUUID();
-    return this.prisma.verificationRequest.create({ data: { id, ...body } as any });
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.verificationRequest.update({ where: { id }, data: body as any });
   }
 }
 

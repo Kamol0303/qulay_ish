@@ -17,8 +17,10 @@ enum UserRole {
 enum VerificationStatus {
   none
   pending
+  under_review
   verified
   rejected
+  need_reupload
 }
 
 enum JobStatus {
@@ -328,23 +330,30 @@ model Notification {
 }
 
 model VerificationRequest {
-  id           String             @id
-  userId       String             @map("user_id")
-  userName     String?            @map("user_name")
-  documentType String?            @map("document_type")
-  documentUrl  String?            @map("document_url")
-  idPhotoUrl   String?            @map("id_photo_url")
-  selfieUrl    String?            @map("selfie_url")
-  status       VerificationStatus @default(pending)
-  reviewedBy   String?            @map("reviewed_by")
-  reviewNote   String?            @map("review_note")
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  id               String             @id
+  userId           String             @map("user_id")
+  userName         String?            @map("user_name")
+  accountType      String?            @map("account_type") // worker | employer
+  documentType     String?            @map("document_type")
+  documentUrl      String?            @map("document_url")
+  idPhotoUrl       String?            @map("id_photo_url")
+  selfieUrl        String?            @map("selfie_url")
+  addressProofUrl  String?            @map("address_proof_url")
+  additionalFiles  Json?              @map("additional_files")
+  status           VerificationStatus @default(pending)
+  reviewedBy       String?            @map("reviewed_by")
+  reviewNote       String?            @map("review_note") // user-visible note
+  adminNotes       String?            @map("admin_notes") // super-admin internal only
+  rejectionReason  String?            @map("rejection_reason")
+  approvedAt       DateTime?          @map("approved_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
+  @@index([accountType])
   @@map("verification_requests")
 }
 
