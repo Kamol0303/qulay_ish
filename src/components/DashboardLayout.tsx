@@ -23,7 +23,8 @@ export default function DashboardLayout({ children, title }: { children: React.R
     const load = async () => {
       try {
         const rows = await api.notifications.list(profile.uid);
-        if (!cancelled) setUnreadCount(rows.filter((n) => !n.read).length);
+        const next = rows.filter((n) => !n.read).length;
+        if (!cancelled) setUnreadCount((prev) => (prev === next ? prev : next));
       } catch {
         /* ignore */
       }
@@ -162,15 +163,8 @@ export default function DashboardLayout({ children, title }: { children: React.R
         </header>
 
         <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-background/50">
-          {/* Animate only on route change — avoid remount flicker on parent re-renders (e.g. chat typing) */}
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35 }}
-          >
-            {children}
-          </motion.div>
+          {/* Plain container — motion remount/opacity flicker breaks chat input focus */}
+          {children}
         </div>
       </main>
     </div>

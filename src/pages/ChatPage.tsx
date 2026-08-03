@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ChatMessage, ChatThread, Profile } from '../types';
-import { Send, ChevronLeft, Phone, MessageSquare, Check, CheckCheck, AlertCircle, Shield, User } from 'lucide-react';
+import { ChevronLeft, Phone, MessageSquare, Check, CheckCheck, Shield, User } from 'lucide-react';
 import Layout from '../components/Layout';
 import DashboardLayout from '../components/DashboardLayout';
+import ChatComposer from '../components/chat/ChatComposer';
 import { useAuth } from '../hooks/useAuth';
 import { moderationService } from '../services/moderationService';
 import { relationshipService } from '../services/relationshipService';
@@ -16,7 +17,7 @@ function messageBody(msg: ChatMessage) {
   return msg.content || msg.text || msg.message || '';
 }
 
-/** Must live outside ChatPage — defining layout wrappers inside causes remount on every keystroke */
+/** Must live outside ChatPage — defining layout wrappers inside causes remount on every parent render */
 function ChatShell({
   useDashboard,
   children,
@@ -28,70 +29,68 @@ function ChatShell({
   return <Layout>{children}</Layout>;
 }
 
-const ChatComposer = React.memo(function ChatComposer({
-  disabled,
-  blocked,
-  moderationError,
-  placeholder,
-  onSend,
+const MessageList = React.memo(function MessageList({
+  messages,
+  currentUserId,
+  emptyTitle,
+  emptyHint,
+  scrollRef,
 }: {
-  disabled?: boolean;
-  blocked?: boolean;
-  moderationError?: string | null;
-  placeholder: string;
-  onSend: (text: string) => Promise<void>;
+  messages: ChatMessage[];
+  currentUserId?: string;
+  emptyTitle: string;
+  emptyHint: string;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const [text, setText] = React.useState('');
-  const [sending, setSending] = React.useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const value = text.trim();
-    if (!value || sending || disabled || blocked) return;
-    setSending(true);
-    try {
-      await onSend(value);
-      setText('');
-      inputRef.current?.focus();
-    } finally {
-      setSending(false);
-    }
-  };
+  if (messages.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <MessageSquare size={48} className="mb-4 text-muted-foreground/40" />
+        <p className="mb-2 text-sm font-bold uppercase text-muted-foreground">{emptyTitle}</p>
+        <p className="text-xs text-muted-foreground">{emptyHint}</p>
+      </div>
+    );
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-border bg-card p-4">
-      {moderationError && (
-        <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          <AlertCircle size={16} />
-          <span>{moderationError}</span>
-        </div>
-      )}
-      {blocked && (
-        <div className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-center text-sm font-bold text-yellow-700">
-          Siz vaqtincha bloklangansiz.
-        </div>
-      )}
-      <div className="flex items-center space-x-3 rounded-2xl border border-border bg-secondary/40 p-2 focus-within:border-blue-200 focus-within:ring-2 focus-within:ring-blue-50">
-        <input
-          ref={inputRef}
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={placeholder}
-          disabled={Boolean(blocked || disabled || sending)}
-          className="flex-1 border-none bg-transparent px-3 py-2 text-sm outline-none focus:ring-0 disabled:opacity-50"
-          autoComplete="off"
-        />
-        <button
-          type="submit"
-          disabled={!text.trim() || Boolean(blocked || disabled || sending)}
-          className="rounded-xl bg-blue-500 p-3 text-white shadow-lg transition-all hover:bg-blue-600 disabled:opacity-50 disabled:shadow-none"
-        >
-          <Send size={18} />
-        </button>
-      </div>
-    </form>
+    <>
+      {messages.map((msg) => {
+        const isMe = msg.senderId === currentUserId;
+        return (
+          <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <div
+              className={`max-w-[75%] rounded-3xl px-5 py-3 shadow-sm ${
+                isMe
+                  ? 'rounded-tr-none border border-blue-200 bg-blue-100'
+                  : 'rounded-tl-none border border-border bg-card'
+              }`}
+            >
+              <p className="text-sm leading-relaxed text-foreground">{messageBody(msg)}</p>
+              <div className="mt-1 flex items-center justify-between">
+                {msg.createdAt && (
+                  <div className="text-[9px] font-bold uppercase text-muted-foreground">
+                    {toJsDate(msg.createdAt)?.toLocaleTimeString('uz-UZ', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                )}
+                {isMe && (
+                  <div className="ml-2">
+                    {msg.read ? (
+                      <CheckCheck size={14} className="text-blue-500" />
+                    ) : (
+                      <Check size={14} className="text-muted-foreground" />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <div ref={scrollRef} />
+    </>
   );
 });
 
@@ -111,20 +110,25 @@ export default function ChatPage() {
   const [isBlocked, setIsBlocked] = React.useState(false);
   const [canViewPhone, setCanViewPhone] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const composerFocusedRef = React.useRef(false);
+  const userId = user?.uid;
 
   const isDashboardUser = Boolean(profile?.role);
   const chatBase =
     profile?.role === 'super_admin' ? '/super-admin/messages' : '/chat';
 
+  const handleComposerFocusChange = React.useCallback((focused: boolean) => {
+    composerFocusedRef.current = focused;
+  }, []);
+
   React.useEffect(() => {
-    if (!user) {
+    if (!userId) {
       navigate('/auth');
       return;
     }
 
-    void moderationService.isUserBlocked(user.uid).then(setIsBlocked);
+    void moderationService.isUserBlocked(userId).then(setIsBlocked);
 
-    // Resolve Super Admin id so workers/employers can message support
     void api.users
       .list({ role: 'super_admin' })
       .then((rows) => setSuperAdminId(rows[0]?.uid || null))
@@ -132,6 +136,7 @@ export default function ChatPage() {
 
     if (!withUserId) {
       const loadInbox = async () => {
+        if (composerFocusedRef.current) return;
         try {
           const inbox = await api.chatMessages.inbox();
           setThreads(inbox);
@@ -141,8 +146,8 @@ export default function ChatPage() {
           setLoading(false);
         }
       };
-      loadInbox();
-      const interval = setInterval(loadInbox, 5000);
+      void loadInbox();
+      const interval = setInterval(loadInbox, 8000);
       return () => clearInterval(interval);
     }
 
@@ -150,7 +155,7 @@ export default function ChatPage() {
       try {
         const partnerData = await api.users.get(withUserId);
         setChatPartner(partnerData);
-        const ok = await relationshipService.canViewContact(user.uid, partnerData.uid);
+        const ok = await relationshipService.canViewContact(userId, partnerData.uid);
         setCanViewPhone(!!ok || profile?.role === 'super_admin');
       } catch (err) {
         debugLogger.error('Error fetching partner:', err);
@@ -159,20 +164,28 @@ export default function ChatPage() {
     void fetchPartner();
 
     const loadMessages = async () => {
+      // Avoid jank while the user is typing in the composer
+      if (composerFocusedRef.current) return;
       try {
-        const allMsgs = await api.chatMessages.list(user.uid, withUserId);
+        const allMsgs = await api.chatMessages.list(userId, withUserId);
         const sorted = allMsgs.sort((a, b) => {
           const timeA = toJsDate(a.createdAt)?.getTime() || 0;
           const timeB = toJsDate(b.createdAt)?.getTime() || 0;
           return timeA - timeB;
         });
         setMessages((prev) => {
-          const prevIds = prev.map((m) => m.id).join(',');
-          const nextIds = sorted.map((m) => m.id).join(',');
-          return prevIds === nextIds && prev.length === sorted.length ? prev : sorted;
+          if (prev.length !== sorted.length) return sorted;
+          for (let i = 0; i < prev.length; i += 1) {
+            const a = prev[i];
+            const b = sorted[i];
+            if (a.id !== b.id || a.read !== b.read || messageBody(a) !== messageBody(b)) {
+              return sorted;
+            }
+          }
+          return prev;
         });
         for (const msg of sorted) {
-          if (msg.receiverId === user.uid && !msg.read && msg.id) {
+          if (msg.receiverId === userId && !msg.read && msg.id) {
             void api.chatMessages.update(msg.id, { read: true, status: 'read' }).catch(() => undefined);
           }
         }
@@ -184,25 +197,25 @@ export default function ChatPage() {
     };
 
     void loadMessages();
-    const interval = setInterval(loadMessages, 5000);
+    const interval = setInterval(loadMessages, 8000);
     return () => clearInterval(interval);
-  }, [user, withUserId, navigate, profile?.role]);
+  }, [userId, withUserId, navigate, profile?.role]);
 
   const sendMessage = React.useCallback(
     async (text: string) => {
-      if (!user || !withUserId) return;
+      if (!userId || !withUserId) return;
       if (isBlocked) {
         setModerationError('Siz vaqtincha bloklangansiz. Iltimos, keyinroq urinib ko\'ring.');
         throw new Error('blocked');
       }
       setModerationError(null);
-      const moderationResult = await moderationService.moderateMessage(user.uid, text);
+      const moderationResult = await moderationService.moderateMessage(userId, text);
       if (!moderationResult.isAllowed) {
         setModerationError(moderationResult.reason || 'Xabar yuborishda xatolik');
         throw new Error('moderation');
       }
       const created = await api.chatMessages.create({
-        senderId: user.uid,
+        senderId: userId,
         receiverId: withUserId,
         text,
         read: false,
@@ -212,8 +225,10 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, created]);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     },
-    [user, withUserId, isBlocked],
+    [userId, withUserId, isBlocked],
   );
+
+  const placeholder = t('chat.placeholder');
 
   if (loading) {
     return (
@@ -352,57 +367,21 @@ export default function ChatPage() {
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto bg-secondary/30 p-6">
-            {messages.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center text-center">
-                <MessageSquare size={48} className="mb-4 text-muted-foreground/40" />
-                <p className="mb-2 text-sm font-bold uppercase text-muted-foreground">{t('chat.no_messages')}</p>
-                <p className="text-xs text-muted-foreground">{t('chat.say_hello')}</p>
-              </div>
-            ) : (
-              messages.map((msg) => {
-                const isMe = msg.senderId === user?.uid;
-                return (
-                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className={`max-w-[75%] rounded-3xl px-5 py-3 shadow-sm ${
-                        isMe
-                          ? 'rounded-tr-none border border-blue-200 bg-blue-100'
-                          : 'rounded-tl-none border border-border bg-card'
-                      }`}
-                    >
-                      <p className="text-sm leading-relaxed text-foreground">{messageBody(msg)}</p>
-                      <div className="mt-1 flex items-center justify-between">
-                        {msg.createdAt && (
-                          <div className="text-[9px] font-bold uppercase text-muted-foreground">
-                            {toJsDate(msg.createdAt)?.toLocaleTimeString('uz-UZ', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </div>
-                        )}
-                        {isMe && (
-                          <div className="ml-2">
-                            {msg.read ? (
-                              <CheckCheck size={14} className="text-blue-500" />
-                            ) : (
-                              <Check size={14} className="text-muted-foreground" />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-            <div ref={scrollRef} />
+            <MessageList
+              messages={messages}
+              currentUserId={userId}
+              emptyTitle={t('chat.no_messages')}
+              emptyHint={t('chat.say_hello')}
+              scrollRef={scrollRef}
+            />
           </div>
 
           <ChatComposer
             blocked={isBlocked}
             moderationError={moderationError}
-            placeholder={t('chat.placeholder')}
+            placeholder={placeholder}
             onSend={sendMessage}
+            onFocusChange={handleComposerFocusChange}
           />
         </div>
       </div>

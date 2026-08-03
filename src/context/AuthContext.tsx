@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, [checkDemoSession, setSession]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     localStorage.removeItem('qulay_ish_demo_session');
     localStorage.removeItem('qulay_ish_otp_login_uid');
     localStorage.removeItem('qulay_ish_otp_login_profile');
@@ -124,13 +124,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setLoading(false);
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, userRole, isDemo, refreshProfile, setAuthProfile, checkDemoSession }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      profile,
+      loading,
+      signOut,
+      userRole,
+      isDemo,
+      refreshProfile,
+      setAuthProfile,
+      checkDemoSession,
+    }),
+    [user, profile, loading, signOut, userRole, isDemo, refreshProfile, setAuthProfile, checkDemoSession],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
