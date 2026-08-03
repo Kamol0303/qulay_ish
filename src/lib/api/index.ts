@@ -98,10 +98,10 @@ export const api = {
       if (!user) throw new Error('Invalid auth response');
       return { ...res, user };
     },
-    async superAdminLogin(email: string, password: string) {
+    async superAdminLogin(login: string, password: string) {
       const res = await apiRequest<AuthResponse>('/auth/super-admin/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ login, password }),
       }, false);
       setAccessToken(res.accessToken);
       const user = mapUser(res.user as unknown as Record<string, unknown>);

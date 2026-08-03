@@ -30,8 +30,9 @@ export class AuthController {
   }
 
   @Post('super-admin/login')
-  async superAdminLogin(@Body() body: { email: string; password: string }) {
-    const user = await this.auth.superAdminLogin(body.email, body.password);
+  async superAdminLogin(@Body() body: { email?: string; phone?: string; login?: string; password: string }) {
+    const login = body.login || body.email || body.phone || '';
+    const user = await this.auth.superAdminLogin(login, body.password);
     return this.auth.signToken(user);
   }
 

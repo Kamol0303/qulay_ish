@@ -35,12 +35,28 @@ export class AuthService {
     return user;
   }
 
-  async superAdminLogin(email: string, password: string): Promise<User> {
-    const envEmail = process.env.SUPER_ADMIN_EMAIL || process.env.VITE_SUPER_ADMIN_EMAIL;
-    const envPassword = process.env.SUPER_ADMIN_PASSWORD || process.env.VITE_SUPER_ADMIN_PASSWORD;
-    if (!envEmail || !envPassword || email !== envEmail || password !== envPassword) {
-      throw new UnauthorizedException('Invalid super admin credentials');
+  async superAdminLogin(login: string, password: string): Promise<User> {
+    const envEmail = (process.env.SUPER_ADMIN_EMAIL || process.env.VITE_SUPER_ADMIN_EMAIL || '').trim();
+    const envPhone = (process.env.SUPER_ADMIN_PHONE || process.env.VITE_SUPER_ADMIN_PHONE || '').trim();
+    const envPassword = process.env.SUPER_ADMIN_PASSWORD || process.env.VITE_SUPER_ADMIN_PASSWORD || '';
+
+    if (!envPassword || (!envEmail && !envPhone)) {
+      throw new UnauthorizedException('Super Admin serverda sozlanmagan (api/.env)');
     }
+    if (!login?.trim() || !password) {
+      throw new UnauthorizedException('Login va parol majburiy');
+    }
+
+    const normalizedLogin = login.trim();
+    const loginOk =
+      (envEmail && normalizedLogin.toLowerCase() === envEmail.toLowerCase()) ||
+      (envPhone && normalizedLogin.replace(/\s+/g, '') === envPhone.replace(/\s+/g, ''));
+
+    if (!loginOk || password !== envPassword) {
+      throw new UnauthorizedException('Super Admin login yoki parol noto\'g\'ri');
+    }
+
+    const email = envEmail || `superadmin@qulay-ish.local`;
     let user = await this.prisma.user.findFirst({
       where: { role: UserRole.super_admin },
     });
@@ -48,7 +64,8 @@ export class AuthService {
       user = await this.prisma.user.create({
         data: {
           id: `super_admin_${Date.now()}`,
-          email: envEmail,
+          email,
+          phoneNumber: envPhone || null,
           fullName: 'Super Admin',
           role: UserRole.super_admin,
           region: 'Samarqand viloyati',
