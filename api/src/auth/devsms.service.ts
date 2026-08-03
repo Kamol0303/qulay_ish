@@ -62,10 +62,12 @@ export class DevSmsService implements OnModuleInit {
       this.logger.error('DEVSMS_TOKEN topilmadi');
       return;
     }
+    // Bu banner chiqmasa — eski kod ishlayapti (git pull / dist tozalash kerak)
+    this.logger.log('========================================');
+    this.logger.log('OTP_ENGINE=UNIVERSAL_OTP_V3');
     this.logger.log(`DevSMS token: ${this.maskToken(this.token)}`);
-    this.logger.log(
-      `DevSMS OTP: universal_otp (moderatsiyasiz) | service nomlari: ${this.serviceNames.join(', ')}`,
-    );
+    this.logger.log(`service: ${this.serviceNames.join(', ')}`);
+    this.logger.log('========================================');
     if (process.env.DEVSMS_OTP_MODE === 'eskiz') {
       this.logger.warn(
         'DEVSMS_OTP_MODE=eskiz — eskiz rejimi o\'chirildi. api/.env dan olib tashlang, universal_otp ishlatiladi.',
