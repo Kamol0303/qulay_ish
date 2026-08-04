@@ -279,8 +279,8 @@ export class OtpService {
           role,
           passwordHash: meta.passwordHash || null,
           region: 'Samarqand viloyati',
-          isVerified: true,
-          verificationStatus: 'verified',
+          isVerified: false,
+          verificationStatus: 'none',
         },
       });
     }

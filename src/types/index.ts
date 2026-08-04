@@ -201,6 +201,26 @@ export type VerificationRequestStatus =
   | 'need_reupload'
   | 'approved'; // legacy alias
 
+export interface PassportData {
+  series: string;
+  number: string;
+  pinfl: string;
+  fullName: string;
+  issueDate: string;
+  expiryDate: string;
+}
+
+export interface DocumentCheckResult {
+  ok?: boolean;
+  role?: string;
+  mimeGuess?: string;
+  sizeBytes?: number;
+  width?: number;
+  height?: number;
+  score?: number;
+  checks?: Array<{ id: string; passed: boolean; detail: string }>;
+}
+
 export interface VerificationRequest {
   id: string;
   userId: string;
@@ -212,6 +232,8 @@ export interface VerificationRequest {
   selfieUrl?: string;
   addressProofUrl?: string;
   additionalFiles?: Array<{ url: string; title?: string }>;
+  passportData?: PassportData | null;
+  documentChecks?: DocumentCheckResult | Record<string, unknown> | null;
   status: VerificationRequestStatus;
   reviewedBy?: string;
   reviewNote?: string;

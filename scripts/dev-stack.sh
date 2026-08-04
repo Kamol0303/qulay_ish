@@ -8,7 +8,7 @@ cd "$ROOT"
 API_PORT="${API_PORT:-4000}"
 WEB_PORT="${WEB_PORT:-3000}"
 
-echo "=== Qulay Ish — full stack ==="
+echo "=== ishliayol.uz — full stack ==="
 
 # 1) Database
 if ! pg_isready -h localhost -p 5432 >/dev/null 2>&1; then

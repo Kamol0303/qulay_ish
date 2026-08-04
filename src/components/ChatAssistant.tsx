@@ -21,7 +21,7 @@ const PREDEFINED_RESPONSES: Record<AILanguage, Record<string, string>> = {
     contract: `**Shartnoma tuzish:**\n\n1. Nomzod bilan kelishib oling\n2. "Shartnoma tuzish" tugmasini bosing\n3. Shartlarni kiriting\n4. Ikkala tomon imzolashi kerak\n\n**Muhim:** Shartnoma qonuniy hujjat!`,
     dispute: `**Nizo yuzaga kelsa:**\n\n1. Shartnoma sahifasiga o'ting\n2. "Nizo ochish" tugmasini bosing\n3. Muammoni yozing\n4. Admin 24-48 soat ichida ko'rib chiqadi`,
     profile: `**Profilni to'ldirish:**\n\n1. "Profil" bo'limiga o'ting\n2. Ma'lumotlarni qo'shing\n3. Rasm yuklang\n4. "Saqlash" tugmasini bosing`,
-    default: `Kechirasiz, men faqat QULAY ISH platformasi bo'yicha yordam bera olaman. Ish qidirish, ariza topshirish, shartnoma tuzish haqida savol bering.`
+    default: `Kechirasiz, men faqat ISHLIAYOL.UZ platformasi bo'yicha yordam bera olaman. Ish qidirish, ariza topshirish, shartnoma tuzish haqida savol bering.`
   },
   ru: {
     jobs_search: `**Поиск работы:**\n\n1. Перейдите в раздел **Работа**\n2. Введите ключевые слова\n3. Используйте фильтры\n4. Нажмите **Подать заявку**\n\n**Совет:** Заполните профиль!`,
@@ -29,7 +29,7 @@ const PREDEFINED_RESPONSES: Record<AILanguage, Record<string, string>> = {
     contract: `**Создание контракта:**\n\n1. Договоритесь с кандидатом\n2. Нажмите **Создать контракт**\n3. Укажите условия\n4. Обе стороны подписывают`,
     dispute: `**Если возник спор:**\n\n1. Перейдите на страницу контракта\n2. Нажмите **Открыть спор**\n3. Опишите проблему\n4. Админ рассмотрит за 24-48 часов`,
     profile: `**Заполнение профиля:**\n\n1. Перейдите в **Мой профиль**\n2. Добавьте данные\n3. Загрузите фото\n4. Нажмите **Сохранить**`,
-    default: `Извините, я могу помочь только по вопросам платформы QULAY ISH. Задавайте вопросы о поиске работы, заявках, контрактах.`
+    default: `Извините, я могу помочь только по вопросам платформы ISHLIAYOL.UZ. Задавайте вопросы о поиске работы, заявках, контрактах.`
   },
   en: {
     jobs_search: `**Finding a Job:**\n\n1. Go to the **Jobs** section\n2. Enter keywords\n3. Use filters\n4. Click **Apply**\n\n**Tip:** Complete your profile!`,
@@ -37,7 +37,7 @@ const PREDEFINED_RESPONSES: Record<AILanguage, Record<string, string>> = {
     contract: `**Creating a Contract:**\n\n1. Agree with candidate\n2. Click **Create Contract**\n3. Enter terms\n4. Both parties sign`,
     dispute: `**If a Dispute Arises:**\n\n1. Go to contract page\n2. Click **Open Dispute**\n3. Describe the issue\n4. Admin reviews within 24-48 hours`,
     profile: `**Completing Profile:**\n\n1. Go to **My Profile**\n2. Add information\n3. Upload photo\n4. Click **Save**`,
-    default: `Sorry, I can only help with QULAY ISH platform questions. Ask about job search, applications, contracts.`
+    default: `Sorry, I can only help with ISHLIAYOL.UZ platform questions. Ask about job search, applications, contracts.`
   }
 };
 

@@ -28,6 +28,7 @@ import {
   savedJobsService
 } from '../services/qulay-ish';
 import ApplyModal from '../components/ApplyModal';
+import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 
 export default function QualayIshJobDetailsPage() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -351,7 +352,13 @@ export default function QualayIshJobDetailsPage() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsApplyModalOpen(true)}
+                  onClick={() => {
+                    if (!isIdentityVerified(profile)) {
+                      navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
+                      return;
+                    }
+                    setIsApplyModalOpen(true);
+                  }}
                   className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl font-semibold hover:shadow-lg transition-all"
                 >
                   Arizaga berish

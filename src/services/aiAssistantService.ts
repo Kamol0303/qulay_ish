@@ -101,7 +101,7 @@ const ALLOWED_TOPICS = [
   'nizo', 'dispute', 'спор', 'tasdiqlash', 'verification', 'верифик',
   // General help
   'yordam', 'help', 'помощ', 'qanday', 'how', 'как',
-  'qulay ish', 'dashboard', 'panel',
+  'ishliayol.uz', 'dashboard', 'panel',
 ];
 
 const BLOCKED_TOPICS = [
@@ -144,9 +144,9 @@ function isTopicAllowed(message: string): boolean {
 }
 
 const OUT_OF_SCOPE_RESPONSES: Record<AILanguage, string> = {
-  uz: "Kechirasiz, men faqat QULAY ISH platformasi bo'yicha yordam bera olaman. Ish qidirish, ariza topshirish, shartnoma tuzish va platforma xususiyatlari haqida savol bering.",
-  ru: "Извините, я могу помочь только по вопросам платформы QULAY ISH. Задавайте вопросы о поиске работы, подаче заявок, заключении контрактов и функциях платформы.",
-  en: "Sorry, I can only help with QULAY ISH platform-related questions. Ask me about job search, applications, contracts, and platform features."
+  uz: "Kechirasiz, men faqat ISHLIAYOL.UZ platformasi bo'yicha yordam bera olaman. Ish qidirish, ariza topshirish, shartnoma tuzish va platforma xususiyatlari haqida savol bering.",
+  ru: "Извините, я могу помочь только по вопросам платформы ISHLIAYOL.UZ. Задавайте вопросы о поиске работы, подаче заявок, заключении контрактов и функциях платформы.",
+  en: "Sorry, I can only help with ISHLIAYOL.UZ platform-related questions. Ask me about job search, applications, contracts, and platform features."
 };
 
 // ============================================
@@ -170,7 +170,7 @@ function buildSystemPrompt(role: AIAssistantRole, language: AILanguage): string 
 }
 
 const SYSTEM_PROMPTS = {
-  worker: `You are a helpful assistant for workers on the Qulay Ish job platform in Uzbekistan.
+  worker: `You are a helpful assistant for workers on the ishliayol.uz job platform in Uzbekistan.
 
 STRICT RULES:
 - ONLY answer questions about: job search, applications, profile management, contracts, platform usage
@@ -188,7 +188,7 @@ Help workers with:
 Keep responses concise, professional, and in the user's language (Uzbek, Russian, or English).
 Focus ONLY on platform-related assistance.`,
 
-  employer: `You are a helpful assistant for employers on the Qulay Ish job platform in Uzbekistan.
+  employer: `You are a helpful assistant for employers on the ishliayol.uz job platform in Uzbekistan.
 
 STRICT RULES:
 - ONLY answer questions about: job posting, reviewing applications, finding workers, contracts, platform features
@@ -206,7 +206,7 @@ Help employers with:
 Keep responses concise, professional, and in the user's language (Uzbek, Russian, or English).
 Focus ONLY on platform-related assistance.`,
 
-  admin: `You are a helpful assistant for administrators on the Qulay Ish platform.
+  admin: `You are a helpful assistant for administrators on the ishliayol.uz platform.
 
 STRICT RULES:
 - ONLY answer questions about: platform management, user moderation, verification, system monitoring
@@ -223,7 +223,7 @@ Help with:
 
 Keep responses concise and professional.`,
 
-  general: `You are a helpful assistant for the Qulay Ish job platform in Uzbekistan.
+  general: `You are a helpful assistant for the ishliayol.uz job platform in Uzbekistan.
 
 STRICT RULES:
 - ONLY answer questions about the job platform, its features, and how to use it
@@ -254,7 +254,7 @@ const MOCK_RESPONSES: Record<AILanguage, {
     application_worker: "Arizalaringizni **Mening arizalarim** bo'limida ko'rishingiz mumkin. Ish beruvchi javob berganda bildirishnoma olasiz.",
     application_employer: "Barcha arizalarni **Arizalar** bo'limida ko'rishingiz mumkin. Har bir arizani ko'rib chiqing va nomzodlarni qabul qiling yoki rad eting.",
     contract: "Shartnomalar ariza qabul qilingandan so'ng tuziladi. Ish boshlashdan oldin ikkala tomon imzolashi kerak. Shartnomalarni panelingizda boshqarishingiz mumkin.",
-    default: "Qulay Ish platformasida yordam berish uchun shu yerdaman. Ishlar, arizalar, profil, shartnomalar haqida savol bering."
+    default: "ishliayol.uz platformasida yordam berish uchun shu yerdaman. Ishlar, arizalar, profil, shartnomalar haqida savol bering."
   },
   ru: {
     job_worker: "\u0427\u0442\u043e\u0431\u044b \u043d\u0430\u0439\u0442\u0438 \u0440\u0430\u0431\u043e\u0442\u0443, \u043f\u0435\u0440\u0435\u0439\u0434\u0438\u0442\u0435 \u0432 \u0440\u0430\u0437\u0434\u0435\u043b **\u0420\u0430\u0431\u043e\u0442\u0430** \u0438 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u0444\u0438\u043b\u044c\u0442\u0440\u044b: \u0440\u0430\u0439\u043e\u043d, \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f, \u0437\u0430\u0440\u043f\u043b\u0430\u0442\u0430. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 **\u041f\u043e\u0434\u0430\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0443** \u043d\u0430 \u043f\u043e\u0434\u0445\u043e\u0434\u044f\u0449\u0443\u044e \u0432\u0430\u043a\u0430\u043d\u0441\u0438\u044e.",
@@ -263,7 +263,7 @@ const MOCK_RESPONSES: Record<AILanguage, {
     application_worker: "\u0412\u0430\u0448\u0438 \u0437\u0430\u044f\u0432\u043a\u0438 \u043d\u0430\u0445\u043e\u0434\u044f\u0442\u0441\u044f \u0432 \u0440\u0430\u0437\u0434\u0435\u043b\u0435 **\u041c\u043e\u0438 \u0437\u0430\u044f\u0432\u043a\u0438**. \u0412\u044b \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0435, \u043a\u043e\u0433\u0434\u0430 \u0440\u0430\u0431\u043e\u0442\u043e\u0434\u0430\u0442\u0435\u043b\u044c \u043e\u0442\u0432\u0435\u0442\u0438\u0442.",
     application_employer: "\u0412\u0441\u0435 \u0437\u0430\u044f\u0432\u043a\u0438 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u0432 \u0440\u0430\u0437\u0434\u0435\u043b\u0435 **\u0417\u0430\u044f\u0432\u043a\u0438**. \u041f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u0438\u0442\u0435 \u043a\u0430\u0436\u0434\u0443\u044e \u0438 \u043f\u0440\u0438\u043c\u0438\u0442\u0435 \u0438\u043b\u0438 \u043e\u0442\u043a\u043b\u043e\u043d\u0438\u0442\u0435 \u043a\u0430\u043d\u0434\u0438\u0434\u0430\u0442\u043e\u0432.",
     contract: "\u041a\u043e\u043d\u0442\u0440\u0430\u043a\u0442\u044b \u0441\u043e\u0437\u0434\u0430\u044e\u0442\u0441\u044f \u043f\u043e\u0441\u043b\u0435 \u043f\u0440\u0438\u043d\u044f\u0442\u0438\u044f \u0437\u0430\u044f\u0432\u043a\u0438. \u041e\u0431\u0435 \u0441\u0442\u043e\u0440\u043e\u043d\u044b \u0434\u043e\u043b\u0436\u043d\u044b \u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c \u043f\u0435\u0440\u0435\u0434 \u043d\u0430\u0447\u0430\u043b\u043e\u043c \u0440\u0430\u0431\u043e\u0442\u044b. \u0423\u043f\u0440\u0430\u0432\u043b\u044f\u0439\u0442\u0435 \u043a\u043e\u043d\u0442\u0440\u0430\u043a\u0442\u0430\u043c\u0438 \u0432 \u043f\u0430\u043d\u0435\u043b\u0438.",
-    default: "\u042f \u0437\u0434\u0435\u0441\u044c, \u0447\u0442\u043e\u0431\u044b \u043f\u043e\u043c\u043e\u0447\u044c \u0432\u0430\u043c \u0441 \u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u043e\u0439 Qulay Ish. \u0421\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0439\u0442\u0435 \u043e \u0432\u0430\u043a\u0430\u043d\u0441\u0438\u044f\u0445, \u0437\u0430\u044f\u0432\u043a\u0430\u0445, \u043f\u0440\u043e\u0444\u0438\u043b\u0435 \u0438\u043b\u0438 \u043a\u043e\u043d\u0442\u0440\u0430\u043a\u0442\u0430\u0445."
+    default: "\u042f \u0437\u0434\u0435\u0441\u044c, \u0447\u0442\u043e\u0431\u044b \u043f\u043e\u043c\u043e\u0447\u044c \u0432\u0430\u043c \u0441 \u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u043e\u0439 ishliayol.uz. \u0421\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0439\u0442\u0435 \u043e \u0432\u0430\u043a\u0430\u043d\u0441\u0438\u044f\u0445, \u0437\u0430\u044f\u0432\u043a\u0430\u0445, \u043f\u0440\u043e\u0444\u0438\u043b\u0435 \u0438\u043b\u0438 \u043a\u043e\u043d\u0442\u0440\u0430\u043a\u0442\u0430\u0445."
   },
   en: {
     job_worker: "To find jobs, go to the **Jobs** section and use filters: district, category, salary. Click **Apply** on any matching job.",
@@ -272,7 +272,7 @@ const MOCK_RESPONSES: Record<AILanguage, {
     application_worker: "View your applications in the **My Applications** section. You'll get a notification when an employer responds.",
     application_employer: "All applications are in the **Applications** section. Review each one and accept or reject candidates.",
     contract: "Contracts are created after an application is accepted. Both parties must sign before work begins. Manage contracts in your dashboard.",
-    default: "I'm here to help you with the Qulay Ish platform. Ask me about jobs, applications, profiles, or contracts."
+    default: "I'm here to help you with the ishliayol.uz platform. Ask me about jobs, applications, profiles, or contracts."
   }
 };
 
@@ -468,7 +468,7 @@ export const aiAssistantService = {
         "How do I moderate content?"
       ],
       general: [
-        "What is Qulay Ish?",
+        "What is ishliayol.uz?",
         "How do I sign up?",
         "What features are available?",
         "How do I get started?"

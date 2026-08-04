@@ -6,7 +6,7 @@ import { Job, Profile } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { applicationService } from '../services/applicationService';
-import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../lib/verificationGate';
+import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 
 interface ApplyModalProps {
   isOpen: boolean;
@@ -24,8 +24,6 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
   const [loading, setLoading] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const verified = isIdentityVerified(profile);
-
   React.useEffect(() => {
     if (isOpen) {
       setMessage('');
@@ -33,10 +31,16 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
       setExpectedSalary(job?.price ? String(job.price) : '');
       setError(null);
       setSuccess(false);
+      // Hard gate: unverified workers never stay on the apply form
+      if (profile && !isIdentityVerified(profile)) {
+        onClose();
+        navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
+      }
     }
-  }, [isOpen, job]);
+  }, [isOpen, job, profile, navigate, onClose]);
 
   if (!job) return null;
+  if (profile && !isIdentityVerified(profile)) return null;
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +59,9 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         return;
       }
       if (!isIdentityVerified(profile)) {
-        setError(VERIFICATION_REQUIRED_MESSAGE);
         setLoading(false);
+        onClose();
+        navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
         return;
       }
 
@@ -149,25 +154,6 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
                 </div>
               )}
 
-              {!verified && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex flex-col gap-3 text-amber-800 text-sm">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle size={18} />
-                    <p className="font-medium">{VERIFICATION_REQUIRED_MESSAGE}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      navigate('/verification');
-                    }}
-                    className="w-full py-2.5 rounded-xl bg-amber-600 text-white font-bold"
-                  >
-                    Shaxsni tasdiqlash
-                  </button>
-                </div>
-              )}
-
               {success ? (
                 <div className="py-12 text-center">
                   <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
@@ -233,7 +219,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
 
                   <button
                     type="submit"
-                    disabled={loading || !coverLetter || !verified}
+                    disabled={loading || !coverLetter}
                     className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl disabled:opacity-50"
                   >
                     {loading ? t('auth.sending') : t('jobs.send_application')}

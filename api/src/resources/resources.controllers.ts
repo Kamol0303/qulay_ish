@@ -261,6 +261,16 @@ export class JobsController {
       isStaff(req.user.role) && body.employerId
         ? String(body.employerId)
         : req.user.userId;
+
+    if (!isStaff(req.user.role)) {
+      const employer = await this.prisma.user.findUnique({ where: { id: employerId } });
+      if (!employer?.isVerified && employer?.verificationStatus !== 'verified') {
+        throw new ForbiddenException(
+          'Iltimos, ish e\'lonidan oldin shaxsingizni tasdiqlang va pasport ma\'lumotlaringizni to\'ldiring.',
+        );
+      }
+    }
+
     return this.prisma.job.create({
       data: {
         id,
@@ -363,6 +373,15 @@ export class ApplicationsController {
       throw new ForbiddenException('Faqat ishchi ariza yubora oladi');
     }
 
+    const worker = await this.prisma.user.findUnique({ where: { id: workerId } });
+    if (req.user.role === 'worker') {
+      if (!worker?.isVerified && worker?.verificationStatus !== 'verified') {
+        throw new ForbiddenException(
+          'Iltimos, ishga ariza yuborishdan oldin shaxsingizni tasdiqlang va pasport ma\'lumotlaringizni to\'ldiring.',
+        );
+      }
+    }
+
     const existing = await this.prisma.application.findFirst({
       where: { jobId, workerId },
     });
@@ -370,7 +389,6 @@ export class ApplicationsController {
       throw new BadRequestException('Siz allaqachon bu ishga ariza yuborgansiz');
     }
 
-    const worker = await this.prisma.user.findUnique({ where: { id: workerId } });
     const coverLetter = String(body.coverLetter || '');
     const message = String(body.message || coverLetter || '');
     const id = (body.id as string) || randomUUID();

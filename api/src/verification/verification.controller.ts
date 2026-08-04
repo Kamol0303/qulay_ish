@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { VerificationStatus } from '@prisma/client';
+import { sanitizePassportData } from './passport.util';
 
 type AuthUser = { userId: string; role: string; email?: string };
 
@@ -116,9 +117,15 @@ export class VerificationRequestsController {
     if (!idPhotoUrl || !selfieUrl) {
       throw new BadRequestException('ID hujjat va selfi majburiy');
     }
-    if (!idPhotoUrl.includes('/api/uploads/private/')) {
+    if (!idPhotoUrl.includes('/api/uploads/private/') || !selfieUrl.includes('/api/uploads/private/')) {
       throw new BadRequestException('Hujjatlar xavfsiz yuklash orqali yuborilishi kerak');
     }
+
+    const passportData = sanitizePassportData(body.passportData ?? body);
+    const documentChecks =
+      body.documentChecks && typeof body.documentChecks === 'object'
+        ? body.documentChecks
+        : undefined;
 
     const id = randomUUID();
     const created = await this.prisma.verificationRequest.create({
@@ -127,12 +134,14 @@ export class VerificationRequestsController {
         userId: req.user.userId,
         userName: user.fullName,
         accountType: user.role === 'employer' ? 'employer' : 'worker',
-        documentType: (body.documentType as string) || 'id_card',
+        documentType: (body.documentType as string) || 'passport',
         idPhotoUrl,
         documentUrl: idPhotoUrl,
         selfieUrl,
         addressProofUrl: (body.addressProofUrl as string) || null,
         additionalFiles: (body.additionalFiles as object) || undefined,
+        passportData: passportData as object,
+        documentChecks: (documentChecks as object) || undefined,
         status: 'pending',
         rejectionReason: null,
         reviewNote: null,
@@ -220,8 +229,19 @@ export class VerificationRequestsController {
       reviewedBy: null,
       approvedAt: null,
     };
-    for (const key of ['idPhotoUrl', 'documentUrl', 'selfieUrl', 'addressProofUrl', 'additionalFiles', 'documentType']) {
+    for (const key of [
+      'idPhotoUrl',
+      'documentUrl',
+      'selfieUrl',
+      'addressProofUrl',
+      'additionalFiles',
+      'documentType',
+      'documentChecks',
+    ]) {
       if (key in body) data[key] = body[key];
+    }
+    if (body.passportData != null || body.series != null || body.pinfl != null) {
+      data.passportData = sanitizePassportData(body.passportData ?? body) as object;
     }
 
     const updated = await this.prisma.verificationRequest.update({ where: { id }, data: data as any });
@@ -266,7 +286,7 @@ export class VerificationRequestsController {
           id: randomUUID(),
           userId,
           title: 'Tasdiqlash muvaffaqiyatli',
-          message: 'Sizning hisobingiz Qulay Ish tomonidan tasdiqlandi!',
+          message: 'Sizning hisobingiz ishliayol.uz tomonidan tasdiqlandi!',
           type: 'system',
           link: '/my-profile',
           read: false,

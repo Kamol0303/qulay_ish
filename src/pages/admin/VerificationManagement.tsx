@@ -603,6 +603,21 @@ export default function VerificationManagement() {
               <div>Tasdiqlangan: <strong>{detail.approvedAt ? format(new Date(detail.approvedAt as string), 'dd MMM yyyy', { locale: getDateLocale() }) : '—'}</strong></div>
             </div>
 
+            {detail.passportData && (
+              <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm">
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-blue-800">
+                  Pasport ma&apos;lumotlari (maxfiy)
+                </p>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>Seriya/Raqam: <strong>{detail.passportData.series} {detail.passportData.number}</strong></div>
+                  <div>JSHSHIR: <strong className="font-mono">{detail.passportData.pinfl}</strong></div>
+                  <div className="md:col-span-2">F.I.SH: <strong>{detail.passportData.fullName}</strong></div>
+                  <div>Berilgan: <strong>{detail.passportData.issueDate || '—'}</strong></div>
+                  <div>Amal qilish: <strong>{detail.passportData.expiryDate || '—'}</strong></div>
+                </div>
+              </div>
+            )}
+
             <div className="mb-4 grid gap-4 md:grid-cols-2">
               <PhotoSlot
                 url={resolveDocUrl(detail)}
