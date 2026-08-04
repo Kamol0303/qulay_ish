@@ -66,6 +66,7 @@ export function useProfileEditor(profile: Profile | null, refreshProfile: () => 
         blockReason: _br,
         isVerified: _iv,
         verificationStatus: _vs,
+        personalInfo: _pi,
         ...payload
       } = draft;
 

@@ -113,6 +113,8 @@ model User {
   certificates       Json?
   portfolio          Json?
   resumeTemplate     String?            @default("professional") @map("resume_template")
+  /** Confidential personal info — worker self + super_admin only */
+  personalInfo       Json?              @map("personal_info")
   companyName        String?            @map("company_name")
   businessType       String?            @map("business_type")
   industry           String?

@@ -1,9 +1,11 @@
-import { BadRequestException, Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Patch, Put, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
+// Put: confidential personal-info updates (worker self / super_admin)
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { randomUUID } from 'crypto';
+import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
 
 type AuthUser = { userId: string; role: string };
 
@@ -11,17 +13,31 @@ function isStaff(role: string) {
   return role === 'admin' || role === 'super_admin';
 }
 
-/** Strip identity / private verification docs from public profile payloads */
-function toPublicUser(user: Record<string, unknown>, opts?: { includePrivateDocs?: boolean }) {
+function canAccessPersonalInfo(reqUser: AuthUser, targetUserId: string, targetRole?: string) {
+  if (reqUser.role === 'super_admin') return true;
+  if (reqUser.userId === targetUserId && (!targetRole || targetRole === 'worker')) return true;
+  return false;
+}
+
+/** Strip identity / private verification docs and confidential personalInfo from public payloads */
+function toPublicUser(
+  user: Record<string, unknown>,
+  opts?: { includePrivateDocs?: boolean; includePersonalInfo?: boolean },
+) {
   const {
     passwordHash: _p,
     companyDocuments,
+    personalInfo,
     ...rest
   } = user;
+  const out: Record<string, unknown> = { ...rest };
   if (opts?.includePrivateDocs) {
-    return { ...rest, companyDocuments };
+    out.companyDocuments = companyDocuments;
   }
-  return rest;
+  if (opts?.includePersonalInfo) {
+    out.personalInfo = personalInfo ?? null;
+  }
+  return out;
 }
 
 @Controller('users')
@@ -45,11 +61,68 @@ export class UsersController {
     return rows.map((u) => toPublicUser(u as unknown as Record<string, unknown>));
   }
 
+  /** Confidential personal info — worker self or super_admin only */
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/personal-info')
+  async getPersonalInfo(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (user.role !== 'worker') {
+      throw new BadRequestException('Shaxsiy ma\'lumotlar faqat ishchi uchun');
+    }
+    if (!canAccessPersonalInfo(req.user, id, user.role)) {
+      throw new ForbiddenException('Shaxsiy ma\'lumotlarga ruxsat yo\'q');
+    }
+    return { personalInfo: user.personalInfo ?? null };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put(':id/personal-info')
+  async putPersonalInfo(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (user.role !== 'worker') {
+      throw new BadRequestException('Shaxsiy ma\'lumotlar faqat ishchi uchun');
+    }
+    if (!canAccessPersonalInfo(req.user, id, user.role)) {
+      throw new ForbiddenException('Shaxsiy ma\'lumotlarni tahrirlashga ruxsat yo\'q');
+    }
+
+    const personalInfo = sanitizePersonalInfo(body.personalInfo ?? body, {
+      userId: req.user.userId,
+      role: req.user.role,
+    });
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { personalInfo: personalInfo as any },
+    });
+
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'UPDATE_PERSONAL_INFO',
+        userId: req.user.userId,
+        details: {
+          targetUserId: id,
+          updatedByRole: req.user.role,
+          fields: Object.keys(personalInfo),
+        },
+        type: 'info',
+      },
+    }).catch(() => undefined);
+
+    return { personalInfo: updated.personalInfo ?? null };
+  }
+
   @Get(':id')
   async get(@Param('id') id: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id } });
-    // Public profiles never expose company/identity verification documents.
-    // Owners load private docs via /auth/me; Super Admin via Verification Center.
+    // Public profiles never expose company docs or confidential personalInfo.
     return toPublicUser(user as unknown as Record<string, unknown>);
   }
 
@@ -92,11 +165,17 @@ export class UsersController {
       }
     }
 
+    // personalInfo must go through dedicated endpoint (stricter validation + RBAC)
+    // Never accept it via generic PATCH (employers/admins cannot smuggle it in)
+
     const updated = await this.prisma.user.update({ where: { id }, data: data as any });
     const includePrivate =
       req.user.userId === id || req.user.role === 'super_admin';
+    const includePersonal =
+      canAccessPersonalInfo(req.user, id, updated.role);
     return toPublicUser(updated as unknown as Record<string, unknown>, {
       includePrivateDocs: includePrivate,
+      includePersonalInfo: includePersonal,
     });
   }
 }

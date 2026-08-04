@@ -68,6 +68,7 @@ export type ProfileTab =
   | 'portfolio'
   | 'certificates'
   | 'resume'
+  | 'personal'
   | 'company'
   | 'jobs'
   | 'settings';

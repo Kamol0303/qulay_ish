@@ -9,6 +9,7 @@ import type {
   RecruiterContact,
   CompanyDocument,
 } from './profile';
+import type { WorkerPersonalInfo } from './personalInfo';
 
 export type {
   AvailabilityStatus,
@@ -23,6 +24,21 @@ export type {
   ProfileTab,
 } from './profile';
 
+export type {
+  WorkerPersonalInfo,
+  Gender,
+  MaritalStatus,
+  ChildrenStatus,
+} from './personalInfo';
+
+export {
+  PERSONAL_INFO_REQUIRED,
+  GENDER_OPTIONS,
+  MARITAL_OPTIONS,
+  CHILDREN_OPTIONS,
+  calcAgeFromDob,
+} from './personalInfo';
+
 export interface Profile {
   uid: string;
   fullName: string;
@@ -34,6 +50,8 @@ export interface Profile {
   district?: string;
   neighborhood?: string;
   bio?: string;
+  /** Confidential — only populated for worker self or super_admin */
+  personalInfo?: WorkerPersonalInfo;
   skills?: string[];
   photoUrl?: string;
   coverUrl?: string;

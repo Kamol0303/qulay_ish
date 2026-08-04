@@ -1,6 +1,6 @@
 import { apiRequest, setAccessToken, clearAccessToken, toQuery } from './client';
 import { ensureArray } from './errors';
-import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost } from '../../types';
+import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost, WorkerPersonalInfo } from '../../types';
 
 export interface AuthResponse {
   accessToken: string;
@@ -24,6 +24,9 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     district: u.district as string | undefined,
     neighborhood: u.neighborhood as string | undefined,
     bio: u.bio as string | undefined,
+    personalInfo: u.personalInfo
+      ? (u.personalInfo as WorkerPersonalInfo)
+      : undefined,
     skills: Array.isArray(u.skills) ? (u.skills as string[]) : [],
     photoUrl: u.photoUrl as string | undefined,
     coverUrl: u.coverUrl as string | undefined,
@@ -153,14 +156,30 @@ export const api = {
       });
     },
     update(id: string, data: Partial<Profile>) {
+      // Never send personalInfo through generic profile patch
+      const { personalInfo: _pi, ...safe } = data;
       return apiRequest<Record<string, unknown>>(`/users/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify(data),
+        body: JSON.stringify(safe),
       }).then((u) => {
         const user = mapUser(u);
         if (!user) throw new Error('User not found');
         return user;
       });
+    },
+    getPersonalInfo(id: string) {
+      return apiRequest<{ personalInfo: WorkerPersonalInfo | null }>(
+        `/users/${id}/personal-info`,
+      );
+    },
+    updatePersonalInfo(id: string, personalInfo: WorkerPersonalInfo) {
+      return apiRequest<{ personalInfo: WorkerPersonalInfo | null }>(
+        `/users/${id}/personal-info`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ personalInfo }),
+        },
+      );
     },
   },
 

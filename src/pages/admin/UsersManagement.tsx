@@ -18,6 +18,8 @@ import { getWorkerCompletion, getEmployerCompletion } from '../../lib/profileCom
 import { downloadResumePdf } from '../../lib/resumePdf';
 import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { PersonalInfoCard } from '../../components/profile/PersonalInfoCard';
 
 // Safe date parser
 function safeDate(val: any): Date | null {
@@ -67,7 +69,7 @@ function ConfirmModal({ message, onConfirm, onCancel, loading }: {
   );
 }
 
-function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, actionLoading }: {
+function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, actionLoading, canEditPersonalInfo }: {
   user: Profile;
   onClose: () => void;
   onVerify: (u: Profile) => void;
@@ -75,11 +77,13 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
   onUnblock: (u: Profile) => void;
   onDelete: (u: Profile) => void;
   actionLoading: boolean;
+  canEditPersonalInfo?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'uz' ? uz : i18n.language === 'ru' ? ru : enUS;
   const completion =
     user.role === 'employer' ? getEmployerCompletion(user) : getWorkerCompletion(user);
+  const showPersonal = Boolean(canEditPersonalInfo && user.role === 'worker');
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -87,7 +91,7 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+        className={`bg-white rounded-3xl shadow-2xl w-full overflow-hidden ${showPersonal ? 'max-w-3xl max-h-[90vh] overflow-y-auto' : 'max-w-md'}`}
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h3 className="text-lg font-black text-gray-900">{t('admin.users.view_details')}</h3>
@@ -207,6 +211,18 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
               </>
             )}
           </div>
+
+          {showPersonal && (
+            <div className="pt-2">
+              <PersonalInfoCard
+                userId={user.uid}
+                editable
+                seedFullName={user.fullName}
+                seedPhone={user.phoneNumber}
+                seedEmail={user.email}
+              />
+            </div>
+          )}
         </div>
 
         <div className="p-6 border-t border-gray-100 space-y-3">
@@ -264,6 +280,8 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
 
 export default function UsersManagement() {
   const { t, i18n } = useTranslation();
+  const { profile: authProfile } = useAuth();
+  const canEditPersonalInfo = authProfile?.role === 'super_admin';
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -575,6 +593,7 @@ export default function UsersManagement() {
             user={selectedUser}
             onClose={() => setSelectedUser(null)}
             actionLoading={actionLoading}
+            canEditPersonalInfo={canEditPersonalInfo}
             onVerify={(u) => setConfirm({
               message: u.isVerified ? t('admin.users.unverify') + '?' : "Foydalanuvchini tasdiqlashni xohlaysizmi?",
               action: () => handleVerify(u)

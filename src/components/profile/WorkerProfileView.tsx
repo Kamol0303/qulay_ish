@@ -25,8 +25,9 @@ import { AvatarUploader, CoverUploader, FileUploadButton } from './MediaUploader
 import { SkillsSelector } from './SkillsSelector';
 import { EducationEditor, ExperienceEditor } from './TimelineEditors';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
+import { PersonalInfoCard } from './PersonalInfoCard';
 
-const WORKER_TABS = [
+const WORKER_TABS_BASE = [
   { id: 'overview' as const, label: 'Umumiy' },
   { id: 'experience' as const, label: 'Tajriba' },
   { id: 'education' as const, label: 'Ta\'lim' },
@@ -61,6 +62,18 @@ export function WorkerProfileView({
   const [tab, setTab] = useState<ProfileTab>('overview');
   const completion = useMemo(() => getWorkerCompletion(draft), [draft]);
   const districts = DISTRICTS[getDistrictKey(draft.region)] || [];
+  // Confidential personal info tab — only when the viewer can edit (owner / admin editor)
+  const tabs = useMemo(
+    () =>
+      editable
+        ? [
+            ...WORKER_TABS_BASE.slice(0, 7),
+            { id: 'personal' as const, label: "Shaxsiy ma'lumotlar" },
+            ...WORKER_TABS_BASE.slice(7),
+          ]
+        : WORKER_TABS_BASE,
+    [editable],
+  );
 
   const share = async () => {
     const url = `${window.location.origin}/worker/${draft.uid}`;
@@ -148,7 +161,7 @@ export function WorkerProfileView({
         </div>
       )}
 
-      <ProfileTabs tabs={WORKER_TABS} active={tab} onChange={setTab} />
+      <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
 
       <motion.div
         key={tab}
@@ -429,6 +442,15 @@ export function WorkerProfileView({
         )}
         {tab === 'resume' && (
           <div className="space-y-5">
+            {editable && (
+              <PersonalInfoCard
+                userId={draft.uid}
+                editable={editable}
+                seedFullName={draft.fullName}
+                seedPhone={draft.phoneNumber}
+                seedEmail={draft.email}
+              />
+            )}
             <ProfileCard title="Rezyume shabloni" description="Profil ma'lumotlari + yuklangan fayllar avtomatik chiqadi">
               <div className="mb-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {RESUME_TEMPLATES.map((tpl) => (
@@ -466,6 +488,15 @@ export function WorkerProfileView({
             </ProfileCard>
             <PremiumResume profile={draft} />
           </div>
+        )}
+        {tab === 'personal' && editable && (
+          <PersonalInfoCard
+            userId={draft.uid}
+            editable={editable}
+            seedFullName={draft.fullName}
+            seedPhone={draft.phoneNumber}
+            seedEmail={draft.email}
+          />
         )}
         {tab === 'settings' && (
           <ProfileCard title="Profil sozlamalari">
