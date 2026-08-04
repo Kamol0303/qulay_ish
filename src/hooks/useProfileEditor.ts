@@ -67,6 +67,7 @@ export function useProfileEditor(profile: Profile | null, refreshProfile: () => 
         isVerified: _iv,
         verificationStatus: _vs,
         personalInfo: _pi,
+        coreIndicators: _ci,
         ...payload
       } = draft;
 

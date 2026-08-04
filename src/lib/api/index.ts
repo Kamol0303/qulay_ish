@@ -1,6 +1,6 @@
 import { apiRequest, setAccessToken, clearAccessToken, toQuery } from './client';
 import { ensureArray } from './errors';
-import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost, WorkerPersonalInfo } from '../../types';
+import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost, WorkerPersonalInfo, WorkerCoreIndicators } from '../../types';
 
 export interface AuthResponse {
   accessToken: string;
@@ -26,6 +26,9 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     bio: u.bio as string | undefined,
     personalInfo: u.personalInfo
       ? (u.personalInfo as WorkerPersonalInfo)
+      : undefined,
+    coreIndicators: u.coreIndicators
+      ? (u.coreIndicators as WorkerCoreIndicators)
       : undefined,
     skills: Array.isArray(u.skills) ? (u.skills as string[]) : [],
     photoUrl: u.photoUrl as string | undefined,
@@ -156,8 +159,8 @@ export const api = {
       });
     },
     update(id: string, data: Partial<Profile>) {
-      // Never send personalInfo through generic profile patch
-      const { personalInfo: _pi, ...safe } = data;
+      // Never send personalInfo / coreIndicators through generic profile patch
+      const { personalInfo: _pi, coreIndicators: _ci, ...safe } = data;
       return apiRequest<Record<string, unknown>>(`/users/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(safe),
@@ -178,6 +181,20 @@ export const api = {
         {
           method: 'PUT',
           body: JSON.stringify({ personalInfo }),
+        },
+      );
+    },
+    getCoreIndicators(id: string) {
+      return apiRequest<{ coreIndicators: WorkerCoreIndicators | null }>(
+        `/users/${id}/core-indicators`,
+      );
+    },
+    updateCoreIndicators(id: string, coreIndicators: WorkerCoreIndicators) {
+      return apiRequest<{ coreIndicators: WorkerCoreIndicators | null }>(
+        `/users/${id}/core-indicators`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ coreIndicators }),
         },
       );
     },

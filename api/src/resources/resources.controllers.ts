@@ -6,6 +6,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { randomUUID } from 'crypto';
 import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
+import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util';
 
 type AuthUser = { userId: string; role: string };
 
@@ -119,10 +120,63 @@ export class UsersController {
     return { personalInfo: updated.personalInfo ?? null };
   }
 
+  /** Core indicators — readable on profile; writable by super_admin only */
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/core-indicators')
+  async getCoreIndicators(@Param('id') id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (user.role !== 'worker') {
+      throw new BadRequestException('Индикаторлар фақат ишчи учун');
+    }
+    return { coreIndicators: user.coreIndicators ?? null };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  @Put(':id/core-indicators')
+  async putCoreIndicators(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (user.role !== 'worker') {
+      throw new BadRequestException('Индикаторлар фақат ишчи учун');
+    }
+
+    const coreIndicators = sanitizeCoreIndicators(body.coreIndicators ?? body, {
+      userId: req.user.userId,
+      role: req.user.role,
+    });
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { coreIndicators: coreIndicators as any },
+    });
+
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'UPDATE_CORE_INDICATORS',
+        userId: req.user.userId,
+        details: {
+          targetUserId: id,
+          fields: Object.keys(coreIndicators),
+        },
+        type: 'info',
+      },
+    }).catch(() => undefined);
+
+    return { coreIndicators: updated.coreIndicators ?? null };
+  }
+
   @Get(':id')
   async get(@Param('id') id: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id } });
     // Public profiles never expose company docs or confidential personalInfo.
+    // coreIndicators are intentionally included for profile visibility.
     return toPublicUser(user as unknown as Record<string, unknown>);
   }
 
@@ -165,8 +219,8 @@ export class UsersController {
       }
     }
 
-    // personalInfo must go through dedicated endpoint (stricter validation + RBAC)
-    // Never accept it via generic PATCH (employers/admins cannot smuggle it in)
+    // personalInfo / coreIndicators must go through dedicated endpoints (stricter validation + RBAC)
+    // Never accept them via generic PATCH
 
     const updated = await this.prisma.user.update({ where: { id }, data: data as any });
     const includePrivate =
