@@ -87,7 +87,7 @@ export class OtpService {
     throw new BadRequestException('SMS yuborib bo\'lmadi. Birozdan keyin qayta urinib ko\'ring');
   }
 
-  /** POST /auth/send-otp — spec */
+  /** POST /auth/send-otp — SMS only when needed (prefer password auth; reset uses OTP) */
   async sendOtp(dto: SendOtpDto): Promise<{ success: true }> {
     const phone = this.normalizePhone(dto.phone);
     this.validateE164Phone(phone);
@@ -103,7 +103,8 @@ export class OtpService {
           : UserRole.worker
         : undefined;
 
-    let passwordHash: string | undefined;
+    let existingMeta: { passwordHash?: string; purpose?: string } | undefined;
+
     if (purpose === 'register') {
       const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
       if (existing) {
@@ -112,9 +113,17 @@ export class OtpService {
       if (!dto.password || dto.password.length < 8) {
         throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
       }
-      passwordHash = await bcrypt.hash(dto.password, 10);
+      existingMeta = { passwordHash: await bcrypt.hash(dto.password, 10) };
+    } else if (purpose === 'reset') {
+      const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
+      if (!existing) {
+        throw new BadRequestException(
+          'Bu telefon raqami ro\'yxatdan o\'tmagan. Avval ro\'yxatdan o\'ting.',
+        );
+      }
+      existingMeta = { purpose: 'reset' };
     } else {
-      // Login: unregistered phones must not receive OTP / enter the system
+      // Legacy login OTP: unregistered phones must not receive SMS
       const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
       if (!existing) {
         throw new BadRequestException(
@@ -129,7 +138,7 @@ export class OtpService {
     const codeHash = await this.hashCode(code);
 
     await this.prisma.otpSession.deleteMany({
-      where: { phone, verified: false },
+      where: { phone, verified: false, completed: false },
     });
 
     await this.prisma.otpSession.create({
@@ -144,7 +153,7 @@ export class OtpService {
         attempts: 0,
         verified: false,
         expiresAt,
-        metadata: passwordHash ? { passwordHash } : undefined,
+        metadata: existingMeta,
       },
     });
 
@@ -152,7 +161,13 @@ export class OtpService {
       const smsMeta = await this.devSms.sendOtpSms(phone, code, purpose);
       await this.prisma.otpSession.update({
         where: { id: sessionId },
-        data: { metadata: smsMeta },
+        data: {
+          metadata: {
+            ...(existingMeta || {}),
+            smsId: smsMeta.smsId,
+            requestId: smsMeta.requestId,
+          } as object,
+        },
       });
     } catch (err) {
       await this.prisma.otpSession.delete({ where: { id: sessionId } }).catch(() => undefined);
@@ -226,8 +241,19 @@ export class OtpService {
       data: { verified: true },
     });
 
-    let user = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
     const purpose = session.purpose || 'login';
+
+    // Password recovery: OTP proves phone ownership; do NOT issue a login session.
+    // Client then calls POST /auth/reset-password with the new password.
+    if (purpose === 'reset') {
+      return {
+        success: true,
+        purpose: 'reset' as const,
+        resetAllowed: true,
+      };
+    }
+
+    let user = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
 
     if (!user) {
       // Never auto-create accounts on login OTP
@@ -273,33 +299,95 @@ export class OtpService {
     };
   }
 
+  /** After reset OTP is verified — set a new password (no auto-login). */
+  async resetPassword(data: { phone: string; newPassword: string }) {
+    const phone = this.normalizePhone(data.phone);
+    this.validateE164Phone(phone);
+
+    if (!data.newPassword || data.newPassword.length < 8) {
+      throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
+    }
+
+    const session = await this.prisma.otpSession.findFirst({
+      where: {
+        phone,
+        purpose: 'reset',
+        verified: true,
+        completed: false,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!session) {
+      throw new BadRequestException(
+        'Avval telefon raqamingizni OTP orqali tasdiqlang',
+      );
+    }
+
+    if (session.expiresAt < new Date()) {
+      await this.prisma.otpSession.delete({ where: { id: session.id } }).catch(() => undefined);
+      throw new GoneException('OTP muddati tugagan. Qayta so\'rang');
+    }
+
+    const user = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
+    if (!user) {
+      throw new NotFoundException('Foydalanuvchi topilmadi');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await bcrypt.hash(data.newPassword, 10) },
+    });
+
+    await this.prisma.otpSession.update({
+      where: { id: session.id },
+      data: { completed: true },
+    });
+    await this.prisma.otpSession
+      .deleteMany({ where: { phone, purpose: 'reset' } })
+      .catch(() => undefined);
+
+    return { success: true as const, message: 'Parol muvaffaqiyatli yangilandi' };
+  }
+
   async registerWithPassword(data: {
-    email: string;
+    email?: string;
     password: string;
     fullName: string;
     role: 'worker' | 'employer' | UserRole;
+    phone?: string;
     phoneNumber?: string;
   }) {
     if (!data.password || data.password.length < 8) {
       throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
     }
     const role = String(data.role) === 'employer' ? UserRole.employer : UserRole.worker;
-    const email = data.email.trim().toLowerCase();
     const fullName = data.fullName.trim();
-    const phoneNumber = data.phoneNumber
-      ? this.normalizePhone(data.phoneNumber)
-      : undefined;
-    if (phoneNumber) this.validateE164Phone(phoneNumber);
+    if (fullName.length < 2) {
+      throw new BadRequestException('Ism kamida 2 ta belgidan iborat bo\'lishi kerak');
+    }
+
+    const rawPhone = data.phoneNumber || data.phone;
+    if (!rawPhone) {
+      throw new BadRequestException('Telefon raqami majburiy');
+    }
+    const phoneNumber = this.normalizePhone(rawPhone);
+    this.validateE164Phone(phoneNumber);
+
+    const email = (data.email?.trim() || `${phoneNumber.replace(/\D/g, '')}@qulayish.local`).toLowerCase();
 
     const existing = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email },
-          ...(phoneNumber ? [{ phoneNumber }] : []),
-        ],
+        OR: [{ email }, { phoneNumber }],
       },
     });
-    if (existing) throw new BadRequestException('Allaqachon ro\'yxatdan o\'tgan');
+    if (existing) {
+      throw new BadRequestException(
+        existing.phoneNumber === phoneNumber
+          ? 'Bu telefon raqami allaqachon ro\'yxatdan o\'tgan'
+          : 'Allaqachon ro\'yxatdan o\'tgan',
+      );
+    }
 
     const uid = randomUUID().replace(/-/g, '').slice(0, 28);
     const user = await this.prisma.user.create({

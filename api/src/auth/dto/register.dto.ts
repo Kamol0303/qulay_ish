@@ -1,9 +1,21 @@
-import { IsEmail, IsIn, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, Matches, MinLength, ValidateIf } from 'class-validator';
 
-/** Public password registration — only worker/employer */
+/** Public password registration — phone + password; only worker/employer */
 export class RegisterDto {
-  @IsEmail({}, { message: 'Email noto\'g\'ri' })
-  email!: string;
+  /** Preferred field from the auth UI */
+  @ValidateIf((o: RegisterDto) => !o.phoneNumber)
+  @IsString()
+  @Matches(/^\+998\d{9}$/, {
+    message: 'Telefon raqami +998XXXXXXXXX formatida bo\'lishi kerak',
+  })
+  phone?: string;
+
+  @ValidateIf((o: RegisterDto) => !o.phone)
+  @IsString()
+  @Matches(/^\+998\d{9}$/, {
+    message: 'Telefon raqami +998XXXXXXXXX formatida bo\'lishi kerak',
+  })
+  phoneNumber?: string;
 
   @IsString()
   @MinLength(8, { message: 'Parol kamida 8 ta belgidan iborat bo\'lishi kerak' })
@@ -17,9 +29,6 @@ export class RegisterDto {
   role!: 'worker' | 'employer';
 
   @IsOptional()
-  @IsString()
-  @Matches(/^\+998\d{9}$/, {
-    message: 'Telefon raqami +998XXXXXXXXX formatida bo\'lishi kerak',
-  })
-  phoneNumber?: string;
+  @IsEmail({}, { message: 'Email noto\'g\'ri' })
+  email?: string;
 }

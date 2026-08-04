@@ -20,7 +20,8 @@ const debugError = (label: string, error?: unknown) => {
   }
 };
 
-type AuthStep = 'phone' | 'otp' | 'complete';
+type AuthMode = 'login' | 'register' | 'forgot';
+type AuthStep = 'form' | 'otp' | 'newPassword' | 'complete';
 
 type AuthState = {
   phone: string;
@@ -38,6 +39,7 @@ type AuthState = {
     phone?: string;
     password?: string;
     confirmPassword?: string;
+    otp?: string;
   };
 };
 
@@ -61,14 +63,16 @@ export default function AuthPage() {
   const { user, profile, loading: authLoading, userRole, setAuthProfile } = useAuth();
   const { t } = useTranslation();
 
-  const mode = useMemo(() => {
+  const mode = useMemo<AuthMode>(() => {
     const params = new URLSearchParams(location.search);
     const value = params.get('mode');
-    return value === 'login' ? 'login' : 'register';
+    if (value === 'login') return 'login';
+    if (value === 'forgot') return 'forgot';
+    return 'register';
   }, [location.search]);
 
   const [state, setState] = useState<AuthState>(initialState);
-  const [step, setStep] = useState<AuthStep>('phone');
+  const [step, setStep] = useState<AuthStep>('form');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -76,13 +80,22 @@ export default function AuthPage() {
     setState((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  // Valid 7h SMS session → skip OTP form and go straight to dashboard
+  // Persisted JWT session → skip auth form and go to dashboard
   useEffect(() => {
     if (authLoading) return;
+    if (mode === 'forgot') return;
     if (!user || !profile || !profile.role) return;
     const redirectPath = getRoleRedirectPath(userRole);
     navigate(redirectPath, { replace: true });
-  }, [authLoading, user, profile, userRole, navigate]);
+  }, [authLoading, user, profile, userRole, navigate, mode]);
+
+  // Reset form when switching modes via URL
+  useEffect(() => {
+    setState(initialState);
+    setStep('form');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  }, [mode]);
 
   useEffect(() => {
     if (state.resendSeconds <= 0) return;
@@ -101,23 +114,69 @@ export default function AuthPage() {
 
   const handleGoBack = useCallback(() => {
     clearMessages();
-    if (step === 'otp') {
-      setStep('phone');
-      setPartialState({ otp: '', resendSeconds: 0 });
-    } else if (step === 'complete') {
-      setStep('phone');
-      setPartialState({ phone: '', otp: '', resendSeconds: 0 });
+    if (step === 'otp' || step === 'newPassword') {
+      setStep('form');
+      setPartialState({ otp: '', password: '', confirmPassword: '', resendSeconds: 0 });
+      return;
     }
-  }, [step, clearMessages, setPartialState]);
-
-  const requestOtp = useCallback(async () => {
-    const fieldErrors: AuthState['fieldErrors'] = {};
-    const phoneValidation = validatePhoneNumber(state.phone);
-    if (!phoneValidation.isValid) {
-      fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
+    if (mode === 'forgot') {
+      navigate('/auth?mode=login');
     }
+  }, [step, mode, clearMessages, setPartialState, navigate]);
 
-    if (mode === 'register') {
+  const handleLogin = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      clearMessages();
+
+      const fieldErrors: AuthState['fieldErrors'] = {};
+      const phoneValidation = validatePhoneNumber(state.phone);
+      if (!phoneValidation.isValid) {
+        fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
+      }
+      const passwordValidation = validatePassword(state.password);
+      if (!passwordValidation.isValid) {
+        fieldErrors.password = passwordValidation.error || '';
+      }
+      if (Object.keys(fieldErrors).length > 0) {
+        setPartialState({
+          fieldErrors,
+          error: Object.values(fieldErrors)[0] || 'Formani to\'ldiring',
+        });
+        return;
+      }
+
+      setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
+      try {
+        const result = await authService.loginWithPassword(state.phone, state.password);
+        if (!result.success || !result.profile) {
+          setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+          return;
+        }
+        setAuthProfile(result.profile);
+        setPartialState({
+          loading: false,
+          success: 'Tizimga muvaffaqiyatli kirdingiz.',
+        });
+        setStep('complete');
+      } catch (err) {
+        debugError('Login Error', err);
+        setPartialState({ loading: false, error: t('auth.unexpected_error') });
+      }
+    },
+    [state.phone, state.password, clearMessages, setPartialState, t, setAuthProfile],
+  );
+
+  const handleRegister = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      clearMessages();
+
+      const fieldErrors: AuthState['fieldErrors'] = {};
+      const phoneValidation = validatePhoneNumber(state.phone);
+      if (!phoneValidation.isValid) {
+        fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
+      }
       const fullNameValidation = validateFullName(state.fullName);
       if (!fullNameValidation.isValid) {
         fieldErrors.fullName = fullNameValidation.error || '';
@@ -130,38 +189,70 @@ export default function AuthPage() {
       if (!confirmValidation.isValid) {
         fieldErrors.confirmPassword = confirmValidation.error || '';
       }
-    }
+      if (Object.keys(fieldErrors).length > 0) {
+        setPartialState({
+          fieldErrors,
+          error: Object.values(fieldErrors)[0] || 'Formani to\'ldiring',
+        });
+        return;
+      }
 
-    if (Object.keys(fieldErrors).length > 0) {
+      setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
+      try {
+        const result = await authService.registerWithPassword({
+          phone: state.phone,
+          password: state.password,
+          fullName: state.fullName.trim(),
+          role: state.selectedRole,
+        });
+        if (!result.success || !result.profile) {
+          setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+          return;
+        }
+        setAuthProfile(result.profile);
+        setPartialState({
+          loading: false,
+          success: 'Ro\'yxatdan o\'tish muvaffaqiyatli.',
+        });
+        setStep('complete');
+      } catch (err) {
+        debugError('Register Error', err);
+        setPartialState({ loading: false, error: t('auth.unexpected_error') });
+      }
+    },
+    [
+      state.phone,
+      state.password,
+      state.confirmPassword,
+      state.fullName,
+      state.selectedRole,
+      clearMessages,
+      setPartialState,
+      t,
+      setAuthProfile,
+    ],
+  );
+
+  const requestResetOtp = useCallback(async () => {
+    const phoneValidation = validatePhoneNumber(state.phone);
+    if (!phoneValidation.isValid) {
       setPartialState({
-        fieldErrors,
-        error: Object.values(fieldErrors)[0] || 'Formani to\'ldiring',
+        fieldErrors: { phone: phoneValidation.error || 'Telefon raqami noto\'g\'ri.' },
+        error: phoneValidation.error || 'Telefon raqami noto\'g\'ri.',
       });
       return false;
     }
 
     setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
-
     try {
-      const result =
-        mode === 'register'
-          ? await authService.sendOtp({
-              phone: state.phone,
-              purpose: 'register',
-              fullName: state.fullName.trim(),
-              role: state.selectedRole,
-              password: state.password,
-            })
-          : await authService.sendOtp({
-              phone: state.phone,
-              purpose: 'login',
-            });
-
+      const result = await authService.sendOtp({
+        phone: state.phone,
+        purpose: 'reset',
+      });
       if (!result.success) {
         setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
         return false;
       }
-
       setPartialState({
         loading: false,
         success: 'OTP kodi SMS orqali yuborildi.',
@@ -170,37 +261,28 @@ export default function AuthPage() {
       setStep('otp');
       return true;
     } catch (err) {
-      debugError('OTP Request Error]', err);
+      debugError('Reset OTP Error', err);
       setPartialState({ loading: false, error: t('auth.unexpected_error') });
       return false;
     }
-  }, [
-    state.phone,
-    state.fullName,
-    state.password,
-    state.confirmPassword,
-    state.selectedRole,
-    mode,
-    setPartialState,
-    t,
-  ]);
+  }, [state.phone, setPartialState, t]);
 
-  const handleRequestOTP = useCallback(
+  const handleForgotPhone = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       clearMessages();
-      await requestOtp();
+      await requestResetOtp();
     },
-    [clearMessages, requestOtp]
+    [clearMessages, requestResetOtp],
   );
 
   const handleResendOTP = useCallback(async () => {
     if (state.resendSeconds > 0 || state.loading) return;
     clearMessages();
-    await requestOtp();
-  }, [state.resendSeconds, state.loading, clearMessages, requestOtp]);
+    await requestResetOtp();
+  }, [state.resendSeconds, state.loading, clearMessages, requestResetOtp]);
 
-  const handleVerifyOTP = useCallback(
+  const handleVerifyResetOtp = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       clearMessages();
@@ -211,32 +293,93 @@ export default function AuthPage() {
       }
 
       setPartialState({ loading: true });
-
       try {
         const result = await authService.verifyOtp(state.phone, state.otp);
-
-        if (!result.success || !result.profile) {
+        if (!result.success || !result.resetAllowed) {
           setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
           return;
         }
-
-        setAuthProfile(result.profile);
-
         setPartialState({
           loading: false,
-          success: mode === 'login' ? 'Tizimga muvaffaqiyatli kirdingiz.' : 'Ro\'yxatdan o\'tish muvaffaqiyatli.',
+          success: 'Telefon tasdiqlandi. Yangi parol kiriting.',
+          password: '',
+          confirmPassword: '',
         });
-        setStep('complete');
+        setStep('newPassword');
       } catch (err) {
-        debugError('OTP Verify Error]', err);
+        debugError('Reset OTP Verify Error', err);
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.otp, state.phone, mode, clearMessages, setPartialState, t, setAuthProfile]
+    [state.otp, state.phone, clearMessages, setPartialState, t],
   );
+
+  const handleResetPassword = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      clearMessages();
+
+      const fieldErrors: AuthState['fieldErrors'] = {};
+      const passwordValidation = validatePassword(state.password);
+      if (!passwordValidation.isValid) {
+        fieldErrors.password = passwordValidation.error || '';
+      }
+      const confirmValidation = validatePasswordConfirm(state.password, state.confirmPassword);
+      if (!confirmValidation.isValid) {
+        fieldErrors.confirmPassword = confirmValidation.error || '';
+      }
+      if (Object.keys(fieldErrors).length > 0) {
+        setPartialState({
+          fieldErrors,
+          error: Object.values(fieldErrors)[0] || 'Formani to\'ldiring',
+        });
+        return;
+      }
+
+      setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
+      try {
+        const result = await authService.resetPassword(state.phone, state.password);
+        if (!result.success) {
+          setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+          return;
+        }
+        setPartialState({ loading: false });
+        navigate('/auth?mode=login', {
+          replace: true,
+          state: { success: 'Parol yangilandi. Endi yangi parol bilan kiring.' },
+        });
+      } catch (err) {
+        debugError('Reset Password Error', err);
+        setPartialState({ loading: false, error: t('auth.unexpected_error') });
+      }
+    },
+    [state.phone, state.password, state.confirmPassword, clearMessages, setPartialState, t, navigate],
+  );
+
+  // Show one-shot success flash from forgot-password redirect
+  useEffect(() => {
+    const flash = (location.state as { success?: string } | null)?.success;
+    if (!flash) return;
+    setPartialState({ success: flash });
+    navigate(location.pathname + location.search, { replace: true, state: {} });
+  }, [location.state, location.pathname, location.search, navigate, setPartialState]);
 
   const showDebugBanner = import.meta.env.VITE_SHOW_DEBUG_BANNER === 'true';
   const formattedPhone = authService.normalizePhoneNumber(state.phone);
+
+  const title =
+    mode === 'login' ? 'Kirish' : mode === 'forgot' ? 'Parolni tiklash' : 'Roʻyxatdan oʻtish';
+
+  const subtitle = (() => {
+    if (step === 'otp') return 'SMS orqali kelgan OTP kodini kiriting';
+    if (step === 'newPassword') return 'Yangi parol yarating';
+    if (step === 'complete') return 'Tayyor!';
+    if (mode === 'login') return 'Telefon raqam va parol orqali kirish';
+    if (mode === 'forgot') return 'Telefon raqamingizni kiriting — OTP faqat tiklash uchun';
+    return 'Telefon raqamingiz orqali roʻyxatdan oʻtish';
+  })();
+
+  const showBack = step !== 'form' || mode === 'forgot';
 
   return (
     <>
@@ -248,7 +391,7 @@ export default function AuthPage() {
       <div className={`min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 flex items-center justify-center px-4 py-8 ${showDebugBanner ? 'pt-16' : 'pt-8'}`}>
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-6 border border-gray-100">
-            {step !== 'phone' && (
+            {showBack && (
               <button
                 type="button"
                 onClick={handleGoBack}
@@ -259,53 +402,13 @@ export default function AuthPage() {
             )}
 
             <div className="text-center space-y-2">
-              <h1 className="text-3xl font-bold text-gray-900">
-                {mode === 'login' ? 'Kirish' : 'Roʻyxatdan oʻtish'}
-              </h1>
-              <p className="text-gray-600">
-                {step === 'phone' && (mode === 'login' ? 'Telefon raqamingiz orqali kirish' : 'Telefon raqamingiz orqali roʻyxatdan oʻtish')}
-                {step === 'otp' && 'SMS orqali kelgan OTP kodini kiriting'}
-                {step === 'complete' && 'Tayyor!'}
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+              <p className="text-gray-600">{subtitle}</p>
             </div>
 
-            {step === 'phone' && (
-              <form onSubmit={handleRequestOTP} className="space-y-5" noValidate>
-                {mode === 'register' && (
-                  <div>
-                    <label htmlFor="auth-fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                      Toʻliq ismingiz
-                    </label>
-                    <input
-                      id="auth-fullName"
-                      type="text"
-                      autoComplete="name"
-                      maxLength={100}
-                      value={state.fullName}
-                      onChange={(e) => {
-                        clearMessages();
-                        const fullName = e.target.value;
-                        const v = validateFullName(fullName);
-                        setPartialState({
-                          fullName,
-                          fieldErrors: {
-                            ...state.fieldErrors,
-                            fullName: fullName ? (v.isValid ? undefined : v.error) : undefined,
-                          },
-                        });
-                      }}
-                      placeholder="Ism Familiya"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                      disabled={state.loading}
-                      aria-invalid={Boolean(state.fieldErrors.fullName)}
-                      required={mode === 'register'}
-                    />
-                    {state.fieldErrors.fullName && (
-                      <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.fullName}</p>
-                    )}
-                  </div>
-                )}
-
+            {/* LOGIN */}
+            {mode === 'login' && step === 'form' && (
+              <form onSubmit={handleLogin} className="space-y-5" noValidate>
                 <div>
                   <label htmlFor="auth-phone" className="block text-sm font-medium text-gray-700 mb-1">
                     Telefon raqami
@@ -339,148 +442,335 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                {mode === 'register' && (
-                  <>
-                    <div>
-                      <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">
-                        Parol
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="auth-password"
-                          type={showPassword ? 'text' : 'password'}
-                          autoComplete="new-password"
-                          value={state.password}
-                          onChange={(e) => {
-                            clearMessages();
-                            const password = e.target.value;
-                            const v = validatePassword(password);
-                            const c = validatePasswordConfirm(password, state.confirmPassword);
-                            setPartialState({
-                              password,
-                              fieldErrors: {
-                                ...state.fieldErrors,
-                                password: password ? (v.isValid ? undefined : v.error) : undefined,
-                                confirmPassword: state.confirmPassword
-                                  ? (c.isValid ? undefined : c.error)
-                                  : state.fieldErrors.confirmPassword,
-                              },
-                            });
-                          }}
-                          placeholder="Kamida 8 ta belgi"
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                          disabled={state.loading}
-                          minLength={8}
-                          maxLength={128}
-                          aria-invalid={Boolean(state.fieldErrors.password)}
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((v) => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
-                        >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                      {state.fieldErrors.password ? (
-                        <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
-                      ) : (
-                        <p className="mt-1 text-xs text-gray-500">Kamida 8 ta belgi</p>
-                      )}
-                    </div>
+                <div>
+                  <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Parol
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      value={state.password}
+                      onChange={(e) => {
+                        clearMessages();
+                        const password = e.target.value;
+                        const v = validatePassword(password);
+                        setPartialState({
+                          password,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            password: password ? (v.isValid ? undefined : v.error) : undefined,
+                          },
+                        });
+                      }}
+                      placeholder="Parolingizni kiriting"
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      minLength={8}
+                      maxLength={128}
+                      aria-invalid={Boolean(state.fieldErrors.password)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {state.fieldErrors.password && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
+                  )}
+                </div>
 
-                    <div>
-                      <label htmlFor="auth-confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                        Parolni tasdiqlang
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="auth-confirmPassword"
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          autoComplete="new-password"
-                          value={state.confirmPassword}
-                          onChange={(e) => {
-                            clearMessages();
-                            const confirmPassword = e.target.value;
-                            const c = validatePasswordConfirm(state.password, confirmPassword);
-                            setPartialState({
-                              confirmPassword,
-                              fieldErrors: {
-                                ...state.fieldErrors,
-                                confirmPassword: confirmPassword
-                                  ? (c.isValid ? undefined : c.error)
-                                  : undefined,
-                              },
-                            });
-                          }}
-                          placeholder="Parolni qayta kiriting"
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                          disabled={state.loading}
-                          minLength={8}
-                          maxLength={128}
-                          aria-invalid={Boolean(state.fieldErrors.confirmPassword)}
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword((v) => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          aria-label={showConfirmPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
-                        >
-                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                      {state.fieldErrors.confirmPassword && (
-                        <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.confirmPassword}</p>
-                      )}
-                    </div>
+                <div className="flex justify-end -mt-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/auth?mode=forgot')}
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Parolni unutdingizmi?
+                  </button>
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Rolni tanlang</label>
-                      <div className="grid grid-cols-2 gap-3" role="group" aria-label="Rolni tanlang">
-                        <button
-                          type="button"
-                          onClick={() => setPartialState({ selectedRole: 'worker' })}
-                          aria-pressed={state.selectedRole === 'worker'}
-                          className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                            state.selectedRole === 'worker'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                          }`}
-                        >
-                          <User size={18} /> Ishchi
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPartialState({ selectedRole: 'employer' })}
-                          aria-pressed={state.selectedRole === 'employer'}
-                          className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                            state.selectedRole === 'employer'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                          }`}
-                        >
-                          <Mail size={18} /> Ish beruvchi
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
+                <button
+                  type="submit"
+                  disabled={state.loading || state.password.length < 8}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                >
+                  {state.loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader size={18} className="animate-spin" aria-hidden /> Kirilmoqda...
+                    </span>
+                  ) : (
+                    'Kirish'
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* REGISTER */}
+            {mode === 'register' && step === 'form' && (
+              <form onSubmit={handleRegister} className="space-y-5" noValidate>
+                <div>
+                  <label htmlFor="auth-fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                    Toʻliq ismingiz
+                  </label>
+                  <input
+                    id="auth-fullName"
+                    type="text"
+                    autoComplete="name"
+                    maxLength={100}
+                    value={state.fullName}
+                    onChange={(e) => {
+                      clearMessages();
+                      const fullName = e.target.value;
+                      const v = validateFullName(fullName);
+                      setPartialState({
+                        fullName,
+                        fieldErrors: {
+                          ...state.fieldErrors,
+                          fullName: fullName ? (v.isValid ? undefined : v.error) : undefined,
+                        },
+                      });
+                    }}
+                    placeholder="Ism Familiya"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                    disabled={state.loading}
+                    aria-invalid={Boolean(state.fieldErrors.fullName)}
+                    required
+                  />
+                  {state.fieldErrors.fullName && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.fullName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="auth-reg-phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefon raqami
+                  </label>
+                  <input
+                    id="auth-reg-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    value={state.phone}
+                    onChange={(e) => {
+                      clearMessages();
+                      const phone = formatPhoneNumber(e.target.value);
+                      const v = validatePhoneNumber(phone);
+                      setPartialState({
+                        phone,
+                        fieldErrors: {
+                          ...state.fieldErrors,
+                          phone: phone ? (v.isValid ? undefined : v.error) : undefined,
+                        },
+                      });
+                    }}
+                    placeholder="+998 90 123 45 67"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                    disabled={state.loading}
+                    aria-invalid={Boolean(state.fieldErrors.phone)}
+                    required
+                  />
+                  {state.fieldErrors.phone && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.phone}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="auth-reg-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Parol
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-reg-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={state.password}
+                      onChange={(e) => {
+                        clearMessages();
+                        const password = e.target.value;
+                        const v = validatePassword(password);
+                        const c = validatePasswordConfirm(password, state.confirmPassword);
+                        setPartialState({
+                          password,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            password: password ? (v.isValid ? undefined : v.error) : undefined,
+                            confirmPassword: state.confirmPassword
+                              ? (c.isValid ? undefined : c.error)
+                              : state.fieldErrors.confirmPassword,
+                          },
+                        });
+                      }}
+                      placeholder="Kamida 8 ta belgi"
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      minLength={8}
+                      maxLength={128}
+                      aria-invalid={Boolean(state.fieldErrors.password)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {state.fieldErrors.password ? (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">Kamida 8 ta belgi</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="auth-confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    Parolni tasdiqlang
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={state.confirmPassword}
+                      onChange={(e) => {
+                        clearMessages();
+                        const confirmPassword = e.target.value;
+                        const c = validatePasswordConfirm(state.password, confirmPassword);
+                        setPartialState({
+                          confirmPassword,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            confirmPassword: confirmPassword
+                              ? (c.isValid ? undefined : c.error)
+                              : undefined,
+                          },
+                        });
+                      }}
+                      placeholder="Parolni qayta kiriting"
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      minLength={8}
+                      maxLength={128}
+                      aria-invalid={Boolean(state.fieldErrors.confirmPassword)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      aria-label={showConfirmPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {state.fieldErrors.confirmPassword && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.confirmPassword}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rolni tanlang</label>
+                  <div className="grid grid-cols-2 gap-3" role="group" aria-label="Rolni tanlang">
+                    <button
+                      type="button"
+                      onClick={() => setPartialState({ selectedRole: 'worker' })}
+                      aria-pressed={state.selectedRole === 'worker'}
+                      className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                        state.selectedRole === 'worker'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      }`}
+                    >
+                      <User size={18} /> Ishchi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPartialState({ selectedRole: 'employer' })}
+                      aria-pressed={state.selectedRole === 'employer'}
+                      className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                        state.selectedRole === 'employer'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Mail size={18} /> Ish beruvchi
+                    </button>
+                  </div>
+                </div>
 
                 <button
                   type="submit"
                   disabled={
                     state.loading ||
-                    (mode === 'register' &&
-                      (state.password.length < 8 || state.password !== state.confirmPassword))
+                    state.password.length < 8 ||
+                    state.password !== state.confirmPassword
                   }
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 >
                   {state.loading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <Loader size={18} className="animate-spin" aria-hidden /> Yuborilmoqda...
+                      <Loader size={18} className="animate-spin" aria-hidden /> Saqlanmoqda...
+                    </span>
+                  ) : (
+                    'Roʻyxatdan oʻtish'
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* FORGOT — phone */}
+            {mode === 'forgot' && step === 'form' && (
+              <form onSubmit={handleForgotPhone} className="space-y-5" noValidate>
+                <div>
+                  <label htmlFor="auth-forgot-phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefon raqami
+                  </label>
+                  <input
+                    id="auth-forgot-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    value={state.phone}
+                    onChange={(e) => {
+                      clearMessages();
+                      const phone = formatPhoneNumber(e.target.value);
+                      const v = validatePhoneNumber(phone);
+                      setPartialState({
+                        phone,
+                        fieldErrors: {
+                          ...state.fieldErrors,
+                          phone: phone ? (v.isValid ? undefined : v.error) : undefined,
+                        },
+                      });
+                    }}
+                    placeholder="+998 90 123 45 67"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                    disabled={state.loading}
+                    aria-invalid={Boolean(state.fieldErrors.phone)}
+                    required
+                  />
+                  {state.fieldErrors.phone && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.phone}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={state.loading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200"
+                >
+                  {state.loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader size={18} className="animate-spin" /> Yuborilmoqda...
                     </span>
                   ) : (
                     'OTP kodini olish'
@@ -489,8 +779,9 @@ export default function AuthPage() {
               </form>
             )}
 
-            {step === 'otp' && (
-              <form onSubmit={handleVerifyOTP} className="space-y-5">
+            {/* FORGOT — OTP */}
+            {mode === 'forgot' && step === 'otp' && (
+              <form onSubmit={handleVerifyResetOtp} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     OTP kodi (6 raqam)
@@ -544,33 +835,153 @@ export default function AuthPage() {
               </form>
             )}
 
-            {step === 'phone' && (
+            {/* FORGOT — new password */}
+            {mode === 'forgot' && step === 'newPassword' && (
+              <form onSubmit={handleResetPassword} className="space-y-5" noValidate>
+                <div>
+                  <label htmlFor="auth-new-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Yangi parol
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-new-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={state.password}
+                      onChange={(e) => {
+                        clearMessages();
+                        const password = e.target.value;
+                        const v = validatePassword(password);
+                        const c = validatePasswordConfirm(password, state.confirmPassword);
+                        setPartialState({
+                          password,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            password: password ? (v.isValid ? undefined : v.error) : undefined,
+                            confirmPassword: state.confirmPassword
+                              ? (c.isValid ? undefined : c.error)
+                              : state.fieldErrors.confirmPassword,
+                          },
+                        });
+                      }}
+                      placeholder="Kamida 8 ta belgi"
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      minLength={8}
+                      maxLength={128}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg"
+                      aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {state.fieldErrors.password ? (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">Kamida 8 ta belgi</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="auth-new-confirm" className="block text-sm font-medium text-gray-700 mb-1">
+                    Parolni tasdiqlang
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-new-confirm"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={state.confirmPassword}
+                      onChange={(e) => {
+                        clearMessages();
+                        const confirmPassword = e.target.value;
+                        const c = validatePasswordConfirm(state.password, confirmPassword);
+                        setPartialState({
+                          confirmPassword,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            confirmPassword: confirmPassword
+                              ? (c.isValid ? undefined : c.error)
+                              : undefined,
+                          },
+                        });
+                      }}
+                      placeholder="Parolni qayta kiriting"
+                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      minLength={8}
+                      maxLength={128}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg"
+                      aria-label={showConfirmPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {state.fieldErrors.confirmPassword && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.confirmPassword}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={
+                    state.loading ||
+                    state.password.length < 8 ||
+                    state.password !== state.confirmPassword
+                  }
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200"
+                >
+                  {state.loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader size={18} className="animate-spin" /> Saqlanmoqda...
+                    </span>
+                  ) : (
+                    'Parolni saqlash'
+                  )}
+                </button>
+              </form>
+            )}
+
+            {step === 'form' && (
               <div className="text-center text-sm text-gray-500">
                 {mode === 'login' ? (
                   <>
                     Akkauntingiz yo&apos;q?{' '}
                     <button
                       type="button"
-                      onClick={() => {
-                        setStep('phone');
-                        setState(initialState);
-                        navigate('/auth?mode=register');
-                      }}
+                      onClick={() => navigate('/auth?mode=register')}
                       className="font-semibold text-blue-600 hover:text-blue-700"
                     >
                       Roʻyxatdan oʻtish
                     </button>
                   </>
-                ) : (
+                ) : mode === 'register' ? (
                   <>
                     Allaqachon akkauntingiz bor?{' '}
                     <button
                       type="button"
-                      onClick={() => {
-                        setStep('phone');
-                        setState(initialState);
-                        navigate('/auth?mode=login');
-                      }}
+                      onClick={() => navigate('/auth?mode=login')}
+                      className="font-semibold text-blue-600 hover:text-blue-700"
+                    >
+                      Kirish
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Parolni eslaysizmi?{' '}
+                    <button
+                      type="button"
+                      onClick={() => navigate('/auth?mode=login')}
                       className="font-semibold text-blue-600 hover:text-blue-700"
                     >
                       Kirish

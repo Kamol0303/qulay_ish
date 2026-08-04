@@ -9,6 +9,8 @@ export interface AuthResult {
   profile?: Profile;
   user?: Profile;
   uid?: string;
+  resetAllowed?: boolean;
+  purpose?: string;
 }
 
 function mapApiError(error: unknown): string {
@@ -34,9 +36,49 @@ export function normalizePhoneNumber(phone: string): string {
 export const authService = {
   normalizePhoneNumber,
 
+  async loginWithPassword(phone: string, password: string): Promise<AuthResult> {
+    try {
+      const res = await api.auth.login(normalizePhoneNumber(phone), password);
+      return {
+        success: true,
+        accessToken: res.accessToken,
+        profile: res.user,
+        user: res.user,
+        uid: res.user.uid,
+      };
+    } catch (e) {
+      return { success: false, error: mapApiError(e) };
+    }
+  },
+
+  async registerWithPassword(params: {
+    phone: string;
+    password: string;
+    fullName: string;
+    role: 'worker' | 'employer';
+  }): Promise<AuthResult> {
+    try {
+      const res = await api.auth.register({
+        phone: normalizePhoneNumber(params.phone),
+        password: params.password,
+        fullName: params.fullName.trim(),
+        role: params.role,
+      });
+      return {
+        success: true,
+        accessToken: res.accessToken,
+        profile: res.user,
+        user: res.user,
+        uid: res.user.uid,
+      };
+    } catch (e) {
+      return { success: false, error: mapApiError(e) };
+    }
+  },
+
   async sendOtp(params: {
     phone: string;
-    purpose?: 'login' | 'register';
+    purpose?: 'login' | 'register' | 'reset';
     fullName?: string;
     role?: 'worker' | 'employer';
     password?: string;
@@ -59,6 +101,12 @@ export const authService = {
   async verifyOtp(phone: string, code: string): Promise<AuthResult> {
     try {
       const res = await api.auth.verifyOtp(normalizePhoneNumber(phone), code);
+      if (res.resetAllowed || res.purpose === 'reset') {
+        return { success: true, resetAllowed: true, purpose: 'reset' };
+      }
+      if (!res.user) {
+        return { success: false, error: 'Autentifikatsiya javobi noto\'g\'ri' };
+      }
       return {
         success: true,
         accessToken: res.accessToken,
@@ -66,6 +114,15 @@ export const authService = {
         user: res.user,
         uid: res.user.uid,
       };
+    } catch (e) {
+      return { success: false, error: mapApiError(e) };
+    }
+  },
+
+  async resetPassword(phone: string, newPassword: string): Promise<AuthResult> {
+    try {
+      await api.auth.resetPassword(normalizePhoneNumber(phone), newPassword);
+      return { success: true };
     } catch (e) {
       return { success: false, error: mapApiError(e) };
     }

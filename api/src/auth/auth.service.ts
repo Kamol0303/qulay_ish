@@ -17,21 +17,44 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
+  private normalizePhoneLookup(input: string): string[] {
+    const trimmed = input.trim();
+    const digits = trimmed.replace(/\D/g, '');
+    const variants = new Set<string>([trimmed]);
+    if (digits.startsWith('998') && digits.length === 12) {
+      variants.add(`+${digits}`);
+    }
+    if (digits.length === 9) {
+      variants.add(`+998${digits}`);
+    }
+    if (digits.length === 12) {
+      variants.add(digits);
+    }
+    return [...variants];
+  }
+
   async validateUser(emailOrPhone: string, password: string): Promise<User> {
     const normalized = emailOrPhone.trim();
+    const phoneVariants = this.normalizePhoneLookup(normalized);
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
           { email: normalized },
-          { phoneNumber: normalized },
+          { email: normalized.toLowerCase() },
+          ...phoneVariants.map((phoneNumber) => ({ phoneNumber })),
         ],
       },
     });
     if (!user?.passwordHash) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Telefon yoki parol noto\'g\'ri');
+    }
+    if (user.isBlocked) {
+      if (!user.blockUntil || user.blockUntil > new Date()) {
+        throw new UnauthorizedException('Hisobingiz bloklangan');
+      }
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) throw new UnauthorizedException('Invalid credentials');
+    if (!ok) throw new UnauthorizedException('Telefon yoki parol noto\'g\'ri');
     return user;
   }
 

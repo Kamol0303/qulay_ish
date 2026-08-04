@@ -6,7 +6,10 @@ export const OTP_RATE_LIMIT_MS = 60 * 1000;
 export const UZ_PHONE_E164 = /^\+998\d{9}$/;
 
 /** Eskiz moderatsiyadan o'tgan shablon — matn shablon bilan 1:1 mos bo'lishi kerak */
-export function buildOtpSmsMessage(code: string, _purpose?: 'login' | 'register'): string {
-  // my.eskiz.uz da tasdiqlangan shablon (login/register uchun hozircha bir xil)
+export function buildOtpSmsMessage(
+  code: string,
+  _purpose?: 'login' | 'register' | 'reset',
+): string {
+  // my.eskiz.uz da tasdiqlangan shablon (login/register/reset uchun hozircha bir xil)
   return `ishliayol.uz saytiga ro'yxatdan o'tish uchun tasdiqlash kodi: ${code}`;
 }
