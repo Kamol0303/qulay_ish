@@ -10,6 +10,7 @@ import { savedJobsService, SavedJob } from '../services/qulay-ish';
 import JobCard from '../components/JobCard';
 import ApplyModal from '../components/ApplyModal';
 import { Job } from '../types';
+import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 
 export default function SavedJobsPage() {
   const { profile } = useAuth();
@@ -48,7 +49,11 @@ export default function SavedJobsPage() {
   const canApply = profile?.role === 'worker';
 
   const handleApply = (job: Job) => {
-    if (!canApply) return;
+    if (!canApply || !profile) return;
+    if (!isIdentityVerified(profile)) {
+      navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
+      return;
+    }
     setSelectedJob(job);
     setIsApplyModalOpen(true);
   };

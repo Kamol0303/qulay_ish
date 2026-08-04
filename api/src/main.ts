@@ -12,11 +12,19 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api');
+  const corsOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-    ],
+    origin: corsOrigins.length
+      ? corsOrigins
+      : [
+          'http://localhost:3000',
+          'http://127.0.0.1:3000',
+          'https://ishliayol.uz',
+          'https://www.ishliayol.uz',
+        ],
     credentials: true,
   });
   app.useGlobalPipes(

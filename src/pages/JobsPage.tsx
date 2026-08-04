@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { demoStore } from '../lib/demoStore';
 import { DEMO_JOBS } from '../constants/demoData';
+import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 
 export default function JobsPage() {
   const { profile, isDemo } = useAuth();
@@ -141,6 +142,10 @@ export default function JobsPage() {
       return;
     }
     if (profile.role !== 'worker') return;
+    if (!isIdentityVerified(profile)) {
+      navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
+      return;
+    }
     setSelectedJob(job);
     setIsApplyModalOpen(true);
   };

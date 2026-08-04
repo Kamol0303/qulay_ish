@@ -342,6 +342,10 @@ model VerificationRequest {
   selfieUrl        String?            @map("selfie_url")
   addressProofUrl  String?            @map("address_proof_url")
   additionalFiles  Json?              @map("additional_files")
+  /** Passport/ID credentials — owner + super_admin only (never public profile) */
+  passportData     Json?              @map("passport_data")
+  /** Server-side document authenticity / format checks */
+  documentChecks   Json?              @map("document_checks")
   status           VerificationStatus @default(pending)
   reviewedBy       String?            @map("reviewed_by")
   reviewNote       String?            @map("review_note") // user-visible note

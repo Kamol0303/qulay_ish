@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { jobRecommendationService, RecommendationScore } from '../services/qulay-ish';
 import JobCard from '../components/JobCard';
 import ApplyModal from '../components/ApplyModal';
+import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 
 export default function QualayIshPage() {
   const { profile, isDemo } = useAuth();
@@ -81,6 +82,10 @@ export default function QualayIshPage() {
       return;
     }
     if (profile.role !== 'worker') return;
+    if (!isIdentityVerified(profile)) {
+      navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
+      return;
+    }
     setSelectedJob(job);
     setIsApplyModalOpen(true);
   };

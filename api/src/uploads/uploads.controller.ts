@@ -23,6 +23,7 @@ import { randomUUID } from 'crypto';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { validateIdentityDocumentFile } from '../verification/document-validation.util';
 
 type UploadedMulterFile = {
   fieldname: string;
@@ -115,6 +116,23 @@ export class UploadsController {
       ? `/api/uploads/private/${req.user.userId}/${file.filename}`
       : `/uploads/public/${req.user.userId}/${file.filename}`;
 
+    let documentChecks: ReturnType<typeof validateIdentityDocumentFile> | undefined;
+    if (isVerificationKind(kind)) {
+      const role =
+        kind.includes('selfie') ? 'selfie' : kind.includes('id') || kind === 'verification' ? 'id' : 'other';
+      try {
+        documentChecks = validateIdentityDocumentFile(file.path, role, file.mimetype);
+      } catch (err) {
+        // Remove invalid upload immediately
+        try {
+          unlinkSync(file.path);
+        } catch {
+          /* ignore */
+        }
+        throw err;
+      }
+    }
+
     if (kind === 'photo') {
       await this.prisma.user.update({
         where: { id: req.user.userId },
@@ -136,6 +154,7 @@ export class UploadsController {
       size: file.size,
       kind,
       private: privateFile,
+      documentChecks,
     };
   }
 
