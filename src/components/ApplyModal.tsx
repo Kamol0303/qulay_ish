@@ -49,6 +49,11 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         setLoading(false);
         return;
       }
+      if (profile.role !== 'worker') {
+        setError('Faqat ishchi akkaunti ariza topshira oladi');
+        setLoading(false);
+        return;
+      }
       if (!isIdentityVerified(profile)) {
         setError(VERIFICATION_REQUIRED_MESSAGE);
         setLoading(false);

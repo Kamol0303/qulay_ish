@@ -133,23 +133,28 @@ export default function JobsPage() {
     setSelectedDistrict('');
   };
 
+  const canApply = !profile || profile.role === 'worker';
+
   const handleApply = (job: Job) => {
     if (!profile) {
       navigate('/auth?mode=login');
       return;
     }
+    if (profile.role !== 'worker') return;
     setSelectedJob(job);
     setIsApplyModalOpen(true);
   };
 
   return (
     <Layout>
-      <ApplyModal
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-        job={selectedJob}
-        profile={profile}
-      />
+      {canApply && (
+        <ApplyModal
+          isOpen={isApplyModalOpen}
+          onClose={() => setIsApplyModalOpen(false)}
+          job={selectedJob}
+          profile={profile}
+        />
+      )}
       <div className="bg-slate-900 pt-16 pb-32 relative overflow-hidden">
         {/* Background Accents */}
         <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 skew-x-12 translate-x-1/4" />
@@ -310,7 +315,11 @@ export default function JobsPage() {
         ) : jobs.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {jobs.map(job => (
-              <JobCard key={job.id} job={job} onApply={() => handleApply(job)} />
+              <JobCard
+                key={job.id}
+                job={job}
+                onApply={canApply ? () => handleApply(job) : undefined}
+              />
             ))}
           </div>
         ) : (

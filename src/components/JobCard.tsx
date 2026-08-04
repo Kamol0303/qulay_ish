@@ -99,13 +99,16 @@ export default function JobCard({ job, onApply }: JobCardProps) {
           </div>
         </div>
 
-        <button
-          onClick={() => onApply?.(job.id)}
-          className="w-full bg-foreground text-background py-4.5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all duration-500 shadow-lg shadow-foreground/5 hover:shadow-primary/20 flex items-center justify-center group/btn"
-        >
-          {t('common.apply')}
-          <ArrowRight size={16} className="ml-2 group-hover/btn:translate-x-2 transition-transform duration-500" />
-        </button>
+        {onApply && (
+          <button
+            type="button"
+            onClick={() => onApply(job.id)}
+            className="w-full bg-foreground text-background py-4.5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all duration-500 shadow-lg shadow-foreground/5 hover:shadow-primary/20 flex items-center justify-center group/btn"
+          >
+            {t('common.apply')}
+            <ArrowRight size={16} className="ml-2 group-hover/btn:translate-x-2 transition-transform duration-500" />
+          </button>
+        )}
       </div>
     </motion.div>
   );

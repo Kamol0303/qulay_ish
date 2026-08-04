@@ -45,7 +45,10 @@ export default function SavedJobsPage() {
     }
   };
 
+  const canApply = profile?.role === 'worker';
+
   const handleApply = (job: Job) => {
+    if (!canApply) return;
     setSelectedJob(job);
     setIsApplyModalOpen(true);
   };
@@ -132,7 +135,7 @@ export default function SavedJobsPage() {
 
                           <JobCard
                             job={savedJob.job}
-                            onApply={() => handleApply(savedJob.job!)}
+                            onApply={canApply ? () => handleApply(savedJob.job!) : undefined}
                           />
                         </motion.div>
                       );
@@ -162,16 +165,18 @@ export default function SavedJobsPage() {
           </div>
         </div>
 
-        {/* Apply Modal */}
-        <ApplyModal
-          job={selectedJob}
-          profile={profile}
-          isOpen={isApplyModalOpen}
-          onClose={() => {
-            setIsApplyModalOpen(false);
-            setSelectedJob(null);
-          }}
-        />
+        {/* Apply Modal — workers only */}
+        {canApply && (
+          <ApplyModal
+            job={selectedJob}
+            profile={profile}
+            isOpen={isApplyModalOpen}
+            onClose={() => {
+              setIsApplyModalOpen(false);
+              setSelectedJob(null);
+            }}
+          />
+        )}
       </Layout>
     </ProtectedRoute>
   );

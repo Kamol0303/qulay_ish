@@ -113,6 +113,14 @@ export class OtpService {
         throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
       }
       passwordHash = await bcrypt.hash(dto.password, 10);
+    } else {
+      // Login: unregistered phones must not receive OTP / enter the system
+      const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
+      if (!existing) {
+        throw new BadRequestException(
+          'Bu telefon raqami ro\'yxatdan o\'tmagan. Avval ro\'yxatdan o\'ting.',
+        );
+      }
     }
 
     const code = this.generateCode();
@@ -219,14 +227,21 @@ export class OtpService {
     });
 
     let user = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
+    const purpose = session.purpose || 'login';
 
     if (!user) {
+      // Never auto-create accounts on login OTP
+      if (purpose !== 'register') {
+        throw new UnauthorizedException(
+          'Bu telefon raqami ro\'yxatdan o\'tmagan. Avval ro\'yxatdan o\'ting.',
+        );
+      }
       const uid = randomUUID().replace(/-/g, '').slice(0, 28);
       const email = `${phone.replace(/\D/g, '')}@qulayish.local`;
       const meta = (session.metadata && typeof session.metadata === 'object'
         ? session.metadata
         : {}) as { passwordHash?: string };
-      // Only worker/employer may be created via public OTP
+      // Only worker/employer may be created via public OTP registration
       const role =
         session.role === UserRole.employer ? UserRole.employer : UserRole.worker;
       user = await this.prisma.user.create({

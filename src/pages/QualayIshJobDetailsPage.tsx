@@ -337,17 +337,8 @@ export default function QualayIshJobDetailsPage() {
                 )}
               </div>
 
-              {/* Apply Button */}
-              {profile ? (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsApplyModalOpen(true)}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl font-semibold hover:shadow-lg transition-all"
-                >
-                  Arizaga berish
-                </motion.button>
-              ) : (
+              {/* Apply Button — workers only; employers never see apply */}
+              {!profile ? (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -356,19 +347,30 @@ export default function QualayIshJobDetailsPage() {
                 >
                   Kirish
                 </motion.button>
-              )}
+              ) : profile.role === 'worker' ? (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsApplyModalOpen(true)}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl font-semibold hover:shadow-lg transition-all"
+                >
+                  Arizaga berish
+                </motion.button>
+              ) : null}
             </motion.div>
           </div>
         </div>
       </div>
 
       {/* Apply Modal */}
-      <ApplyModal
-        job={job}
-        profile={profile}
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-      />
+      {profile?.role === 'worker' && (
+        <ApplyModal
+          job={job}
+          profile={profile}
+          isOpen={isApplyModalOpen}
+          onClose={() => setIsApplyModalOpen(false)}
+        />
+      )}
     </Layout>
   );
 }

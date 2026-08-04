@@ -73,7 +73,14 @@ export default function QualayIshPage() {
     return matchesSearch && matchesCategory;
   });
 
+  const canApply = !profile || profile.role === 'worker';
+
   const handleApply = (job: Job) => {
+    if (!profile) {
+      navigate('/auth?mode=login');
+      return;
+    }
+    if (profile.role !== 'worker') return;
     setSelectedJob(job);
     setIsApplyModalOpen(true);
   };
@@ -170,7 +177,7 @@ export default function QualayIshPage() {
                           </div>
                           <JobCard
                             job={job}
-                            onApply={() => handleApply(job)}
+                            onApply={canApply ? () => handleApply(job) : undefined}
                           />
                         </div>
                       </motion.div>
@@ -217,7 +224,7 @@ export default function QualayIshPage() {
                       </button>
                       <JobCard
                         job={job}
-                        onApply={() => handleApply(job)}
+                        onApply={canApply ? () => handleApply(job) : undefined}
                       />
                     </motion.div>
                   ))}
@@ -238,15 +245,17 @@ export default function QualayIshPage() {
       </div>
 
       {/* Apply Modal */}
-      <ApplyModal
-        job={selectedJob}
-        isOpen={isApplyModalOpen}
-        profile={profile}
-        onClose={() => {
-          setIsApplyModalOpen(false);
-          setSelectedJob(null);
-        }}
-      />
+      {canApply && (
+        <ApplyModal
+          job={selectedJob}
+          isOpen={isApplyModalOpen}
+          profile={profile}
+          onClose={() => {
+            setIsApplyModalOpen(false);
+            setSelectedJob(null);
+          }}
+        />
+      )}
     </Layout>
   );
 }
