@@ -6,6 +6,10 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET?.trim()) {
+    throw new Error('JWT_SECRET must be set in production');
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api');
   app.enableCors({
@@ -15,7 +19,20 @@ async function bootstrap() {
     ],
     credentials: true,
   });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+  // Basic hardening for static/upload responses
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
 
   const uploadsDir = join(process.cwd(), 'uploads');
   const publicDir = join(uploadsDir, 'public');

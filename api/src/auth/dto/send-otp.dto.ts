@@ -1,5 +1,4 @@
-import { IsEnum, IsIn, IsOptional, IsString, Matches, MinLength } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { IsIn, IsOptional, IsString, Matches, MinLength, ValidateIf } from 'class-validator';
 
 export class SendOtpDto {
   @IsString()
@@ -18,7 +17,14 @@ export class SendOtpDto {
   @MinLength(2)
   fullName?: string;
 
+  /** Public registration may only choose worker or employer */
   @IsOptional()
-  @IsEnum(UserRole)
-  role?: UserRole;
+  @IsIn(['worker', 'employer'], { message: 'Faqat worker yoki employer roli ruxsat etiladi' })
+  role?: 'worker' | 'employer';
+
+  /** Required when purpose=register — hashed server-side, never stored plaintext */
+  @ValidateIf((o: SendOtpDto) => o.purpose === 'register')
+  @IsString()
+  @MinLength(8, { message: 'Parol kamida 8 ta belgidan iborat bo\'lishi kerak' })
+  password?: string;
 }
