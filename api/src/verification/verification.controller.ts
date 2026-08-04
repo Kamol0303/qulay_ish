@@ -286,7 +286,7 @@ export class VerificationRequestsController {
           id: randomUUID(),
           userId,
           title: 'Tasdiqlash muvaffaqiyatli',
-          message: 'Sizning hisobingiz Qulay Ish tomonidan tasdiqlandi!',
+          message: 'Sizning hisobingiz ishliayol.uz tomonidan tasdiqlandi!',
           type: 'system',
           link: '/my-profile',
           read: false,

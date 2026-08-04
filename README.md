@@ -1,4 +1,4 @@
-# Qulay Ish
+# ishliayol.uz
 
 Samarqand shahar hokimligi ish platformasi (React + NestJS + PostgreSQL).
 
@@ -42,7 +42,7 @@ JWT_SECRET=change-me-in-production
 API_PORT=4000
 CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
 
-SUPER_ADMIN_EMAIL=superadmin@qulay-ish.local
+SUPER_ADMIN_EMAIL=superadmin@ishliayol.uz
 SUPER_ADMIN_PASSWORD=your_password
 SUPER_ADMIN_PHONE=+998900707081
 
@@ -54,7 +54,7 @@ Frontend `.env` da:
 
 ```env
 VITE_API_URL=/api
-VITE_SUPER_ADMIN_EMAIL=superadmin@qulay-ish.local
+VITE_SUPER_ADMIN_EMAIL=superadmin@ishliayol.uz
 VITE_SUPER_ADMIN_PASSWORD=your_password
 VITE_SUPER_ADMIN_PHONE=+998900707081
 ```

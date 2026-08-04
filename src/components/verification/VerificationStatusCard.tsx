@@ -10,7 +10,7 @@ const STATUS_UI: Record<
     label: 'Tasdiqlangan',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-800',
     icon: BadgeCheck,
-    desc: 'Qulay Ish tomonidan tasdiqlangan',
+    desc: 'ishliayol.uz tomonidan tasdiqlangan',
   },
   pending: {
     label: 'Tasdiqlash kutilmoqda',
@@ -69,7 +69,7 @@ export function VerificationStatusCard({
             <p className="mt-0.5 text-sm opacity-80">{ui.desc}</p>
             {key === 'verified' && (
               <p className="mt-1 text-xs opacity-70">
-                Qulay Ish tomonidan tasdiqlangan
+                ishliayol.uz tomonidan tasdiqlangan
                 {profile.updatedAt
                   ? ` · ${new Date(profile.updatedAt).toLocaleDateString('uz-UZ')}`
                   : ''}

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "=== Qulay Ish — PostgreSQL sozlash ==="
+echo "=== ishliayol.uz — PostgreSQL sozlash ==="
 
 wait_pg() {
   for i in $(seq 1 30); do

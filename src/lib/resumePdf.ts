@@ -173,7 +173,7 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
     // continuation label on sidebar
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.text('Qulay Ish rezyume', 8, 16);
+    doc.text('ishliayol.uz rezyume', 8, 16);
     doc.text(`Sahifa ${page}`, 8, 22);
     y = 16;
   };
@@ -216,7 +216,7 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
   if (model.isVerified) {
     doc.setFontSize(8);
     doc.setTextColor(6, 95, 70);
-    doc.text("✓ Qulay Ish tomonidan tasdiqlangan", RIGHT_X, y);
+    doc.text("✓ ishliayol.uz tomonidan tasdiqlangan", RIGHT_X, y);
     y += 6;
   }
   y += 2;
@@ -340,7 +340,7 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
   doc.setTextColor(6, 95, 70);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(model.isVerified ? '✓ Qulay Ishda tasdiqlangan' : 'Qulay Ish profili', RIGHT_X + 3, y + 6);
+  doc.text(model.isVerified ? '✓ ishliayol.uzda tasdiqlangan' : 'ishliayol.uz profili', RIGHT_X + 3, y + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.text(`Profil ID: ${safe(model.profileId)}`, RIGHT_X + 3, y + 11);
@@ -357,5 +357,5 @@ export async function downloadResumePdf(profile: Profile, templateId?: ResumeTem
     }
   }
 
-  doc.save(`${(model.fullName || 'resume').replace(/\s+/g, '_')}_QulayIsh_Resume.pdf`);
+  doc.save(`${(model.fullName || 'resume').replace(/\s+/g, '_')}_Ishliayol_Resume.pdf`);
 }

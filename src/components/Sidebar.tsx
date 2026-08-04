@@ -39,7 +39,7 @@ export default function Sidebar() {
   const menuItems = {
     worker: [
       { icon: LayoutDashboard, label: t('nav.sidebar.dashboard'), path: '/worker/dashboard', end: true },
-      { icon: Heart, label: 'Qulay Ish', path: '/qulay-ish', end: true },
+      { icon: Heart, label: 'Tavsiya etilgan', path: '/qulay-ish', end: true },
       { icon: Heart, label: t('nav.sidebar.saved_jobs'), path: '/saved-jobs', end: true },
       { icon: Briefcase, label: t('nav.sidebar.all_jobs'), path: '/jobs', end: true },
       { icon: BookOpen, label: t('nav.sidebar.courses'), path: '/courses', end: true },

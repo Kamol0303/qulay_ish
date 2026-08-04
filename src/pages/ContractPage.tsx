@@ -166,7 +166,7 @@ export default function ContractPage() {
     // Header
     doc.setFontSize(24);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('QULAY ISH', 105, 20, { align: 'center' });
+    doc.text('ISHLIAYOL.UZ', 105, 20, { align: 'center' });
     
     doc.setFontSize(16);
     doc.setTextColor(0, 0, 0);
@@ -228,7 +228,7 @@ export default function ContractPage() {
     if (contract.adminApproved) {
       doc.setFontSize(12);
       doc.setTextColor(16, 185, 129); // Green
-      doc.text(`APPROVED BY QULAY ISH ADMIN`, 105, 275, { align: 'center' });
+      doc.text(`APPROVED BY ISHLIAYOL.UZ ADMIN`, 105, 275, { align: 'center' });
       doc.text(`Verification Code: VER-${contract.id.slice(0, 8).toUpperCase()}`, 105, 282, { align: 'center' });
     }
 

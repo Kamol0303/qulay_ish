@@ -61,7 +61,7 @@ export class AuthService {
       throw new UnauthorizedException('Super Admin login yoki parol noto\'g\'ri');
     }
 
-    const email = envEmail || 'superadmin@qulay-ish.local';
+    const email = envEmail || 'superadmin@ishliayol.uz';
 
     try {
       let user = await this.prisma.user.findFirst({

@@ -76,7 +76,7 @@ export default function App() {
                 <Route path="/statistics" element={<StatisticsPage />} />
                 <Route path="/courses" element={<CoursesPage />} />
                 
-                {/* Qulay Ish Module */}
+                {/* ishliayol.uz Module */}
                 <Route path="/qulay-ish" element={<QualayIshPage />} />
                 <Route path="/qulay-ish/job/:jobId" element={<QualayIshJobDetailsPage />} />
                 <Route path="/saved-jobs" element={<SavedJobsPage />} />

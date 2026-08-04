@@ -1,5 +1,5 @@
 /**
- * Qulay Ish Services
+ * ishliayol.uz Services
  * AI-ready services for job recommendations, salary estimation, and safety detection
  */
 

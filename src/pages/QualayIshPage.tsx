@@ -108,7 +108,7 @@ export default function QualayIshPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
-            <h1 className="text-4xl font-bold mb-2">Qulay Ish</h1>
+            <h1 className="text-4xl font-bold mb-2">ishliayol.uz</h1>
             <p className="text-foreground/60">Uyingiz yaqinida qulay va xavfsiz ish topib oling</p>
           </motion.div>
 
