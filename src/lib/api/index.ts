@@ -101,6 +101,29 @@ export const api = {
       if (!user) throw new Error('Invalid auth response');
       return { ...res, user };
     },
+    async register(params: {
+      phone: string;
+      password: string;
+      fullName: string;
+      role: 'worker' | 'employer';
+      email?: string;
+    }) {
+      const res = await apiRequest<AuthResponse>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: params.phone,
+          phoneNumber: params.phone,
+          password: params.password,
+          fullName: params.fullName,
+          role: params.role,
+          email: params.email,
+        }),
+      }, false);
+      setAccessToken(res.accessToken);
+      const user = mapUser(res.user as unknown as Record<string, unknown>);
+      if (!user) throw new Error('Invalid auth response');
+      return { ...res, user };
+    },
     async superAdminLogin(login: string, password: string) {
       const res = await apiRequest<AuthResponse>('/auth/super-admin/login', {
         method: 'POST',
@@ -122,7 +145,7 @@ export const api = {
     },
     async sendOtp(params: {
       phone: string;
-      purpose?: 'login' | 'register';
+      purpose?: 'login' | 'register' | 'reset';
       fullName?: string;
       role?: Profile['role'];
       password?: string;
@@ -133,14 +156,26 @@ export const api = {
       }, false);
     },
     async verifyOtp(phone: string, code: string) {
-      const res = await apiRequest<AuthResponse & { success?: boolean }>('/auth/verify-otp', {
+      const res = await apiRequest<
+        AuthResponse & { success?: boolean; purpose?: string; resetAllowed?: boolean }
+      >('/auth/verify-otp', {
         method: 'POST',
         body: JSON.stringify({ phone, code }),
       }, false);
-      setAccessToken(res.accessToken);
-      const user = mapUser(res.user as unknown as Record<string, unknown>);
-      if (!user) throw new Error('Invalid auth response');
+      // Password-reset OTP must not create a login session
+      if (res.accessToken) {
+        setAccessToken(res.accessToken);
+      }
+      const user = res.user
+        ? mapUser(res.user as unknown as Record<string, unknown>)
+        : null;
       return { ...res, user };
+    },
+    async resetPassword(phone: string, newPassword: string) {
+      return apiRequest<{ success: true; message?: string }>('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ phone, newPassword }),
+      }, false);
     },
   },
 

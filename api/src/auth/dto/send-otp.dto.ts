@@ -7,10 +7,14 @@ export class SendOtpDto {
   })
   phone!: string;
 
-  /** Ro'yxatdan o'tish uchun — spec asosiy maydoni `phone`, qolganlari ixtiyoriy */
+  /**
+   * login — legacy OTP login (discouraged; use password)
+   * register — legacy OTP register (discouraged; use password register)
+   * reset — password recovery (SMS OTP only for this purpose)
+   */
   @IsOptional()
-  @IsIn(['login', 'register'])
-  purpose?: 'login' | 'register';
+  @IsIn(['login', 'register', 'reset'])
+  purpose?: 'login' | 'register' | 'reset';
 
   @IsOptional()
   @IsString()

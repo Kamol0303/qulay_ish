@@ -21,8 +21,8 @@ function resolveJwtSecret(): string {
     PassportModule,
     JwtModule.register({
       secret: resolveJwtSecret(),
-      // 7h default: SMS OTP session lasts 7 hours without re-sending OTP
-      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '7h') as any },
+      // Long-lived session so users stay logged in across reloads (override via JWT_EXPIRES_IN)
+      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '30d') as any },
     }),
   ],
   controllers: [AuthController],

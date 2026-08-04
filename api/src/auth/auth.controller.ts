@@ -5,6 +5,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { LoginDto, SuperAdminLoginDto } from './dto/login.dto';
 
 @Controller('auth')
@@ -38,9 +39,16 @@ export class AuthController {
     return this.auth.signToken(user);
   }
 
+  /** Phone + password registration (no SMS OTP) */
   @Post('register')
   async register(@Body() body: RegisterDto) {
     return this.otp.registerWithPassword(body);
+  }
+
+  /** After reset OTP verified — set new password (no auto-login) */
+  @Post('reset-password')
+  async resetPassword(@Body() body: ResetPasswordDto) {
+    return this.otp.resetPassword(body);
   }
 
   @UseGuards(JwtAuthGuard)

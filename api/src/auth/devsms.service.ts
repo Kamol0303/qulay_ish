@@ -25,7 +25,7 @@ type DevSmsResponse = {
   };
 };
 
-type OtpPurpose = 'login' | 'register';
+type OtpPurpose = 'login' | 'register' | 'reset';
 
 /**
  * Faqat DevSMS universal_otp — maxsus matn (eskiz shablon) KERAK EMAS.
@@ -153,6 +153,7 @@ export class DevSmsService implements OnModuleInit {
   }
 
   private templateType(purpose: OtpPurpose): number {
+    // 3 = register, 4 = login / password reset recovery
     return purpose === 'register' ? 3 : 4;
   }
 

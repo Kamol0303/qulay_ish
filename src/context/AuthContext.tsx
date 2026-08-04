@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = getAccessToken();
     if (token) {
-      // Expired JWT → require SMS OTP again
+      // Expired JWT → require password login again
       if (!isAccessTokenValid(token)) {
         clearAccessToken();
         setUser(null);
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .then((p) => setSession(p))
         .catch((err) => {
           // Only force re-login on real auth failure (401/403).
-          // Network/API-down must NOT wipe the 7h SMS session.
+          // Network/API-down must NOT wipe a still-valid JWT session.
           if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             clearAccessToken();
             setUser(null);
