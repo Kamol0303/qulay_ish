@@ -20,6 +20,7 @@ import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { PersonalInfoCard } from '../../components/profile/PersonalInfoCard';
+import { CoreIndicatorsCard } from '../../components/profile/CoreIndicatorsCard';
 
 // Safe date parser
 function safeDate(val: any): Date | null {
@@ -213,13 +214,18 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
           </div>
 
           {showPersonal && (
-            <div className="pt-2">
+            <div className="space-y-5 pt-2">
               <PersonalInfoCard
                 userId={user.uid}
                 editable
                 seedFullName={user.fullName}
                 seedPhone={user.phoneNumber}
                 seedEmail={user.email}
+              />
+              <CoreIndicatorsCard
+                userId={user.uid}
+                value={user.coreIndicators}
+                editable
               />
             </div>
           )}

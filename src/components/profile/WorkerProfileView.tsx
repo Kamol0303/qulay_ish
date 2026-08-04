@@ -26,6 +26,7 @@ import { SkillsSelector } from './SkillsSelector';
 import { EducationEditor, ExperienceEditor } from './TimelineEditors';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
 import { PersonalInfoCard } from './PersonalInfoCard';
+import { CoreIndicatorsCard } from './CoreIndicatorsCard';
 
 const WORKER_TABS_BASE = [
   { id: 'overview' as const, label: 'Umumiy' },
@@ -313,13 +314,20 @@ export function WorkerProfileView({
           />
         )}
         {tab === 'skills' && (
-          <ProfileCard title="Ko'nikmalar" description="Qidiruv, tavsiyalar va multi-select">
-            <SkillsSelector
-              value={draft.skills || []}
-              editable={editable}
-              onChange={(skills) => patch({ skills })}
+          <div className="space-y-5">
+            <ProfileCard title="Ko'nikmalar" description="Qidiruv, tavsiyalar va multi-select">
+              <SkillsSelector
+                value={draft.skills || []}
+                editable={editable}
+                onChange={(skills) => patch({ skills })}
+              />
+            </ProfileCard>
+            <CoreIndicatorsCard
+              userId={draft.uid}
+              value={draft.coreIndicators}
+              editable={false}
             />
-          </ProfileCard>
+          </div>
         )}
         {tab === 'portfolio' && (
           <ProfileCard
@@ -490,13 +498,20 @@ export function WorkerProfileView({
           </div>
         )}
         {tab === 'personal' && editable && (
-          <PersonalInfoCard
-            userId={draft.uid}
-            editable={editable}
-            seedFullName={draft.fullName}
-            seedPhone={draft.phoneNumber}
-            seedEmail={draft.email}
-          />
+          <div className="space-y-5">
+            <PersonalInfoCard
+              userId={draft.uid}
+              editable={editable}
+              seedFullName={draft.fullName}
+              seedPhone={draft.phoneNumber}
+              seedEmail={draft.email}
+            />
+            <CoreIndicatorsCard
+              userId={draft.uid}
+              value={draft.coreIndicators}
+              editable={false}
+            />
+          </div>
         )}
         {tab === 'settings' && (
           <ProfileCard title="Profil sozlamalari">

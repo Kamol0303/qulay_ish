@@ -115,6 +115,8 @@ model User {
   resumeTemplate     String?            @default("professional") @map("resume_template")
   /** Confidential personal info — worker self + super_admin only */
   personalInfo       Json?              @map("personal_info")
+  /** Core development / risk indicators — viewable on profile; editable by super_admin */
+  coreIndicators     Json?              @map("core_indicators")
   companyName        String?            @map("company_name")
   businessType       String?            @map("business_type")
   industry           String?

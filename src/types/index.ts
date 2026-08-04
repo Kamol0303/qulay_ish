@@ -10,6 +10,7 @@ import type {
   CompanyDocument,
 } from './profile';
 import type { WorkerPersonalInfo } from './personalInfo';
+import type { WorkerCoreIndicators } from './coreIndicators';
 
 export type {
   AvailabilityStatus,
@@ -31,6 +32,8 @@ export type {
   ChildrenStatus,
 } from './personalInfo';
 
+export type { WorkerCoreIndicators, IndicatorLevel } from './coreIndicators';
+
 export {
   PERSONAL_INFO_REQUIRED,
   GENDER_OPTIONS,
@@ -38,6 +41,13 @@ export {
   CHILDREN_OPTIONS,
   calcAgeFromDob,
 } from './personalInfo';
+
+export {
+  CORE_INDICATOR_FIELDS,
+  RISK_LEVEL_OPTIONS,
+  riskTone,
+  riskLabel,
+} from './coreIndicators';
 
 export interface Profile {
   uid: string;
@@ -52,6 +62,8 @@ export interface Profile {
   bio?: string;
   /** Confidential — only populated for worker self or super_admin */
   personalInfo?: WorkerPersonalInfo;
+  /** Core risk / development indicators */
+  coreIndicators?: WorkerCoreIndicators;
   skills?: string[];
   photoUrl?: string;
   coverUrl?: string;

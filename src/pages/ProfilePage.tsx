@@ -2,27 +2,24 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { Profile, Review } from '../types';
-import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Calendar, Briefcase, Download } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Profile } from '../types';
+import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Briefcase, Download } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
-import { format } from 'date-fns';
-import { uz, ru, enUS } from 'date-fns/locale';
 import { getDistrictKey } from '../lib/utils';
 import { relationshipService } from '../services/relationshipService';
 import { SKILLS } from '../constants/categories';
 import { mediaUrl, avatarFallback } from '../lib/mediaUrl';
 import { downloadResumePdf } from '../lib/resumePdf';
 import { VerificationStatusCard } from '../components/verification/VerificationStatusCard';
+import { CoreIndicatorsCard } from '../components/profile/CoreIndicatorsCard';
 
 export default function ProfilePage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { userId } = useParams();
   const { user: currentUser, profile: currentProfile } = useAuth();
   const [worker, setWorker] = React.useState<Profile | null>(null);
   const [canViewPhone, setCanViewPhone] = React.useState(false);
-  const [reviews, setReviews] = React.useState<Review[]>([]);
   const [loading, setLoading] = React.useState(true);
   const navigate = useNavigate();
 
@@ -46,21 +43,9 @@ export default function ProfilePage() {
       }
     };
 
-    const loadReviews = async () => {
-      try {
-        const rows = await api.reviews.list({ workerId: userId });
-        if (!cancelled) setReviews(rows);
-      } catch {
-        if (!cancelled) setReviews([]);
-      }
-    };
-
     fetchWorker();
-    loadReviews();
-    const interval = setInterval(loadReviews, 5000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, [userId, currentUser, currentProfile]);
 
@@ -74,14 +59,6 @@ export default function ProfilePage() {
       return;
     }
     navigate(`/chat?with=${userId}`);
-  };
-
-  const getDateLocale = () => {
-    switch (i18n.language) {
-      case 'ru': return ru;
-      case 'en': return enUS;
-      default: return uz;
-    }
   };
 
   const getSkillLabel = (skill: string) => {
@@ -171,6 +148,15 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 </div>
+
+                <div className="mb-8">
+                  <CoreIndicatorsCard
+                    userId={worker.uid}
+                    value={worker.coreIndicators}
+                    editable={false}
+                    embedded
+                  />
+                </div>
               </div>
 
               <div className="w-full md:w-80 space-y-4">
@@ -223,41 +209,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Reviews Section */}
-            <div className="mt-16 pt-12 border-t border-gray-100">
-              <h2 className="text-2xl font-black text-gray-900 mb-8 tracking-tight">{t('worker_profile.employer_reviews')}</h2>
-              {reviews.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-gray-200 rounded-full overflow-hidden">
-                            <img src={`https://ui-avatars.com/api/?name=Employer&background=random`} alt="Employer" referrerPolicy="no-referrer" />
-                          </div>
-                          <span className="font-bold text-gray-900 text-sm">{t('worker_profile.anonymous_employer')}</span>
-                        </div>
-                        <div className="flex text-yellow-500">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} size={14} fill={i < review.rating ? 'currentColor' : 'none'} className={i < review.rating ? '' : 'text-gray-300'} />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-gray-600 text-sm italic mb-4">"{review.comment}"</p>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center">
-                        <Calendar size={12} className="mr-1" />
-                        {review.createdAt ? format(new Date(review.createdAt.seconds * 1000), 'd-MMMM, yyyy', { locale: getDateLocale() }) : t('worker_profile.recently')}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                  <p className="text-gray-400 font-medium">{t('worker_profile.no_reviews')}</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
