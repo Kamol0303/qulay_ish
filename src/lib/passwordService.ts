@@ -24,19 +24,9 @@ export const passwordService = {
     if (!password || password.length < 8) {
       return { isValid: false, error: 'Parol kamida 8 ta belgidan iborat bo\'lishi kerak' };
     }
-
-    if (!/[A-Z]/.test(password)) {
-      return { isValid: false, error: 'Parolda kamida 1 ta katta harf bo\'lishi kerak' };
+    if (password.length > 128) {
+      return { isValid: false, error: 'Parol juda uzun' };
     }
-
-    if (!/[a-z]/.test(password)) {
-      return { isValid: false, error: 'Parolda kamida 1 ta kichik harf bo\'lishi kerak' };
-    }
-
-    if (!/[0-9]/.test(password)) {
-      return { isValid: false, error: 'Parolda kamida 1 ta raqam bo\'lishi kerak' };
-    }
-
     return { isValid: true };
   },
 };

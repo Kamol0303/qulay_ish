@@ -95,11 +95,24 @@ export class OtpService {
 
     const purpose = dto.purpose || 'login';
 
+    // Never accept privileged roles from public OTP registration
+    const safeRole =
+      purpose === 'register'
+        ? dto.role === 'employer'
+          ? UserRole.employer
+          : UserRole.worker
+        : undefined;
+
+    let passwordHash: string | undefined;
     if (purpose === 'register') {
       const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
       if (existing) {
         throw new BadRequestException('Bu telefon raqami allaqachon ro\'yxatdan o\'tgan');
       }
+      if (!dto.password || dto.password.length < 8) {
+        throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
+      }
+      passwordHash = await bcrypt.hash(dto.password, 10);
     }
 
     const code = this.generateCode();
@@ -117,12 +130,13 @@ export class OtpService {
         phone,
         codeHash,
         purpose,
-        fullName: dto.fullName,
-        role: dto.role,
+        fullName: dto.fullName?.trim(),
+        role: safeRole,
         channel: 'sms',
         attempts: 0,
         verified: false,
         expiresAt,
+        metadata: passwordHash ? { passwordHash } : undefined,
       },
     });
 
@@ -209,13 +223,20 @@ export class OtpService {
     if (!user) {
       const uid = randomUUID().replace(/-/g, '').slice(0, 28);
       const email = `${phone.replace(/\D/g, '')}@qulayish.local`;
+      const meta = (session.metadata && typeof session.metadata === 'object'
+        ? session.metadata
+        : {}) as { passwordHash?: string };
+      // Only worker/employer may be created via public OTP
+      const role =
+        session.role === UserRole.employer ? UserRole.employer : UserRole.worker;
       user = await this.prisma.user.create({
         data: {
           id: uid,
-          fullName: session.fullName || 'User',
+          fullName: (session.fullName || 'User').trim(),
           email,
           phoneNumber: phone,
-          role: session.role || UserRole.worker,
+          role,
+          passwordHash: meta.passwordHash || null,
           region: 'Samarqand viloyati',
           isVerified: true,
           verificationStatus: 'verified',
@@ -241,11 +262,27 @@ export class OtpService {
     email: string;
     password: string;
     fullName: string;
-    role: UserRole;
+    role: 'worker' | 'employer' | UserRole;
     phoneNumber?: string;
   }) {
+    if (!data.password || data.password.length < 8) {
+      throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
+    }
+    const role = String(data.role) === 'employer' ? UserRole.employer : UserRole.worker;
+    const email = data.email.trim().toLowerCase();
+    const fullName = data.fullName.trim();
+    const phoneNumber = data.phoneNumber
+      ? this.normalizePhone(data.phoneNumber)
+      : undefined;
+    if (phoneNumber) this.validateE164Phone(phoneNumber);
+
     const existing = await this.prisma.user.findFirst({
-      where: { OR: [{ email: data.email }, ...(data.phoneNumber ? [{ phoneNumber: data.phoneNumber }] : [])] },
+      where: {
+        OR: [
+          { email },
+          ...(phoneNumber ? [{ phoneNumber }] : []),
+        ],
+      },
     });
     if (existing) throw new BadRequestException('Allaqachon ro\'yxatdan o\'tgan');
 
@@ -253,11 +290,11 @@ export class OtpService {
     const user = await this.prisma.user.create({
       data: {
         id: uid,
-        email: data.email,
-        phoneNumber: data.phoneNumber,
+        email,
+        phoneNumber,
         passwordHash: await bcrypt.hash(data.password, 10),
-        fullName: data.fullName,
-        role: data.role,
+        fullName,
+        role,
         region: 'Samarqand viloyati',
       },
     });

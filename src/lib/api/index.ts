@@ -122,6 +122,7 @@ export const api = {
       purpose?: 'login' | 'register';
       fullName?: string;
       role?: Profile['role'];
+      password?: string;
     }) {
       return apiRequest<{ success: true }>('/auth/send-otp', {
         method: 'POST',

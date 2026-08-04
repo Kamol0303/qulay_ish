@@ -39,6 +39,7 @@ export const authService = {
     purpose?: 'login' | 'register';
     fullName?: string;
     role?: 'worker' | 'employer';
+    password?: string;
   }): Promise<AuthResult> {
     try {
       const phone = normalizePhoneNumber(params.phone);
@@ -47,6 +48,7 @@ export const authService = {
         purpose: params.purpose,
         fullName: params.fullName,
         role: params.role,
+        password: params.password,
       });
       return { success: true };
     } catch (e) {

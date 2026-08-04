@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { BadRequestException, Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto, SuperAdminLoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -24,29 +25,21 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() body: { emailOrPhone: string; password: string }) {
+  async login(@Body() body: LoginDto) {
     const user = await this.auth.validateUser(body.emailOrPhone, body.password);
     return this.auth.signToken(user);
   }
 
   @Post('super-admin/login')
-  async superAdminLogin(@Body() body: { email?: string; phone?: string; login?: string; password: string }) {
-    const login = body.login || body.email || body.phone || '';
+  async superAdminLogin(@Body() body: SuperAdminLoginDto) {
+    const login = (body.login || body.email || body.phone || '').trim();
+    if (!login) throw new BadRequestException('Login majburiy');
     const user = await this.auth.superAdminLogin(login, body.password);
     return this.auth.signToken(user);
   }
 
   @Post('register')
-  async register(
-    @Body()
-    body: {
-      email: string;
-      password: string;
-      fullName: string;
-      role: UserRole;
-      phoneNumber?: string;
-    },
-  ) {
+  async register(@Body() body: RegisterDto) {
     return this.otp.registerWithPassword(body);
   }
 

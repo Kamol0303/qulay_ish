@@ -109,37 +109,34 @@ export function maskPhoneNumber(phone: string): string {
   return `+998 ** *** ${digits.slice(-4, -2)} ${digits.slice(-2)}`;
 }
 
-// ========================================
-// DEMO MODE: Relaxed Password Validation
-// ========================================
-// Remove this function before production!
-// In production, use passwordService.validatePassword() instead
+/** Production password rule: minimum 8 characters (server-enforced too). */
+export function validatePassword(password: string): ValidationError {
+  if (!password) {
+    return { isValid: false, error: 'Parolni kiriting' };
+  }
 
-export function validatePasswordDemo(password: string): ValidationError {
-  // DEMO MODE: Accept any password with minimum 3 characters
-  if (!password || password.length < 3) {
-    return { isValid: false, error: 'Parol kamida 3 ta belgidan iborat bo\'lishi kerak' };
+  if (password.length < 8) {
+    return { isValid: false, error: 'Parol kamida 8 ta belgidan iborat bo\'lishi kerak' };
+  }
+
+  if (password.length > 128) {
+    return { isValid: false, error: 'Parol juda uzun' };
   }
 
   return { isValid: true };
 }
 
-export function validatePassword(password: string): ValidationError {
-  if (!password || password.length < 8) {
-    return { isValid: false, error: 'Parol kamida 8 ta belgidan iborat bo\'lishi kerak' };
+export function validatePasswordConfirm(password: string, confirm: string): ValidationError {
+  if (!confirm) {
+    return { isValid: false, error: 'Parolni tasdiqlang' };
   }
-
-  if (!/[A-Z]/.test(password)) {
-    return { isValid: false, error: 'Parolda kamida 1 ta katta harf bo\'lishi kerak' };
+  if (password !== confirm) {
+    return { isValid: false, error: 'Parollar mos kelmadi' };
   }
-
-  if (!/[a-z]/.test(password)) {
-    return { isValid: false, error: 'Parolda kamida 1 ta kichik harf bo\'lishi kerak' };
-  }
-
-  if (!/[0-9]/.test(password)) {
-    return { isValid: false, error: 'Parolda kamida 1 ta raqam bo\'lishi kerak' };
-  }
-
   return { isValid: true };
+}
+
+/** @deprecated Use validatePassword — kept for backward compatibility */
+export function validatePasswordDemo(password: string): ValidationError {
+  return validatePassword(password);
 }

@@ -1,7 +1,15 @@
 import { BadRequestException, Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { randomUUID } from 'crypto';
+
+type AuthUser = { userId: string; role: string };
+
+function isStaff(role: string) {
+  return role === 'admin' || role === 'super_admin';
+}
 
 /** Strip identity / private verification docs from public profile payloads */
 function toPublicUser(user: Record<string, unknown>, opts?: { includePrivateDocs?: boolean }) {
@@ -60,12 +68,12 @@ export class UsersController {
       'resumeTemplate', 'companyName', 'businessType', 'industry',
       'registrationNumber', 'tin', 'website', 'foundedYear', 'employeeCount',
       'officeAddress', 'companyGallery', 'companyDocuments', 'recruiterContacts',
-      'isPremium',
     ] as const;
 
     // Moderators/admins may block users, but only Super Admin can change verification flags
     const adminOnly = [
       'isBlocked', 'blockUntil', 'blockReason', 'blockedAt', 'trustScore', 'riskScore',
+      'isPremium',
     ] as const;
     const superOnly = ['isVerified', 'verificationStatus', 'role'] as const;
 
@@ -73,7 +81,7 @@ export class UsersController {
     for (const key of allowed) {
       if (key in body) data[key] = body[key];
     }
-    if (['admin', 'super_admin'].includes(req.user.role)) {
+    if (isStaff(req.user.role)) {
       for (const key of adminOnly) {
         if (key in body) data[key] = body[key];
       }
@@ -84,7 +92,12 @@ export class UsersController {
       }
     }
 
-    return this.prisma.user.update({ where: { id }, data: data as any });
+    const updated = await this.prisma.user.update({ where: { id }, data: data as any });
+    const includePrivate =
+      req.user.userId === id || req.user.role === 'super_admin';
+    return toPublicUser(updated as unknown as Record<string, unknown>, {
+      includePrivateDocs: includePrivate,
+    });
   }
 }
 
@@ -108,14 +121,19 @@ export class JobsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>, @Req() req: { user: { userId: string } }) {
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
     const id = (body.id as string) || randomUUID();
+    // Employers can only create jobs for themselves
+    const employerId =
+      isStaff(req.user.role) && body.employerId
+        ? String(body.employerId)
+        : req.user.userId;
     return this.prisma.job.create({
       data: {
         id,
-        title: String(body.title || ''),
+        title: String(body.title || '').trim().slice(0, 200),
         description: body.description as string,
-        employerId: String(body.employerId || req.user.userId),
+        employerId,
         employerName: body.employerName as string,
         category: body.category as string,
         region: body.region as string,
@@ -126,7 +144,7 @@ export class JobsController {
         salaryType: body.salaryType as string,
         workType: body.workType as string,
         status: (body.status as any) || 'active',
-        isPromoted: Boolean(body.isPromoted),
+        isPromoted: isStaff(req.user.role) ? Boolean(body.isPromoted) : false,
         requirements: (body.requirements as string[]) || [],
         images: (body.images as string[]) || [],
       },
@@ -135,8 +153,29 @@ export class JobsController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.job.update({ where: { id }, data: body as any });
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    const job = await this.prisma.job.findUnique({ where: { id } });
+    if (!job) throw new NotFoundException('E\'lon topilmadi');
+    if (job.employerId !== req.user.userId && !isStaff(req.user.role)) {
+      throw new ForbiddenException();
+    }
+    const allowed = [
+      'title', 'description', 'category', 'region', 'district', 'neighborhood',
+      'salary', 'price', 'salaryType', 'workType', 'status', 'requirements', 'images',
+      'employerName',
+    ] as const;
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in body) data[key] = body[key];
+    }
+    if (isStaff(req.user.role) && 'isPromoted' in body) {
+      data.isPromoted = Boolean(body.isPromoted);
+    }
+    return this.prisma.job.update({ where: { id }, data: data as any });
   }
 }
 
@@ -144,19 +183,37 @@ export class JobsController {
 export class ApplicationsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async list(@Query() query: Record<string, string>) {
+  async list(@Query() query: Record<string, string>, @Req() req: { user: AuthUser }) {
     const where: Record<string, unknown> = {};
     if (query.jobId) where.jobId = query.jobId;
-    if (query.workerId) where.workerId = query.workerId;
-    if (query.employerId) where.employerId = query.employerId;
     if (query.status) where.status = query.status;
+
+    if (isStaff(req.user.role)) {
+      if (query.workerId) where.workerId = query.workerId;
+      if (query.employerId) where.employerId = query.employerId;
+    } else if (req.user.role === 'employer') {
+      where.employerId = req.user.userId;
+      if (query.workerId) where.workerId = query.workerId;
+    } else {
+      // Workers may only see their own applications
+      where.workerId = req.user.userId;
+    }
+
     return this.prisma.application.findMany({ where: where as any, orderBy: { createdAt: 'desc' } });
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async get(@Param('id') id: string) {
-    return this.prisma.application.findUniqueOrThrow({ where: { id } });
+  async get(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    const app = await this.prisma.application.findUniqueOrThrow({ where: { id } });
+    const allowed =
+      isStaff(req.user.role) ||
+      app.workerId === req.user.userId ||
+      app.employerId === req.user.userId;
+    if (!allowed) throw new ForbiddenException();
+    return app;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -374,12 +431,21 @@ function normalizeContractWrite(body: Record<string, unknown>, opts?: { partial?
 export class ContractsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async list(@Query() query: Record<string, string>) {
+  async list(@Query() query: Record<string, string>, @Req() req: { user: AuthUser }) {
     const where: Record<string, unknown> = {};
-    if (query.workerId) where.workerId = query.workerId;
-    if (query.employerId) where.employerId = query.employerId;
     if (query.status) where.status = query.status;
+
+    if (isStaff(req.user.role)) {
+      if (query.workerId) where.workerId = query.workerId;
+      if (query.employerId) where.employerId = query.employerId;
+    } else if (req.user.role === 'employer') {
+      where.employerId = req.user.userId;
+    } else {
+      where.workerId = req.user.userId;
+    }
+
     const rows = await this.prisma.contract.findMany({
       where: where as any,
       orderBy: { createdAt: 'desc' },
@@ -387,9 +453,15 @@ export class ContractsController {
     return rows.map((row) => toContractDto(row as unknown as Record<string, unknown>));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async get(@Param('id') id: string) {
+  async get(@Param('id') id: string, @Req() req: { user: AuthUser }) {
     const row = await this.prisma.contract.findUniqueOrThrow({ where: { id } });
+    const allowed =
+      isStaff(req.user.role) ||
+      row.workerId === req.user.userId ||
+      row.employerId === req.user.userId;
+    if (!allowed) throw new ForbiddenException();
     return toContractDto(row as unknown as Record<string, unknown>);
   }
 
@@ -437,6 +509,13 @@ export class ContractsController {
     const data = normalizeContractWrite(body);
     if (!data.workerId || !data.employerId) {
       throw new BadRequestException('workerId va employerId majburiy');
+    }
+
+    if (
+      String(data.employerId) !== req.user.userId &&
+      !isStaff(req.user.role)
+    ) {
+      throw new ForbiddenException('Faqat ish beruvchi shartnoma yarata oladi');
     }
 
     // Enrich names/title when missing
@@ -552,11 +631,32 @@ export class ContractsController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    const existing = await this.prisma.contract.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Shartnoma topilmadi');
+
+    const isWorker = existing.workerId === req.user.userId;
+    const isEmployer = existing.employerId === req.user.userId;
+    const staff = isStaff(req.user.role);
+    if (!isWorker && !isEmployer && !staff) throw new ForbiddenException();
+
     const data = normalizeContractWrite(body, { partial: true });
-    // Never let client force unknown Prisma keys (workerSigned etc.)
     delete (data as any).workerSigned;
     delete (data as any).employerSigned;
+
+    // Party-scoped signature / approval fields
+    if (!staff) {
+      delete (data as any).adminApproved;
+      delete (data as any).workerId;
+      delete (data as any).employerId;
+      if (!isWorker) delete (data as any).signedByWorker;
+      if (!isEmployer) delete (data as any).signedByEmployer;
+    }
+
     const updated = await this.prisma.contract.update({
       where: { id },
       data: data as any,
@@ -569,10 +669,13 @@ export class ContractsController {
 export class NotificationsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async list(@Query('userId') userId: string) {
+  async list(@Query('userId') userId: string | undefined, @Req() req: { user: AuthUser }) {
+    const target =
+      userId && isStaff(req.user.role) ? userId : req.user.userId;
     return this.prisma.notification.findMany({
-      where: { userId },
+      where: { userId: target },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -581,13 +684,37 @@ export class NotificationsController {
   @Post()
   async create(@Body() body: Record<string, unknown>) {
     const id = (body.id as string) || randomUUID();
-    return this.prisma.notification.create({ data: { id, ...body } as any });
+    const userId = String(body.userId || '');
+    if (!userId) throw new BadRequestException('userId majburiy');
+    return this.prisma.notification.create({
+      data: {
+        id,
+        userId,
+        title: String(body.title || '').slice(0, 200),
+        message: String(body.message || '').slice(0, 2000),
+        type: (body.type as string) || 'system',
+        link: body.link != null ? String(body.link).slice(0, 500) : null,
+        read: Boolean(body.read),
+      } as any,
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.notification.update({ where: { id }, data: body as any });
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    const row = await this.prisma.notification.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException();
+    if (row.userId !== req.user.userId && !isStaff(req.user.role)) {
+      throw new ForbiddenException();
+    }
+    return this.prisma.notification.update({
+      where: { id },
+      data: { read: body.read !== undefined ? Boolean(body.read) : row.read },
+    });
   }
 }
 
@@ -647,8 +774,18 @@ export class ChatMessagesController {
       .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async list(@Query('userA') userA: string, @Query('userB') userB: string) {
+  async list(
+    @Query('userA') userA: string,
+    @Query('userB') userB: string,
+    @Req() req: { user: AuthUser },
+  ) {
+    if (!userA || !userB) throw new BadRequestException('userA va userB majburiy');
+    const me = req.user.userId;
+    if (!isStaff(req.user.role) && me !== userA && me !== userB) {
+      throw new ForbiddenException();
+    }
     const rows = await this.prisma.chatMessage.findMany({
       where: {
         OR: [
@@ -783,10 +920,12 @@ export class ReviewsController {
 export class SavedJobsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async list(@Query('userId') userId: string) {
+  async list(@Query('userId') userId: string | undefined, @Req() req: { user: AuthUser }) {
+    const target = userId && isStaff(req.user.role) ? userId : req.user.userId;
     return this.prisma.savedJob.findMany({
-      where: { userId },
+      where: { userId: target },
       include: { job: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -794,9 +933,11 @@ export class SavedJobsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: { userId: string; jobId: string }) {
+  async create(@Body() body: { userId?: string; jobId: string }, @Req() req: { user: AuthUser }) {
     const id = randomUUID();
-    return this.prisma.savedJob.create({ data: { id, userId: body.userId, jobId: body.jobId } });
+    return this.prisma.savedJob.create({
+      data: { id, userId: req.user.userId, jobId: body.jobId },
+    });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -875,6 +1016,8 @@ export class ViolationsController {
 export class ActivityLogsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
   @Get()
   async list(@Query('userId') userId?: string) {
     return this.prisma.activityLog.findMany({
@@ -896,6 +1039,8 @@ export class ActivityLogsController {
 export class SystemLogsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
   @Get()
   async list() {
     return this.prisma.systemLog.findMany({ orderBy: { createdAt: 'desc' }, take: 100 });
@@ -903,9 +1048,18 @@ export class SystemLogsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
     const id = (body.id as string) || randomUUID();
-    return this.prisma.systemLog.create({ data: { id, ...body } as any });
+    return this.prisma.systemLog.create({
+      data: {
+        id,
+        action: String(body.action || 'ACTION').slice(0, 120),
+        userId: req.user.userId,
+        userEmail: body.userEmail != null ? String(body.userEmail) : undefined,
+        details: (body.details as object) || {},
+        type: (body.type as string) || 'info',
+      } as any,
+    });
   }
 }
 
@@ -913,12 +1067,15 @@ export class SystemLogsController {
 export class SettingsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
   @Get('global')
   async getGlobal() {
     return this.prisma.globalSettings.findUnique({ where: { id: 'global_config' } });
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
   @Patch('global')
   async updateGlobal(@Body() body: Record<string, unknown>) {
     return this.prisma.globalSettings.upsert({

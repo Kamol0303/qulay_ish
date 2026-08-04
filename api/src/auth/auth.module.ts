@@ -7,11 +7,20 @@ import { JwtStrategy } from './jwt.strategy';
 import { OtpService } from './otp.service';
 import { DevSmsService } from './devsms.service';
 
+function resolveJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret && secret.trim()) return secret.trim();
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET is required in production');
+  }
+  return 'dev-secret';
+}
+
 @Module({
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'dev-secret',
+      secret: resolveJwtSecret(),
       // 7h default: SMS OTP session lasts 7 hours without re-sending OTP
       signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '7h') as any },
     }),

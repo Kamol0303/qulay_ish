@@ -17,6 +17,11 @@ export default function SuperAdminLogin() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    if (!login.trim() || !password) {
+      setError('Login va parol majburiy');
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -110,7 +115,8 @@ export default function SuperAdminLogin() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 rounded-lg"
+                  aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>

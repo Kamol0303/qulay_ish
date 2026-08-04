@@ -44,6 +44,17 @@ const ALLOWED = new Set([
   '.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf', '.mp4', '.webm', '.doc', '.docx',
 ]);
 
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const ALLOWED_MIMES = new Set([
+  ...IMAGE_MIMES,
+  'application/pdf',
+  'video/mp4',
+  'video/webm',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
 function ensureDir(path: string) {
   if (!existsSync(path)) mkdirSync(path, { recursive: true });
 }
@@ -75,10 +86,16 @@ export class UploadsController {
         },
       }),
       limits: { fileSize: 12 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
+      fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
-        if (!ALLOWED.has(ext)) {
+        const mime = (file.mimetype || '').toLowerCase();
+        const kind = String((req.body as { kind?: string })?.kind || 'file');
+        if (!ALLOWED.has(ext) || (mime && !ALLOWED_MIMES.has(mime) && !mime.startsWith('image/'))) {
           cb(new BadRequestException('Fayl turi qo\'llab-quvvatlanmaydi') as unknown as Error, false);
+          return;
+        }
+        if ((kind === 'photo' || kind === 'cover') && !IMAGE_EXTS.has(ext)) {
+          cb(new BadRequestException('Rasm fayli talab qilinadi') as unknown as Error, false);
           return;
         }
         cb(null, true);
