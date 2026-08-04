@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
+import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
 
 export default function EmployerJobDetails() {
   const { t, i18n } = useTranslation();
@@ -38,6 +39,7 @@ export default function EmployerJobDetails() {
   const [applications, setApplications] = useState<(Application & { worker?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showOptions, setShowOptions] = useState(false);
+  const verified = isIdentityVerified(profile);
 
   useEffect(() => {
     async function fetchJobAndApplicants() {
@@ -86,6 +88,29 @@ export default function EmployerJobDetails() {
     }
   };
 
+  const requireVerified = () => {
+    if (isIdentityVerified(profile)) return true;
+    window.alert(VERIFICATION_REQUIRED_MESSAGE);
+    navigate('/verification');
+    return false;
+  };
+
+  const handleEditJob = () => {
+    if (!requireVerified() || !jobId) return;
+    navigate(`/employer/create-job?edit=${jobId}`);
+  };
+
+  const handleActivateJob = async () => {
+    if (!requireVerified() || !jobId) return;
+    try {
+      await jobService.markAsInProgress(jobId);
+      setJob((prev) => (prev ? { ...prev, status: 'active' } : prev));
+      setShowOptions(false);
+    } catch (error) {
+      debugLogger.error('Error activating job:', error);
+    }
+  };
+
   const getDateLocale = () => {
     switch (i18n.language) {
       case 'ru': return ru;
@@ -121,8 +146,21 @@ export default function EmployerJobDetails() {
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
                   className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-xl z-20 overflow-hidden"
                 >
-                  <button className="w-full px-4 py-3 text-left text-sm font-bold flex items-center gap-3 hover:bg-secondary transition-all">
+                  <button
+                    type="button"
+                    onClick={handleEditJob}
+                    disabled={!verified}
+                    className="w-full px-4 py-3 text-left text-sm font-bold flex items-center gap-3 hover:bg-secondary transition-all disabled:opacity-40"
+                  >
                     <Edit size={16} /> {t('common.edit')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleActivateJob()}
+                    disabled={!verified}
+                    className="w-full px-4 py-3 text-left text-sm font-bold flex items-center gap-3 hover:bg-secondary transition-all disabled:opacity-40"
+                  >
+                    <CheckCircle size={16} /> {t('common.active')}
                   </button>
                   <button 
                     onClick={handleDeleteJob}

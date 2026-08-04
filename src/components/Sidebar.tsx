@@ -54,7 +54,6 @@ export default function Sidebar() {
       { icon: Briefcase, label: t('nav.sidebar.my_jobs'), path: '/employer/jobs', end: false },
       { icon: Users, label: t('nav.sidebar.applicants'), path: '/employer/applicants', end: false },
       { icon: CheckCircle, label: t('nav.sidebar.contracts'), path: '/employer/contracts', end: false },
-      { icon: Heart, label: 'Qulay Ish', path: '/qulay-ish', end: true },
       { icon: Users, label: t('nav.sidebar.worker_base'), path: '/workers', end: true },
       { icon: ShieldCheck, label: t('nav.sidebar.identity_verification'), path: '/verification', end: true },
       { icon: MessageSquare, label: t('nav.sidebar.messages'), path: '/chat', end: true },

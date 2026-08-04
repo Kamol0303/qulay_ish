@@ -217,7 +217,7 @@ export default function VerificationPage() {
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-8 rounded-[2.5rem] border border-border bg-card p-8 shadow-sm">
               <UploadSlot
-                title={t('verification.id_document')}
+                title={`${t('verification.id_document')} (majburiy)`}
                 desc={t('verification.id_desc')}
                 icon={<FileText className="h-8 w-8" />}
                 url={formData.idPhotoUrl}
@@ -226,7 +226,7 @@ export default function VerificationPage() {
                 onClear={() => setFormData((p) => ({ ...p, idPhotoUrl: '' }))}
               />
               <UploadSlot
-                title={t('verification.selfie_verification')}
+                title={`${t('verification.selfie_verification')} (majburiy)`}
                 desc={t('verification.selfie_desc')}
                 icon={<Camera className="h-8 w-8" />}
                 url={formData.selfieUrl}

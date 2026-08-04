@@ -8,10 +8,11 @@ import { jobService } from '../../services/jobService';
 import { Contract, Profile, Job } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { FileText, CheckCircle, User, Briefcase, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
 
 function safeFormatDate(value: any, fmt: string, options: any): string {
   try {
@@ -27,6 +28,7 @@ function safeFormatDate(value: any, fmt: string, options: any): string {
 export default function WorkerContracts() {
   const { t, i18n } = useTranslation();
   const { profile, isDemo } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<(Contract & { employer?: Profile; job?: Job })[]>([]);
 
@@ -71,6 +73,11 @@ export default function WorkerContracts() {
 
   const handleSign = async (contractId: string) => {
     try {
+      if (!isIdentityVerified(profile)) {
+        window.alert(VERIFICATION_REQUIRED_MESSAGE);
+        navigate('/verification');
+        return;
+      }
       await contractService.signByWorker(
         contractId,
         profile!.uid,

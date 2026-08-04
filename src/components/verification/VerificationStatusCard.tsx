@@ -13,7 +13,7 @@ const STATUS_UI: Record<
     desc: 'Qulay Ish tomonidan tasdiqlangan',
   },
   pending: {
-    label: 'Ko\'rib chiqilmoqda',
+    label: 'Tasdiqlash kutilmoqda',
     className: 'border-amber-200 bg-amber-50 text-amber-800',
     icon: Clock,
     desc: 'Arizangiz admin tekshiruvida',

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { normalizeLanguageCode } from '../lib/utils';
 
-export default function Header() {
+export default function Header({ minimalNav = false }: { minimalNav?: boolean }) {
   const { user, profile, signOut: authSignOut } = useAuth();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -32,10 +32,23 @@ export default function Header() {
   const currentLanguageCode = normalizeLanguageCode(i18n.resolvedLanguage || i18n.language);
   const currentLanguage = languages.find((l) => l.code === currentLanguageCode) || languages[0];
 
-  const navLinks = [
-    { name: t('nav.jobs_link'), path: '/jobs', icon: Briefcase },
-    { name: t('nav.statistics'), path: '/statistics', icon: BarChart2 },
-  ];
+  // Profile (employer / hokimiyat) pages: hide Jobs + Statistics
+  const navLinks = minimalNav
+    ? []
+    : [
+        { name: t('nav.jobs_link'), path: '/jobs', icon: Briefcase },
+        { name: t('nav.statistics'), path: '/statistics', icon: BarChart2 },
+      ];
+
+  const profilePath = '/my-profile';
+  const profileHome =
+    profile?.role === 'employer'
+      ? '/employer/dashboard'
+      : profile?.role === 'admin' || profile?.role === 'super_admin'
+        ? '/admin/dashboard'
+        : profile?.role === 'worker'
+          ? '/worker/dashboard'
+          : '/';
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 transition-colors duration-300">
@@ -113,7 +126,7 @@ export default function Header() {
                 <Link to="/chat" className="text-muted-foreground hover:text-primary transition-colors relative">
                   <MessageSquare size={20} />
                 </Link>
-                {profile?.role === 'worker' && (
+                {!minimalNav && profile?.role === 'worker' && (
                   <Link
                     to="/my-profile"
                     className="flex items-center space-x-2 bg-primary/5 text-primary px-3 py-1.5 rounded-full border border-primary/20 hover:bg-primary/10 transition-colors"
@@ -123,11 +136,13 @@ export default function Header() {
                   </Link>
                 )}
                 <Link
-                  to={profile?.role === 'worker' ? '/my-profile' : profile?.role === 'employer' ? '/employer/dashboard' : '/admin/dashboard'}
+                  to={minimalNav ? profilePath : profile?.role === 'worker' ? '/my-profile' : profileHome}
                   className="flex items-center space-x-2 bg-secondary px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors"
                 >
                   <User size={18} className="text-muted-foreground" />
-                  <span className="text-sm font-medium text-foreground">{profile?.fullName || t('nav.profile')}</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {minimalNav ? t('nav.profile') : (profile?.fullName || t('nav.profile'))}
+                  </span>
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -219,7 +234,7 @@ export default function Header() {
                     <MessageSquare size={20} className="text-muted-foreground" />
                     <span>{t('nav.chat')}</span>
                   </Link>
-                  {profile?.role === 'worker' && (
+                  {!minimalNav && profile?.role === 'worker' && (
                     <Link
                       to="/my-profile"
                       onClick={() => setIsMenuOpen(false)}
@@ -230,7 +245,7 @@ export default function Header() {
                     </Link>
                   )}
                   <Link
-                    to={profile?.role === 'worker' ? '/my-profile' : profile?.role === 'employer' ? '/employer/dashboard' : '/admin/dashboard'}
+                    to={minimalNav ? profilePath : profile?.role === 'worker' ? '/my-profile' : profileHome}
                     onClick={() => setIsMenuOpen(false)}
                     className="block px-3 py-3 text-base font-medium text-foreground hover:bg-secondary rounded-lg flex items-center space-x-3"
                   >

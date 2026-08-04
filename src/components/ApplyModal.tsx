@@ -6,6 +6,7 @@ import { Job, Profile } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { applicationService } from '../services/applicationService';
+import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../lib/verificationGate';
 
 interface ApplyModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
   const [loading, setLoading] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const verified = isIdentityVerified(profile);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -42,6 +44,17 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
     setError(null);
 
     try {
+      if (!profile) {
+        setError(t('errors.no_permission'));
+        setLoading(false);
+        return;
+      }
+      if (!isIdentityVerified(profile)) {
+        setError(VERIFICATION_REQUIRED_MESSAGE);
+        setLoading(false);
+        return;
+      }
+
       const isDemo = profile.uid.startsWith('demo_');
 
       if (isDemo) {
@@ -131,6 +144,25 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
                 </div>
               )}
 
+              {!verified && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex flex-col gap-3 text-amber-800 text-sm">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle size={18} />
+                    <p className="font-medium">{VERIFICATION_REQUIRED_MESSAGE}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate('/verification');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-amber-600 text-white font-bold"
+                  >
+                    Shaxsni tasdiqlash
+                  </button>
+                </div>
+              )}
+
               {success ? (
                 <div className="py-12 text-center">
                   <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
@@ -196,7 +228,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
 
                   <button
                     type="submit"
-                    disabled={loading || !coverLetter}
+                    disabled={loading || !coverLetter || !verified}
                     className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl disabled:opacity-50"
                   >
                     {loading ? t('auth.sending') : t('jobs.send_application')}

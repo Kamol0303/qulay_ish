@@ -10,6 +10,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
 import { jobService } from '../../services/jobService';
+import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
+import { Link } from 'react-router-dom';
 
 export default function CreateJob() {
   const { t } = useTranslation();
@@ -18,6 +20,7 @@ export default function CreateJob() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const verified = isIdentityVerified(profile);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -52,6 +55,10 @@ export default function CreateJob() {
     e.preventDefault();
     if (!user) {
       setError(t('errors.no_permission'));
+      return;
+    }
+    if (!isIdentityVerified(profile)) {
+      setError(VERIFICATION_REQUIRED_MESSAGE);
       return;
     }
     
@@ -103,6 +110,21 @@ export default function CreateJob() {
           <p className="text-gray-500 mt-2">{t('employer.dashboard.post_job_desc')}</p>
         </div>
 
+        {!verified && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3 text-amber-800">
+            <div className="flex items-center gap-3 flex-1">
+              <AlertCircle size={20} className="shrink-0" />
+              <p className="font-medium text-sm">{VERIFICATION_REQUIRED_MESSAGE}</p>
+            </div>
+            <Link
+              to="/verification"
+              className="shrink-0 px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-bold text-center"
+            >
+              Shaxsni tasdiqlash
+            </Link>
+          </div>
+        )}
+
         <AnimatePresence>
           {error && (
             <motion.div
@@ -129,7 +151,7 @@ export default function CreateJob() {
               <p className="text-gray-600">{t('employer.dashboard.redirecting')}...</p>
             </motion.div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleSubmit} className={`space-y-8 ${!verified ? 'pointer-events-none opacity-60' : ''}`}>
               {/* Basic Info */}
               <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
                 <div className="flex items-center gap-3 mb-2">

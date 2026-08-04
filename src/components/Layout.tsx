@@ -2,11 +2,18 @@ import React from 'react';
 import Header from './Header';
 import { useTranslation } from 'react-i18next';
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({
+  children,
+  minimalNav = false,
+}: {
+  children: React.ReactNode;
+  /** Profile pages: only Language / Chat / Profile / Log Out */
+  minimalNav?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header minimalNav={minimalNav} />
       <main>
         {children}
       </main>

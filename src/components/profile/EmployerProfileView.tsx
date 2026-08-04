@@ -28,7 +28,6 @@ const EMPLOYER_TABS = [
   { id: 'company' as const, label: 'Yuridik' },
   { id: 'portfolio' as const, label: 'Galereya' },
   { id: 'certificates' as const, label: 'Hujjatlar' },
-  { id: 'jobs' as const, label: 'Statistika' },
   { id: 'settings' as const, label: 'Sozlamalar' },
 ];
 
@@ -331,14 +330,6 @@ export function EmployerProfileView({
           )
         )}
 
-        {tab === 'jobs' && (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="Reyting" value={(draft.rating || 0).toFixed(1)} />
-            <Stat label="Sharhlar" value={String(draft.reviewCount || 0)} />
-            <Stat label="Yakunlangan ishlar" value={String(draft.completedJobs || 0)} />
-          </div>
-        )}
-
         {tab === 'settings' && (
           <ProfileCard title="Kompaniya sozlamalari">
             <p className="text-sm text-muted-foreground">
@@ -385,11 +376,3 @@ function Input({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>
-    </div>
-  );
-}
