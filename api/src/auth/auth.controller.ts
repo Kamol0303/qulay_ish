@@ -39,10 +39,16 @@ export class AuthController {
     return this.auth.signToken(user);
   }
 
-  /** Phone + password registration (no SMS OTP) */
+  /**
+   * Direct password registration is disabled.
+   * Public signup must use: POST /auth/send-otp (purpose=register) → POST /auth/verify-otp
+   * (OTP verified → user created in DB).
+   */
   @Post('register')
-  async register(@Body() body: RegisterDto) {
-    return this.otp.registerWithPassword(body);
+  async register(@Body() _body: RegisterDto) {
+    throw new BadRequestException(
+      'Ro\'yxatdan o\'tish uchun OTP SMS tasdiqlash majburiy. Avval OTP kodini oling, keyin tasdiqlang.',
+    );
   }
 
   /** After reset OTP verified — set new password (no auto-login) */

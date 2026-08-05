@@ -114,7 +114,17 @@ export default function AuthPage() {
 
   const handleGoBack = useCallback(() => {
     clearMessages();
-    if (step === 'otp' || step === 'newPassword') {
+    if (step === 'otp') {
+      setStep('form');
+      // Keep register password fields so user can resend OTP without retyping
+      setPartialState({
+        otp: '',
+        resendSeconds: 0,
+        ...(mode === 'forgot' ? { password: '', confirmPassword: '' } : {}),
+      });
+      return;
+    }
+    if (step === 'newPassword') {
       setStep('form');
       setPartialState({ otp: '', password: '', confirmPassword: '', resendSeconds: 0 });
       return;
@@ -167,44 +177,91 @@ export default function AuthPage() {
     [state.phone, state.password, clearMessages, setPartialState, t, setAuthProfile],
   );
 
+  /** Register step 1: send SMS OTP (user is NOT created until OTP is verified) */
+  const requestRegisterOtp = useCallback(async () => {
+    const fieldErrors: AuthState['fieldErrors'] = {};
+    const phoneValidation = validatePhoneNumber(state.phone);
+    if (!phoneValidation.isValid) {
+      fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
+    }
+    const fullNameValidation = validateFullName(state.fullName);
+    if (!fullNameValidation.isValid) {
+      fieldErrors.fullName = fullNameValidation.error || '';
+    }
+    const passwordValidation = validatePassword(state.password);
+    if (!passwordValidation.isValid) {
+      fieldErrors.password = passwordValidation.error || '';
+    }
+    const confirmValidation = validatePasswordConfirm(state.password, state.confirmPassword);
+    if (!confirmValidation.isValid) {
+      fieldErrors.confirmPassword = confirmValidation.error || '';
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+      setPartialState({
+        fieldErrors,
+        error: Object.values(fieldErrors)[0] || 'Formani to\'ldiring',
+      });
+      return false;
+    }
+
+    setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
+    try {
+      const result = await authService.sendOtp({
+        phone: state.phone,
+        purpose: 'register',
+        fullName: state.fullName.trim(),
+        role: state.selectedRole,
+        password: state.password,
+      });
+      if (!result.success) {
+        setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+        return false;
+      }
+      setPartialState({
+        loading: false,
+        success: 'OTP kodi SMS orqali yuborildi. Telefonni tasdiqlang.',
+        resendSeconds: 60,
+      });
+      setStep('otp');
+      return true;
+    } catch (err) {
+      debugError('Register OTP Error', err);
+      setPartialState({ loading: false, error: t('auth.unexpected_error') });
+      return false;
+    }
+  }, [
+    state.phone,
+    state.password,
+    state.confirmPassword,
+    state.fullName,
+    state.selectedRole,
+    setPartialState,
+    t,
+  ]);
+
   const handleRegister = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       clearMessages();
+      await requestRegisterOtp();
+    },
+    [clearMessages, requestRegisterOtp],
+  );
 
-      const fieldErrors: AuthState['fieldErrors'] = {};
-      const phoneValidation = validatePhoneNumber(state.phone);
-      if (!phoneValidation.isValid) {
-        fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
-      }
-      const fullNameValidation = validateFullName(state.fullName);
-      if (!fullNameValidation.isValid) {
-        fieldErrors.fullName = fullNameValidation.error || '';
-      }
-      const passwordValidation = validatePassword(state.password);
-      if (!passwordValidation.isValid) {
-        fieldErrors.password = passwordValidation.error || '';
-      }
-      const confirmValidation = validatePasswordConfirm(state.password, state.confirmPassword);
-      if (!confirmValidation.isValid) {
-        fieldErrors.confirmPassword = confirmValidation.error || '';
-      }
-      if (Object.keys(fieldErrors).length > 0) {
-        setPartialState({
-          fieldErrors,
-          error: Object.values(fieldErrors)[0] || 'Formani to\'ldiring',
-        });
+  /** Register step 2: verify OTP → create user in DB + login */
+  const handleVerifyRegisterOtp = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      clearMessages();
+
+      if (!state.otp || state.otp.length !== 6) {
+        setPartialState({ error: 'OTP kodi 6 raqamli bo\'lishi kerak.' });
         return;
       }
 
-      setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
+      setPartialState({ loading: true });
       try {
-        const result = await authService.registerWithPassword({
-          phone: state.phone,
-          password: state.password,
-          fullName: state.fullName.trim(),
-          role: state.selectedRole,
-        });
+        const result = await authService.verifyOtp(state.phone, state.otp);
         if (!result.success || !result.profile) {
           setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
           return;
@@ -212,25 +269,15 @@ export default function AuthPage() {
         setAuthProfile(result.profile);
         setPartialState({
           loading: false,
-          success: 'Ro\'yxatdan o\'tish muvaffaqiyatli.',
+          success: 'Telefon tasdiqlandi. Ro\'yxatdan o\'tish muvaffaqiyatli.',
         });
         setStep('complete');
       } catch (err) {
-        debugError('Register Error', err);
+        debugError('Register OTP Verify Error', err);
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [
-      state.phone,
-      state.password,
-      state.confirmPassword,
-      state.fullName,
-      state.selectedRole,
-      clearMessages,
-      setPartialState,
-      t,
-      setAuthProfile,
-    ],
+    [state.otp, state.phone, clearMessages, setPartialState, t, setAuthProfile],
   );
 
   const requestResetOtp = useCallback(async () => {
@@ -279,8 +326,12 @@ export default function AuthPage() {
   const handleResendOTP = useCallback(async () => {
     if (state.resendSeconds > 0 || state.loading) return;
     clearMessages();
+    if (mode === 'register') {
+      await requestRegisterOtp();
+      return;
+    }
     await requestResetOtp();
-  }, [state.resendSeconds, state.loading, clearMessages, requestResetOtp]);
+  }, [state.resendSeconds, state.loading, clearMessages, mode, requestRegisterOtp, requestResetOtp]);
 
   const handleVerifyResetOtp = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -376,7 +427,7 @@ export default function AuthPage() {
     if (step === 'complete') return 'Tayyor!';
     if (mode === 'login') return 'Telefon raqam va parol orqali kirish';
     if (mode === 'forgot') return 'Telefon raqamingizni kiriting — OTP faqat tiklash uchun';
-    return 'Telefon raqamingiz orqali roʻyxatdan oʻtish';
+    return 'Maʼlumotlarni toʻldiring — SMS orqali OTP tasdiqlash majburiy';
   })();
 
   const showBack = step !== 'form' || mode === 'forgot';
@@ -718,10 +769,10 @@ export default function AuthPage() {
                 >
                   {state.loading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <Loader size={18} className="animate-spin" aria-hidden /> Saqlanmoqda...
+                      <Loader size={18} className="animate-spin" aria-hidden /> Yuborilmoqda...
                     </span>
                   ) : (
-                    'Roʻyxatdan oʻtish'
+                    'OTP kodini olish'
                   )}
                 </button>
               </form>
@@ -779,9 +830,12 @@ export default function AuthPage() {
               </form>
             )}
 
-            {/* FORGOT — OTP */}
-            {mode === 'forgot' && step === 'otp' && (
-              <form onSubmit={handleVerifyResetOtp} className="space-y-5">
+            {/* REGISTER / FORGOT — OTP */}
+            {(mode === 'register' || mode === 'forgot') && step === 'otp' && (
+              <form
+                onSubmit={mode === 'register' ? handleVerifyRegisterOtp : handleVerifyResetOtp}
+                className="space-y-5"
+              >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     OTP kodi (6 raqam)
@@ -805,6 +859,9 @@ export default function AuthPage() {
                   />
                   <p className="text-xs text-gray-500 mt-2">
                     {formattedPhone} raqamiga yuborilgan kod
+                    {mode === 'register'
+                      ? '. Tasdiqlangandan keyin akkaunt bazaga saqlanadi.'
+                      : ''}
                   </p>
                 </div>
 
@@ -817,6 +874,8 @@ export default function AuthPage() {
                     <span className="flex items-center justify-center gap-2">
                       <Loader size={18} className="animate-spin" /> Tekshirilmoqda...
                     </span>
+                  ) : mode === 'register' ? (
+                    'Tasdiqlash va roʻyxatdan oʻtish'
                   ) : (
                     'Tasdiqlash'
                   )}

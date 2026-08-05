@@ -110,6 +110,9 @@ export class OtpService {
       if (existing) {
         throw new BadRequestException('Bu telefon raqami allaqachon ro\'yxatdan o\'tgan');
       }
+      if (!dto.fullName || dto.fullName.trim().length < 2) {
+        throw new BadRequestException('To\'liq ism majburiy');
+      }
       if (!dto.password || dto.password.length < 8) {
         throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
       }
@@ -263,10 +266,15 @@ export class OtpService {
         );
       }
       const uid = randomUUID().replace(/-/g, '').slice(0, 28);
-      const email = `${phone.replace(/\D/g, '')}@qulayish.local`;
+      const email = `${phone.replace(/\D/g, '')}@ishliayol.uz`;
       const meta = (session.metadata && typeof session.metadata === 'object'
         ? session.metadata
         : {}) as { passwordHash?: string };
+      if (!meta.passwordHash) {
+        throw new BadRequestException(
+          'Parol topilmadi. Ro\'yxatdan o\'tishni qaytadan boshlang va OTP oling.',
+        );
+      }
       // Only worker/employer may be created via public OTP registration
       const role =
         session.role === UserRole.employer ? UserRole.employer : UserRole.worker;
@@ -277,7 +285,7 @@ export class OtpService {
           email,
           phoneNumber: phone,
           role,
-          passwordHash: meta.passwordHash || null,
+          passwordHash: meta.passwordHash,
           region: 'Samarqand viloyati',
           isVerified: false,
           verificationStatus: 'none',
