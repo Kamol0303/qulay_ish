@@ -25,6 +25,9 @@ npm run dev
 - API: http://localhost:4000/api  
 - Super Admin: http://localhost:3000/super-admin-login  
 
+**Umumiy xulosa (sayt + APK + tizim):**  
+👉 **[`LOYIHA_XULOSASI.md`](./LOYIHA_XULOSASI.md)**
+
 **To‘liq qo‘llanma (clone → env → DB → login → APK → xatolar):**  
 👉 **[`SETUP.md`](./SETUP.md)**
 
@@ -32,6 +35,7 @@ npm run dev
 
 | Fayl | Mazmun |
 |------|--------|
+| [`LOYIHA_XULOSASI.md`](./LOYIHA_XULOSASI.md) | Umumiy xulosa — sayt, APK, arxitektura |
 | [`SETUP.md`](./SETUP.md) | Clone va ishga tushirish (to‘liq) |
 | [`MOBILE.md`](./MOBILE.md) | Android APK (Capacitor) |
 | [`AUDIT.md`](./AUDIT.md) | Kod bazasi auditi |
