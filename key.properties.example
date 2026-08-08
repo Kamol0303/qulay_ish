@@ -1,0 +1,10 @@
+# Copy this file to `key.properties` and fill values for signing Android release builds.
+# Do NOT commit the real `key.properties` to the repo — it is already gitignored.
+
+storeFile=android/release.keystore
+storePassword=your_store_password
+keyAlias=your_key_alias
+keyPassword=your_key_password
+
+# Example commands to generate a keystore (run locally):
+# keytool -genkeypair -v -keystore android/release.keystore -alias your_key_alias -keyalg RSA -keysize 2048 -validity 10000
