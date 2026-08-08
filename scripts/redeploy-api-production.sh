@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PROD_HOST="${PROD_HOST:-mexrliqollar.uz}"
+PROD_HOST="${PROD_HOST:-ishliayol.uz}"
 PROD_IP="${PROD_IP:-185.203.237.57}"
 
 is_production_host() {
@@ -78,7 +78,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 if ! grep -q 'CORS_ORIGIN=' "$ENV_FILE"; then
-  echo "CORS_ORIGIN=https://mexrliqollar.uz,https://www.mexrliqollar.uz,https://localhost,capacitor://localhost,http://localhost:3000" >> "$ENV_FILE"
+  echo "CORS_ORIGIN=https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost,http://localhost:3000" >> "$ENV_FILE"
   echo "==> CORS_ORIGIN qo'shildi"
 else
   echo "==> CORS_ORIGIN mavjud (Nest Capacitor originlarni ham merge qiladi)"

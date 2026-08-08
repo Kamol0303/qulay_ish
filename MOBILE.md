@@ -1,6 +1,6 @@
 # mexrliqollar.uz — Android APK (Capacitor)
 
-Web va APK **bir xil NestJS API + PostgreSQL** (`https://mexrliqollar.uz/api`) bilan ishlaydi.  
+Web va APK **bir xil NestJS API + PostgreSQL** (`https://ishliayol.uz/api`) bilan ishlaydi.  
 Demo/local-only ma’lumot o‘chirilgan.
 
 **iOS:** qarang [`IOS.md`](./IOS.md) — `./scripts/build-ios.sh sync` (IPA faqat macOS/Xcode).
@@ -83,7 +83,7 @@ APK chiqishi: `artifacts/mexrliqollar-*-latest.apk` (yoki `APK_OUT=...`).
 
 ```bash
 npm install
-npm run build -- --mode capacitor   # VITE_API_URL=https://mexrliqollar.uz/api
+npm run build -- --mode capacitor   # VITE_API_URL=https://ishliayol.uz/api
 npx cap sync android
 npx cap open android                # Android Studio
 # yoki
@@ -94,7 +94,7 @@ cd android && ./gradlew assembleDebug
 
 | Fayl | Vazifa |
 |------|--------|
-| `.env.capacitor` | APK build: `VITE_API_URL=https://mexrliqollar.uz/api` |
+| `.env.capacitor` | APK build: `VITE_API_URL=https://ishliayol.uz/api` |
 | `capacitor.config.ts` | `hostname: mexrliqollar.uz`, `CapacitorHttp.enabled`, HTTPS-only |
 | `api/.env` `CORS_ORIGIN` | website + Capacitor originlar (Nest ularni har doim merge qiladi) |
 | `api/.env` `DEVSMS_TOKEN` | OTP SMS uchun majburiy (bo‘sh bo‘lsa register ishlamaydi) |
@@ -126,7 +126,7 @@ git pull origin main && ./scripts/redeploy-api-production.sh
 ## Sinxron tekshiruv
 
 1. APK da login/register → DB da yozuv
-2. Saytda (`https://mexrliqollar.uz`) shu user/job ko‘rinsin
+2. Saytda (`https://ishliayol.uz`) shu user/job ko‘rinsin
 3. Saytda ish yarating → APK `/jobs` da yangilang
 
 ## Xavfsizlik

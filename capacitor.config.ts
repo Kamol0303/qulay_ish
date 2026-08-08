@@ -2,16 +2,18 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'uz.mexrliqollar.app',
-  appName: 'mexrliqollar.uz',
+  appName: "Mexrli Qo'llar.uz",
   webDir: 'dist',
   server: {
-    // Bundled SPA + absolute API (VITE_API_URL). Hostname matches production
-    // so WebView Origin is https://mexrliqollar.uz (CORS/same-site friendly).
+    // Live API host is still ishliayol.uz until mexrliqollar.uz DNS is ready.
+    // WebView Origin https://ishliayol.uz → CORS/same-site friendly.
     androidScheme: 'https',
     iosScheme: 'https',
-    hostname: 'mexrliqollar.uz',
+    hostname: 'ishliayol.uz',
     cleartext: false,
     allowNavigation: [
+      'ishliayol.uz',
+      'www.ishliayol.uz',
       'mexrliqollar.uz',
       'www.mexrliqollar.uz',
       'localhost',

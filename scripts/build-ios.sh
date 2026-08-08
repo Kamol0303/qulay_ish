@@ -10,8 +10,8 @@ MODE="${1:-sync}" # sync | open | archive
 echo "==> npm install (frontend deps)"
 npm install --no-fund --no-audit
 
-export VITE_API_URL="${VITE_API_URL:-https://mexrliqollar.uz/api}"
-export VITE_APP_URL="${VITE_APP_URL:-https://mexrliqollar.uz}"
+export VITE_API_URL="${VITE_API_URL:-https://ishliayol.uz/api}"
+export VITE_APP_URL="${VITE_APP_URL:-https://ishliayol.uz}"
 export VITE_AI_MOCK_MODE="${VITE_AI_MOCK_MODE:-false}"
 export VITE_USE_EMULATOR="${VITE_USE_EMULATOR:-false}"
 
@@ -19,8 +19,8 @@ echo "==> Vite build (mode=capacitor, API=$VITE_API_URL)"
 npm run build -- --mode capacitor
 
 JS_BUNDLE="$(ls dist/assets/index-*.js 2>/dev/null | head -1 || true)"
-if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://mexrliqollar.uz/api' "$JS_BUNDLE"; then
-  echo "ERROR: dist ichida https://mexrliqollar.uz/api topilmadi."
+if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://ishliayol.uz/api' "$JS_BUNDLE"; then
+  echo "ERROR: dist ichida https://ishliayol.uz/api topilmadi."
   exit 1
 fi
 echo "==> API URL baked OK"

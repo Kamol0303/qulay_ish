@@ -1,6 +1,6 @@
 # mexrliqollar.uz — iOS (Capacitor)
 
-Android APK bilan **bir xil** React SPA + NestJS API (`https://mexrliqollar.uz/api`).
+Android APK bilan **bir xil** React SPA + NestJS API (`https://ishliayol.uz/api`).
 
 | | |
 |--|--|
@@ -8,7 +8,7 @@ Android APK bilan **bir xil** React SPA + NestJS API (`https://mexrliqollar.uz/a
 | Display name | `mexrliqollar.uz` |
 | Platform papka | `ios/` |
 | Min iOS | 15.0 |
-| API | `.env.capacitor` → `VITE_API_URL=https://mexrliqollar.uz/api` |
+| API | `.env.capacitor` → `VITE_API_URL=https://ishliayol.uz/api` |
 
 ## Muhim cheklov
 
@@ -60,12 +60,12 @@ npm run cap:open:ios  # faqat macOS
 
 ## Tarmoq / CORS
 
-- `capacitor.config.ts`: `iosScheme: 'https'`, `hostname: 'mexrliqollar.uz'`, `CapacitorHttp.enabled`
+- `capacitor.config.ts`: `iosScheme: 'https'`, `hostname: 'ishliayol.uz'`, `CapacitorHttp.enabled`
 - Nest CORS Capacitor originlarni merge qiladi (`api/src/main.ts`)
 - Info.plist: kamera/galereya (verification), ATS HTTPS-only
 
 ## Sayt ↔ iOS sinxron
 
 1. iOS da register/login → PostgreSQL da yozuv
-2. https://mexrliqollar.uz da shu user ko‘rinadi
-3. Network: faqat `https://mexrliqollar.uz/api/*`
+2. https://ishliayol.uz da shu user ko‘rinadi
+3. Network: faqat `https://ishliayol.uz/api/*`

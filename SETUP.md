@@ -100,7 +100,7 @@ JWT_SECRET=change-me-in-production-use-long-random
 JWT_EXPIRES_IN=30d
 
 API_PORT=4000
-CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://mexrliqollar.uz,https://www.mexrliqollar.uz,https://localhost,capacitor://localhost
+CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost
 # Nest main.ts Capacitor originlarni CORS_ORIGIN bo'sh/tor bo'lsa ham qo'shadi.
 # Production OTP uchun DEVSMS_TOKEN majburiy.
 
@@ -224,7 +224,7 @@ npm run db:down
 
 ## 9. Android APK (ixtiyoriy)
 
-Sayt va APK **bir xil** production API ga ulanadi: `https://mexrliqollar.uz/api`.
+Sayt va APK **bir xil** production API ga ulanadi: `https://ishliayol.uz/api`.
 
 Batafsil: [`MOBILE.md`](./MOBILE.md)
 

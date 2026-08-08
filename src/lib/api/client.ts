@@ -86,7 +86,7 @@ export function resolveApiBase(): string {
         (host.startsWith('localhost:') || host.startsWith('127.0.0.1:')) &&
         (host.endsWith(':3000') || host.endsWith(':5173'));
       if (nativeLike && !isViteDev) {
-        return 'https://mexrliqollar.uz/api';
+        return 'https://ishliayol.uz/api';
       }
     }
     return raw.replace(/\/$/, '') || '/api';
