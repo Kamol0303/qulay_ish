@@ -33,23 +33,6 @@ export default function EmployerDashboard() {
   useEffect(() => {
     if (!profile?.uid) return;
 
-    // FIXED: Check if demo user by UID pattern, not isDemo flag
-    const isDemoUser = profile.uid.match(/^demo_(worker|employer)_/);
-
-    if (isDemoUser) {
-      // Demo mode - show empty state
-      setMyJobs([]);
-      setStats({
-        activeJobs: 0,
-        totalApplicants: 0,
-        activeContracts: 0,
-        totalSpent: 0
-      });
-      setRecentApplicants([]);
-      setLoading(false);
-      return;
-    }
-
     const load = async () => {
       try {
         const [employerJobs, apps, contracts] = await Promise.all([
@@ -84,7 +67,7 @@ export default function EmployerDashboard() {
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, [profile, isDemo]);
+  }, [profile]);
 
   const getDateLocale = () => {
     switch (i18n.language) {

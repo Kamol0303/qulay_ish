@@ -16,11 +16,8 @@ import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { ru, enUS } from 'date-fns/locale';
 import { getDistrictKey } from '../../lib/utils';
-import { DEMO_JOBS } from '../../constants/demoData';
-import { demoStore } from '../../lib/demoStore';
-
 export default function WorkerDashboard() {
-  const { profile, isDemo } = useAuth();
+  const { profile } = useAuth();
   const { t, i18n } = useTranslation();
   const [stats, setStats] = useState({
     activeApplications: 0,
@@ -34,21 +31,6 @@ export default function WorkerDashboard() {
 
   useEffect(() => {
     if (!profile?.uid) return;
-
-    if (isDemo) {
-      // Demo mode - show DEMO_JOBS as recent jobs
-      const allJobs = demoStore.mergeJobs(DEMO_JOBS);
-      setStats({
-        activeApplications: 0,
-        completedJobs: 0,
-        activeContracts: 0,
-        earnings: 0
-      });
-      setRecentApplications([]);
-      setRecentJobs(allJobs.filter((j: any) => j.status === 'open').slice(0, 5) as any);
-      setLoading(false);
-      return;
-    }
 
     const load = async () => {
       try {
@@ -77,7 +59,7 @@ export default function WorkerDashboard() {
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, [profile, isDemo]);
+  }, [profile]);
 
   const getDateLocale = () => {
     switch (i18n.language) {

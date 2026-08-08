@@ -16,11 +16,13 @@ export function getAccessToken(): string | null {
 
 export function setAccessToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+  void import('../../native/tokenPreferences').then((m) => m.syncTokenToNativePreferences(token));
 }
 
 export function clearAccessToken(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(SESSION_PROFILE_KEY);
+  void import('../../native/tokenPreferences').then((m) => m.syncTokenToNativePreferences(null));
 }
 
 /** JWT `exp` in ms, or null if missing/invalid */
@@ -47,10 +49,9 @@ export function isAccessTokenValid(token?: string | null): boolean {
 
 export function cacheSessionProfile(profile: unknown): void {
   try {
-    localStorage.setItem(
-      SESSION_PROFILE_KEY,
-      JSON.stringify({ profile, savedAt: Date.now() }),
-    );
+    const raw = JSON.stringify({ profile, savedAt: Date.now() });
+    localStorage.setItem(SESSION_PROFILE_KEY, raw);
+    void import('../../native/tokenPreferences').then((m) => m.syncProfileToNativePreferences(raw));
   } catch {
     /* ignore quota */
   }
@@ -70,6 +71,24 @@ export function readCachedSessionProfile<T = unknown>(): T | null {
 export function resolveApiBase(): string {
   const raw = (import.meta.env.VITE_API_URL || '/api').trim();
   if (raw.startsWith('/')) {
+    // Relative /api breaks inside Capacitor WebView (https://localhost).
+    // Force production API host when not running on a normal browser origin.
+    if (typeof window !== 'undefined') {
+      const host = window.location?.host || '';
+      const protocol = window.location?.protocol || '';
+      const nativeLike =
+        protocol === 'capacitor:' ||
+        protocol === 'ionic:' ||
+        host === 'localhost' ||
+        host.startsWith('localhost:');
+      // Dev web on localhost:3000 still wants Vite proxy /api
+      const isViteDev =
+        (host.startsWith('localhost:') || host.startsWith('127.0.0.1:')) &&
+        (host.endsWith(':3000') || host.endsWith(':5173'));
+      if (nativeLike && !isViteDev) {
+        return 'https://ishliayol.uz/api';
+      }
+    }
     return raw.replace(/\/$/, '') || '/api';
   }
   const withoutTrailing = raw.replace(/\/$/, '');

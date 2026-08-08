@@ -14,8 +14,6 @@ import { uz, ru, enUS } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { performanceUtils } from '../../lib/performance';
-import { demoStore } from '../../lib/demoStore';
-import { DEMO_JOBS } from '../../constants/demoData';
 
 // Safe date parser — handles export timestamps, ISO string, Date
 function safeDate(val: any): Date | null {
@@ -149,7 +147,7 @@ export default function JobsManagement() {
       const sorted = performanceUtils.sortByCreatedAtDesc(fetched);
       const { items, hasMore: more } = performanceUtils.paginate(sorted, pageSize, nextPage);
 
-      const base = reset ? demoStore.mergeJobs([...DEMO_JOBS, ...items]) : [...jobs, ...items];
+      const base = reset ? items : [...jobs, ...items];
       const filtered = statusFilter === 'all' ? base : base.filter(j => j.status === statusFilter);
 
       setJobs(filtered);
@@ -158,8 +156,7 @@ export default function JobsManagement() {
       else setPage(1);
     } catch (error) {
       debugLogger.error('Error fetching jobs:', error);
-      const fallback = demoStore.mergeJobs(DEMO_JOBS);
-      setJobs(statusFilter === 'all' ? fallback as Job[] : fallback.filter(j => j.status === statusFilter) as Job[]);
+      if (reset) setJobs([]);
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -167,28 +164,25 @@ export default function JobsManagement() {
   }
 
   async function updateJobStatus(jobId: string, newStatus: string) {
-    // Update local state + localStorage immediately (optimistic)
-    demoStore.updateJob(jobId, { status: newStatus });
-    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus as any } : j));
-    // Try API (non-blocking for demo jobs)
+    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus as Job['status'] } : j));
     try {
       await jobService.update(jobId, { status: newStatus as Job['status'] });
+      showToast(t('common.success'), 'success');
     } catch {
-      // Demo jobs may not exist in API
+      showToast(t('common.error'), 'error');
+      await fetchJobs(true);
     }
-    showToast(t('common.success'), 'success');
   }
 
   async function deleteJob(jobId: string) {
-    // Update local state + localStorage immediately
-    demoStore.removeJob(jobId);
     setJobs(prev => prev.filter(j => j.id !== jobId));
     try {
       await jobService.update(jobId, { status: 'closed' });
+      showToast(t('common.success'), 'success');
     } catch {
-      // Demo jobs may not exist in API
+      showToast(t('common.error'), 'error');
+      await fetchJobs(true);
     }
-    showToast(t('common.success'), 'success');
   }
 
   const locale = i18n.language === 'uz' ? uz : i18n.language === 'ru' ? ru : enUS;

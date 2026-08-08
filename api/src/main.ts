@@ -16,15 +16,18 @@ async function bootstrap() {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
+  const defaultOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://ishliayol.uz',
+    'https://www.ishliayol.uz',
+    // Capacitor Android WebView (androidScheme: https)
+    'https://localhost',
+    'capacitor://localhost',
+    'ionic://localhost',
+  ];
   app.enableCors({
-    origin: corsOrigins.length
-      ? corsOrigins
-      : [
-          'http://localhost:3000',
-          'http://127.0.0.1:3000',
-          'https://ishliayol.uz',
-          'https://www.ishliayol.uz',
-        ],
+    origin: corsOrigins.length ? corsOrigins : defaultOrigins,
     credentials: true,
   });
   app.useGlobalPipes(

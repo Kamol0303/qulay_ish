@@ -3,6 +3,8 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import './i18n';
+import { clearLegacyDemoStorage } from './lib/demoMode';
+import { hydrateTokenFromNativePreferences } from './native/tokenPreferences';
 
 // Suppress React DevTools message and other noise in development
 if (import.meta.env.DEV) {
@@ -19,9 +21,15 @@ if (import.meta.env.DEV) {
 // Force light mode — remove any dark class that may have been persisted
 document.documentElement.classList.remove('dark');
 localStorage.removeItem('theme');
+clearLegacyDemoStorage();
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+async function boot() {
+  await hydrateTokenFromNativePreferences();
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}
+
+void boot();

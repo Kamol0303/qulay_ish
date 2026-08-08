@@ -10,6 +10,7 @@ import {
   isAccessTokenValid,
   readCachedSessionProfile,
 } from '../lib/api/client';
+import { clearLegacyDemoStorage } from '../lib/demoMode';
 
 type UserRole = 'worker' | 'employer' | 'admin' | 'super_admin';
 
@@ -26,6 +27,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   userRole: UserRole | null;
+  /** Always false — demo/local-only auth is disabled (shared backend requirement). */
   isDemo: boolean;
   refreshProfile: () => Promise<void>;
   setAuthProfile: (profile: Profile) => void;
@@ -40,11 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const userRole = useMemo(() => (profile?.role as UserRole | null) || null, [profile]);
-
-  const isDemo = useMemo(
-    () => !!(user?.uid?.startsWith('demo_') || profile?.uid?.startsWith('demo_') || localStorage.getItem('qulay_ish_demo_session')),
-    [user, profile],
-  );
+  const isDemo = false;
 
   const setSession = useCallback((p: Profile) => {
     setProfile(p);
@@ -58,33 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkDemoSession = useCallback(() => {
-    const savedDemo = localStorage.getItem('qulay_ish_demo_session');
-    if (!savedDemo) return;
-    try {
-      const demoUser = JSON.parse(savedDemo);
-      const demoProfile: Profile = {
-        uid: demoUser.uid,
-        fullName: demoUser.fullName,
-        email: demoUser.email,
-        phoneNumber: demoUser.phoneNumber,
-        role: demoUser.role,
-        region: 'Samarqand viloyati',
-        district: '',
-        neighborhood: '',
-        isVerified: true,
-        verificationStatus: 'verified',
-        rating: 0,
-        reviewCount: 0,
-        completedJobs: 0,
-        createdAt: new Date(demoUser.createdAt).toISOString(),
-        lastActive: new Date().toISOString(),
-      };
-      setSession(demoProfile);
-      setLoading(false);
-    } catch (err) {
-      if (import.meta.env.DEV) debugLogger.warn('[AuthContext] demo parse error', err);
-    }
-  }, [setSession]);
+    clearLegacyDemoStorage();
+  }, []);
 
   const setAuthProfile = useCallback((p: Profile) => {
     setSession(p);
@@ -101,9 +74,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [setSession]);
 
   useEffect(() => {
+    clearLegacyDemoStorage();
     const token = getAccessToken();
     if (token) {
-      // Expired JWT → require password login again
       if (!isAccessTokenValid(token)) {
         clearAccessToken();
         setUser(null);
@@ -116,8 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .me()
         .then((p) => setSession(p))
         .catch((err) => {
-          // Only force re-login on real auth failure (401/403).
-          // Network/API-down must NOT wipe a still-valid JWT session.
           if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             clearAccessToken();
             setUser(null);
@@ -136,19 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const savedDemo = localStorage.getItem('qulay_ish_demo_session');
-    if (savedDemo) {
-      checkDemoSession();
-      return;
-    }
-
     setLoading(false);
-  }, [checkDemoSession, setSession]);
+  }, [setSession]);
 
   const signOut = useCallback(async () => {
-    localStorage.removeItem('qulay_ish_demo_session');
-    localStorage.removeItem('qulay_ish_otp_login_uid');
-    localStorage.removeItem('qulay_ish_otp_login_profile');
+    clearLegacyDemoStorage();
     api.auth.logout();
     setUser(null);
     setProfile(null);

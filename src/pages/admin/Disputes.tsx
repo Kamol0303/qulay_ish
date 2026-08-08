@@ -45,7 +45,7 @@ function ConfirmModal({ message, onConfirm, onCancel }: { message: string; onCon
 
 export default function AdminDisputes() {
   const { t, i18n } = useTranslation();
-  const { profile, isDemo } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const [disputes, setDisputes] = useState<(Dispute & { openedBy?: Profile; contract?: Contract })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,22 +60,6 @@ export default function AdminDisputes() {
       if (profile?.role !== 'admin' && profile?.role !== 'super_admin') return;
       setLoading(true);
 
-      if (isDemo) {
-        setDisputes([
-          {
-            id: '1',
-            contractId: 'contract1',
-            openedById: 'user1',
-            reason: 'Ish oʻz vaqtida bajarilmadi',
-            status: 'pending',
-            createdAt: { toDate: () => new Date() } as any,
-            openedBy: { fullName: 'Demo Foydalanuvchi' } as any,
-            contract: { id: 'contract1' } as any
-          }
-        ]);
-        setLoading(false);
-        return;
-      }
 
       try {
         const disputesData = await api.disputes.list();

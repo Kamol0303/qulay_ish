@@ -25,12 +25,6 @@ export default function EmployerApplications() {
     if (!profile?.uid) return;
     setLoading(true);
 
-    if (isDemo) {
-      setApplications([]);
-      setLoading(false);
-      return;
-    }
-
     const load = async () => {
       try {
         const appsData = await applicationService.getByEmployer(profile.uid);
@@ -50,7 +44,7 @@ export default function EmployerApplications() {
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, [profile, isDemo]);
+  }, [profile]);
 
   const handleStatusUpdate = async (appId: string, newStatus: string, workerId: string, jobTitle: string) => {
     try {
