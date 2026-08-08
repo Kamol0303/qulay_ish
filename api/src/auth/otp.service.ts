@@ -35,6 +35,10 @@ export class OtpService {
     private readonly devSms: DevSmsService,
   ) {}
 
+  getSmsStatus() {
+    return this.devSms.getStatus();
+  }
+
   private normalizePhone(input: string): string {
     const digits = input.replace(/\D/g, '');
     if (digits.startsWith('998') && digits.length === 12) return `+${digits}`;

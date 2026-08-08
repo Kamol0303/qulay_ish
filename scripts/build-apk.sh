@@ -111,6 +111,20 @@ echo "==> API URL baked OK ($(grep -o 'https://ishliayol.uz/api' "$JS_BUNDLE" | 
 echo "==> Capacitor sync android"
 npx cap sync android
 
+# Remind: OTP SMS is server-side (not baked into APK)
+if curl -sf --connect-timeout 5 https://ishliayol.uz/api/auth/sms-status >/tmp/sms-status.json 2>/dev/null; then
+  if grep -q '"configured":true' /tmp/sms-status.json; then
+    echo "==> Production SMS: configured=true"
+  else
+    echo "==> WARNING: Production SMS configured!=true — APK OTP ishlamaydi."
+    echo "    VPS da api/.env ga DEVSMS_TOKEN qo'ying va API ni restart qiling."
+    cat /tmp/sms-status.json 2>/dev/null || true
+  fi
+else
+  echo "==> WARNING: /api/auth/sms-status o'qilmadi (eski API yoki tarmoq)."
+  echo "    VPS: git pull && ./scripts/redeploy-api-production.sh"
+fi
+
 if [[ "$MODE" == "release" ]]; then
   KEYSTORE="${RELEASE_KEYSTORE:-$ROOT/android/release.keystore}"
   if [[ ! -f "$KEYSTORE" ]]; then

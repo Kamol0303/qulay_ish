@@ -1,63 +1,68 @@
 #!/usr/bin/env bash
-# OTP SMS ni yangilab ishga tushirish — bir marta ishlatiladi
+# OTP SMS ni yangilab ishga tushirish (local yoki VPS)
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "=== 1) GitHub dan yangi kod ==="
-git fetch origin main
-git checkout -- api/src/auth/devsms.service.ts api/src/auth/otp.service.ts api/src/auth/otp.constants.ts 2>/dev/null || true
-git pull origin main
+git fetch origin main || true
+git pull origin main || true
 
 echo ""
-echo "=== 2) Yangi kod tekshiruvi ==="
-if ! grep -q 'universal_otp (moderatsiyasiz)' api/src/auth/devsms.service.ts; then
-  echo "XATO: yangi DevSMS kodi topilmadi. git pull ishlamadi."
+echo "=== 2) Kod tekshiruvi ==="
+if ! grep -q 'OTP_ENGINE=UNIVERSAL_OTP_V3' api/src/auth/devsms.service.ts \
+  && ! grep -q "UNIVERSAL_OTP_V3" api/src/auth/devsms.service.ts; then
+  echo "XATO: yangi DevSMS kodi topilmadi."
   exit 1
 fi
-if grep -q 'DevSMS send failed' api/src/auth/devsms.service.ts; then
-  echo "XATO: hali eski kod. To'xtatildi."
-  exit 1
-fi
-echo "OK: yangi universal_otp kodi bor."
+echo "OK: UNIVERSAL_OTP_V3 kodi bor."
 
 echo ""
-echo "=== 3) api/.env tozalash ==="
+echo "=== 3) api/.env ==="
 ENV_FILE="api/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "api/.env yo'q — .env.example dan nusxa"
   cp api/.env.example api/.env
+  echo "api/.env .env.example dan yaratildi — DEVSMS_TOKEN ni to'ldiring"
 fi
 
-# Eski OTP sozlamalarini olib tashlash / yangilash
-sed -i '/^DEVSMS_OTP_MODE=/d' "$ENV_FILE"
-sed -i '/^DEVSMS_OTP_TEMPLATE=/d' "$ENV_FILE"
-sed -i '/^DEVSMS_FROM=/d' "$ENV_FILE"
-sed -i '/^# DEVSMS_FROM=/d' "$ENV_FILE"
+# Eski / noto'g'ri kalitlarni tozalash
+sed -i '/^DEVSMS_OTP_MODE=/d' "$ENV_FILE" || true
+sed -i '/^DEVSMS_OTP_TEMPLATE=/d' "$ENV_FILE" || true
 
-if ! grep -q '^DEVSMS_SERVICE_NAME=' "$ENV_FILE"; then
-  echo 'DEVSMS_SERVICE_NAME=mexrliqollar.uz' >> "$ENV_FILE"
+if ! grep -q '^DEVSMS_BASE_URL=' "$ENV_FILE"; then
+  echo 'DEVSMS_BASE_URL=https://devsms.uz/api' >> "$ENV_FILE"
 fi
 
-if ! grep -q '^DEVSMS_TOKEN=.\+' "$ENV_FILE"; then
-  echo "XATO: api/.env da DEVSMS_TOKEN bo'sh. Token qo'ying."
+# service_name — apostrofsiz
+if grep -q '^DEVSMS_SERVICE_NAME=' "$ENV_FILE"; then
+  sed -i 's/^DEVSMS_SERVICE_NAME=.*/DEVSMS_SERVICE_NAME=Mexrli Qollar/' "$ENV_FILE"
+else
+  echo 'DEVSMS_SERVICE_NAME=Mexrli Qollar' >> "$ENV_FILE"
+fi
+
+if ! grep -qE '^DEVSMS_TOKEN=.+' "$ENV_FILE"; then
+  echo "XATO: api/.env da DEVSMS_TOKEN bo'sh."
+  echo "  Tokenni yozing yoki: DEVSMS_TOKEN=... ./scripts/write-local-envs.sh"
   exit 1
 fi
 
-echo "OK: .env tozalandi. Muhim qatorlar:"
+echo "OK:"
 grep -E '^DEVSMS_' "$ENV_FILE" | sed 's/\(DEVSMS_TOKEN=\).\{8\}.*/\1********/'
 
 echo ""
-echo "=== 4) Eski build tozalash ==="
+echo "=== 4) Build ==="
 rm -rf api/dist
-cd api
-npx prisma generate >/dev/null
+(cd api && npx prisma generate >/dev/null && npm run build)
 
 echo ""
-echo "=== 5) API ishga tushirish ==="
-echo "Keyingi qadam:  npm run start:dev"
-echo "Logda shu chiqishi SHART:"
-echo "  DevSMS OTP: universal_otp (moderatsiyasiz)"
+echo "=== 5) Restart ==="
+if command -v pm2 >/dev/null 2>&1; then
+  pm2 restart qulay-ish-api 2>/dev/null || pm2 restart api 2>/dev/null || pm2 restart all || true
+else
+  echo "pm2 yo'q — API ni qo'lda restart qiling: cd api && npm run start:prod"
+fi
+
 echo ""
-echo "Agar yana 'модерацию' chiqsa — logda 'DevSMS so'\''rov:' qatorini yuboring."
+echo "Tekshiruv:"
+echo "  curl -s https://ishliayol.uz/api/auth/sms-status"
+echo "  ./scripts/check-otp.sh"

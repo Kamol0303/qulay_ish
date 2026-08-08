@@ -85,36 +85,31 @@ VITE_SUPER_ADMIN_PASSWORD=Hur_135642
 
 > Parolni o‘zingiznikiga almashtiring. Frontenddagi `VITE_SUPER_ADMIN_*` faqat eslatma — **haqiqiy tekshiruv** `api/.env` da.
 
-### 4.2 Backend (`api/.env`)
+### 4.2 Env fayllar (SMS shu yerda)
 
 ```bash
-cp api/.env.example api/.env
+./scripts/write-local-envs.sh
 ```
 
-Minimal `api/.env`:
+| Fayl | Vazifa |
+|------|--------|
+| `.env` | Lokal Vite (`VITE_API_URL=/api`) |
+| `.env.capacitor` | APK/iOS → `https://ishliayol.uz/api` |
+| `api/.env` | Nest + **DEVSMS_TOKEN** (OTP SMS) |
+
+`api/.env` SMS qatori (majburiy):
 
 ```env
-DATABASE_URL=postgresql://qulay_ish:qulay_ish_dev@localhost:5432/qulay_ish
-
-JWT_SECRET=change-me-in-production-use-long-random
-JWT_EXPIRES_IN=30d
-
-API_PORT=4000
-CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost
-# Nest main.ts Capacitor originlarni CORS_ORIGIN bo'sh/tor bo'lsa ham qo'shadi.
-# Production OTP uchun DEVSMS_TOKEN majburiy.
-
-SUPER_ADMIN_EMAIL=superadmin@mexrliqollar.uz
-SUPER_ADMIN_PHONE=+998900707081
-SUPER_ADMIN_PASSWORD=Hur_135642
-
-# SMS OTP (bo'sh bo'lsa — lokalda OTP API konsoliga chiqadi)
-DEVSMS_TOKEN=
+DEVSMS_TOKEN=your_devsms_token
 DEVSMS_BASE_URL=https://devsms.uz/api
-DEVSMS_SERVICE_NAME=mexrliqollar.uz
+DEVSMS_SERVICE_NAME=Mexrli Qollar
+DEVSMS_DEV_MODE=false
 ```
 
-**Muhim:** `SUPER_ADMIN_PASSWORD` ni o‘zgartirsangiz, API ni **qayta ishga tushiring**.
+Tekshiruv: `./scripts/check-otp.sh`  
+Production: `curl -s https://ishliayol.uz/api/auth/sms-status` → `"configured":true`
+
+**Muhim:** APK SMS yubormaydi — production `api/.env` dagi token ishlashi shart. Token o‘zgarsa API ni restart qiling.
 
 ---
 

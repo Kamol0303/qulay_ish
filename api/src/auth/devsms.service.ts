@@ -1,5 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
+import * as dotenv from 'dotenv';
 
 export class DevSmsError extends Error {
   constructor(
@@ -27,52 +30,105 @@ type DevSmsResponse = {
 
 type OtpPurpose = 'login' | 'register' | 'reset';
 
+/** Load api/.env even if Nest ConfigModule order/cwd is unusual (pm2, systemd). */
+function ensureApiEnvLoaded(): void {
+  const candidates = [
+    join(__dirname, '..', '.env'), // api/dist → api/.env
+    join(__dirname, '..', '..', '.env'), // nested
+    join(process.cwd(), 'api', '.env'),
+    join(process.cwd(), '.env'),
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) {
+      dotenv.config({ path, override: false });
+    }
+  }
+}
+
 /**
- * Faqat DevSMS universal_otp — maxsus matn (eskiz shablon) KERAK EMAS.
- * https://devsms.uz — Shablon 3: ro'yxatdan o'tish, 4: kirish.
+ * DevSMS universal_otp — https://devsms.uz/api/docs.php
+ * service_name: letters/numbers/spaces/dots/hyphens only (no apostrophe).
  */
 @Injectable()
 export class DevSmsService implements OnModuleInit {
   private readonly logger = new Logger(DevSmsService.name);
-  private readonly baseUrl: string;
-  private readonly token: string;
-  private readonly devMode: boolean;
   private readonly balanceWarnThreshold: number;
-  private readonly serviceNames: string[];
 
   constructor() {
-    this.baseUrl = (process.env.DEVSMS_BASE_URL || 'https://devsms.uz/api').replace(/\/$/, '');
-    this.token = this.normalizeToken(process.env.DEVSMS_TOKEN);
-    this.devMode =
-      process.env.DEVSMS_DEV_MODE === 'true' ||
-      (!this.token && process.env.NODE_ENV !== 'production');
+    ensureApiEnvLoaded();
     this.balanceWarnThreshold = Number(process.env.DEVSMS_BALANCE_WARN_THRESHOLD || 10000);
-
-    const primary = process.env.DEVSMS_SERVICE_NAME?.trim() || 'mexrliqollar.uz';
-    const names = [primary, 'mexrliqollar', 'mexrliqollar.uz'];
-    this.serviceNames = [...new Set(names)];
   }
 
   onModuleInit() {
-    if (!this.token) {
-      if (this.devMode) {
-        this.logger.warn('DEVSMS_TOKEN yo\'q — OTP faqat terminalda [DEV OTP]');
+    ensureApiEnvLoaded();
+    const token = this.getToken();
+    if (!token) {
+      if (this.isDevMode()) {
+        this.logger.warn("DEVSMS_TOKEN yo'q — OTP faqat terminalda [DEV OTP]");
         return;
       }
-      this.logger.error('DEVSMS_TOKEN topilmadi');
+      this.logger.error(
+        "DEVSMS_TOKEN topilmadi (api/.env). APK/saytdan OTP SMS ishlamaydi!",
+      );
       return;
     }
-    // Bu banner chiqmasa — eski kod ishlayapti (git pull / dist tozalash kerak)
     this.logger.log('========================================');
     this.logger.log('OTP_ENGINE=UNIVERSAL_OTP_V3');
-    this.logger.log(`DevSMS token: ${this.maskToken(this.token)}`);
-    this.logger.log(`service: ${this.serviceNames.join(', ')}`);
+    this.logger.log(`DevSMS token: ${this.maskToken(token)}`);
+    this.logger.log(`service: ${this.getServiceNames().join(', ')}`);
+    this.logger.log(`base: ${this.getBaseUrl()}`);
     this.logger.log('========================================');
-    if (process.env.DEVSMS_OTP_MODE === 'eskiz') {
-      this.logger.warn(
-        'DEVSMS_OTP_MODE=eskiz — eskiz rejimi o\'chirildi. api/.env dan olib tashlang, universal_otp ishlatiladi.',
-      );
-    }
+  }
+
+  /** Public status for ops (no secrets). */
+  getStatus() {
+    ensureApiEnvLoaded();
+    const token = this.getToken();
+    return {
+      engine: 'UNIVERSAL_OTP_V3',
+      configured: Boolean(token),
+      tokenPresent: Boolean(token),
+      tokenMasked: token ? this.maskToken(token) : null,
+      baseUrl: this.getBaseUrl(),
+      serviceNames: this.getServiceNames(),
+      devMode: this.isDevMode(),
+      nodeEnv: process.env.NODE_ENV || 'development',
+    };
+  }
+
+  private getBaseUrl(): string {
+    return (process.env.DEVSMS_BASE_URL || 'https://devsms.uz/api').replace(/\/$/, '');
+  }
+
+  private getToken(): string {
+    ensureApiEnvLoaded();
+    return this.normalizeToken(process.env.DEVSMS_TOKEN);
+  }
+
+  private isDevMode(): boolean {
+    const token = this.getToken();
+    return (
+      process.env.DEVSMS_DEV_MODE === 'true' ||
+      (!token && process.env.NODE_ENV !== 'production')
+    );
+  }
+
+  private getServiceNames(): string[] {
+    // Apostrophe (Qo'llar) DevSMS da taqiqlangan — "Qollar" ishlatiladi
+    const primary =
+      process.env.DEVSMS_SERVICE_NAME?.trim() ||
+      process.env.DEVSMS_FROM?.trim() ||
+      'Mexrli Qollar';
+    const names = [
+      primary,
+      'Mexrli Qollar',
+      'ishliayol.uz',
+      'mexrliqollar.uz',
+      'ishliayol',
+      'mexrliqollar',
+    ];
+    // Dedupe, drop empty, sanitize apostrophes
+    return [...new Set(names.map((n) => n.replace(/'/g, '').trim()).filter(Boolean))];
   }
 
   private normalizeToken(raw: string | undefined): string {
@@ -92,11 +148,12 @@ export class DevSmsService implements OnModuleInit {
   }
 
   private async call(body: Record<string, unknown>): Promise<{ smsId: number; requestId: string }> {
-    if (!this.token) {
-      throw new DevSmsError('TOKEN_MISSING', 'DevSMS token sozlanmagan');
+    const token = this.getToken();
+    if (!token) {
+      throw new DevSmsError('TOKEN_MISSING', "DevSMS token sozlanmagan (api/.env DEVSMS_TOKEN)");
     }
 
-    const url = `${this.baseUrl}/send_sms.php`;
+    const url = `${this.getBaseUrl()}/send_sms.php`;
     this.logger.log(`DevSMS so'rov: ${JSON.stringify(body)}`);
 
     let res: Response;
@@ -105,20 +162,20 @@ export class DevSmsService implements OnModuleInit {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(body),
       });
     } catch (err) {
       this.logger.error('DevSMS network error', err);
-      throw new DevSmsError('NETWORK_ERROR', 'DevSMS bilan bog\'lanib bo\'lmadi');
+      throw new DevSmsError('NETWORK_ERROR', "DevSMS bilan bog'lanib bo'lmadi");
     }
 
     let data: DevSmsResponse;
     try {
       data = (await res.json()) as DevSmsResponse;
     } catch {
-      throw new DevSmsError('INVALID_RESPONSE', 'DevSMS javobi noto\'g\'ri');
+      throw new DevSmsError('INVALID_RESPONSE', "DevSMS javobi noto'g'ri");
     }
 
     if (!data.success) {
@@ -129,7 +186,7 @@ export class DevSmsService implements OnModuleInit {
     }
 
     if (!data.data?.request_id) {
-      throw new DevSmsError('EMPTY_RESULT', 'DevSMS bo\'sh javob qaytardi', data);
+      throw new DevSmsError('EMPTY_RESULT', "DevSMS bo'sh javob qaytardi", data);
     }
 
     this.logger.log(
@@ -153,25 +210,31 @@ export class DevSmsService implements OnModuleInit {
   }
 
   private templateType(purpose: OtpPurpose): number {
-    // 3 = register, 4 = login / password reset recovery
-    return purpose === 'register' ? 3 : 4;
+    // 3 = register, 4 = login, 2 = password reset (DevSMS docs)
+    if (purpose === 'register') return 3;
+    if (purpose === 'reset') return 2;
+    return 4;
   }
 
-  /** DevSMS universal OTP — maxsus eskiz matn yuborilmaydi */
   async sendOtpSms(
     phone: string,
     code: string,
     purpose: OtpPurpose = 'login',
   ): Promise<{ smsId: number; requestId: string }> {
-    if (!this.token && this.devMode) {
+    ensureApiEnvLoaded();
+    const token = this.getToken();
+
+    if (!token && this.isDevMode()) {
       this.logger.warn(`[DEV OTP] ${phone} → ${code}`);
       return { smsId: 0, requestId: `dev-${randomUUID()}` };
     }
 
     const templateType = this.templateType(purpose);
     let lastError: DevSmsError | undefined;
+    const serviceNames = this.getServiceNames();
 
-    for (const serviceName of this.serviceNames) {
+    for (let i = 0; i < serviceNames.length; i++) {
+      const serviceName = serviceNames[i];
       try {
         return await this.call({
           phone: this.toDevSmsPhone(phone),
@@ -183,13 +246,14 @@ export class DevSmsService implements OnModuleInit {
       } catch (err) {
         if (!(err instanceof DevSmsError)) throw err;
         lastError = err;
-        const next = this.serviceNames.indexOf(serviceName) < this.serviceNames.length - 1;
-        if (next) {
-          this.logger.warn(`service_name="${serviceName}" ishlamadi — "${this.serviceNames[this.serviceNames.indexOf(serviceName) + 1]}" sinanmoqda`);
+        if (i < serviceNames.length - 1) {
+          this.logger.warn(
+            `service_name="${serviceName}" ishlamadi — "${serviceNames[i + 1]}" sinanmoqda`,
+          );
         }
       }
     }
 
-    throw lastError ?? new DevSmsError('SEND_FAILED', 'SMS yuborib bo\'lmadi');
+    throw lastError ?? new DevSmsError('SEND_FAILED', "SMS yuborib bo'lmadi");
   }
 }

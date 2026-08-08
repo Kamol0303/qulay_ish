@@ -15,6 +15,12 @@ export class AuthController {
     private readonly otp: OtpService,
   ) {}
 
+  /** Ops diagnostic — no secrets. APK/SMS troubleshooting. */
+  @Get('sms-status')
+  smsStatus() {
+    return this.otp.getSmsStatus();
+  }
+
   @Post('send-otp')
   sendOtp(@Body() dto: SendOtpDto) {
     return this.otp.sendOtp(dto);

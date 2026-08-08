@@ -26,7 +26,8 @@ is_production_host() {
   fi
   # 4) Local Nest already serves /api on :4000 and nginx proxies (weak signal)
   if curl -sf "http://127.0.0.1:4000/api/stats/counts" >/dev/null 2>&1 \
-    && [[ -f /etc/nginx/sites-enabled/mexrliqollar.uz || -f /etc/nginx/sites-available/mexrliqollar.uz ]]; then
+    && [[ -f /etc/nginx/sites-enabled/ishliayol.uz || -f /etc/nginx/sites-available/ishliayol.uz \
+      || -f /etc/nginx/sites-enabled/mexrliqollar.uz || -f /etc/nginx/sites-available/mexrliqollar.uz ]]; then
     return 0
   fi
   return 1
@@ -78,15 +79,38 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 if ! grep -q 'CORS_ORIGIN=' "$ENV_FILE"; then
-  echo "CORS_ORIGIN=https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost,http://localhost:3000" >> "$ENV_FILE"
+  echo "CORS_ORIGIN=https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost,capacitor://ishliayol.uz,http://localhost:3000" >> "$ENV_FILE"
   echo "==> CORS_ORIGIN qo'shildi"
 else
   echo "==> CORS_ORIGIN mavjud (Nest Capacitor originlarni ham merge qiladi)"
 fi
 
-if ! grep -qE '^DEVSMS_TOKEN=.+' "$ENV_FILE"; then
-  echo "WARNING: DEVSMS_TOKEN bo'sh — OTP SMS ishlamaydi. DevSMS token qo'ying."
+# Optional: inject token from environment when redeploying
+if [[ -n "${DEVSMS_TOKEN:-}" ]]; then
+  if grep -q '^DEVSMS_TOKEN=' "$ENV_FILE"; then
+    sed -i "s|^DEVSMS_TOKEN=.*|DEVSMS_TOKEN=${DEVSMS_TOKEN}|" "$ENV_FILE"
+  else
+    echo "DEVSMS_TOKEN=${DEVSMS_TOKEN}" >> "$ENV_FILE"
+  fi
+  echo "==> DEVSMS_TOKEN yangilandi (env dan)"
 fi
+
+if ! grep -q '^DEVSMS_BASE_URL=' "$ENV_FILE"; then
+  echo 'DEVSMS_BASE_URL=https://devsms.uz/api' >> "$ENV_FILE"
+fi
+if grep -q '^DEVSMS_SERVICE_NAME=' "$ENV_FILE"; then
+  sed -i 's/^DEVSMS_SERVICE_NAME=.*/DEVSMS_SERVICE_NAME=Mexrli Qollar/' "$ENV_FILE"
+else
+  echo 'DEVSMS_SERVICE_NAME=Mexrli Qollar' >> "$ENV_FILE"
+fi
+
+if ! grep -qE '^DEVSMS_TOKEN=.+' "$ENV_FILE"; then
+  echo "ERROR: DEVSMS_TOKEN bo'sh — OTP SMS ishlamaydi."
+  echo "  VPS da: nano api/.env  → DEVSMS_TOKEN=... qo'ying"
+  echo "  yoki: DEVSMS_TOKEN=xxx FORCE_PROD_REDEPLOY=1 ./scripts/redeploy-api-production.sh"
+  exit 1
+fi
+echo "==> DevSMS OK (service=Mexrli Qollar)"
 
 restart_api() {
   if command -v pm2 >/dev/null 2>&1; then
@@ -98,9 +122,10 @@ restart_api() {
     pm2 save || true
     return 0
   fi
-  if systemctl list-unit-files 2>/dev/null | grep -qE 'qulay|mexrliqollar'; then
+  if systemctl list-unit-files 2>/dev/null | grep -qE 'qulay|ishliayol|mexrliqollar'; then
     echo "==> systemctl restart"
     sudo systemctl restart qulay-ish-api 2>/dev/null \
+      || sudo systemctl restart ishliayol-api 2>/dev/null \
       || sudo systemctl restart mexrliqollar-api 2>/dev/null \
       || true
     return 0
@@ -118,19 +143,24 @@ restart_api() {
 
 restart_api
 
-echo "==> CORS smoke (Origin: https://localhost → $PROD_HOST)"
+echo "==> Smoke checks → $PROD_HOST"
 sleep 2
+STATUS="$(curl -sS --connect-timeout 8 "https://$PROD_HOST/api/auth/sms-status" || true)"
+echo "sms-status: $STATUS"
+if echo "$STATUS" | grep -q '"configured":true'; then
+  echo "OK: Production DevSMS token yuklangan"
+else
+  echo "WARN: sms-status configured!=true — token/restart tekshiring"
+fi
+
 HDR="$(curl -sI -X OPTIONS "https://$PROD_HOST/api/auth/send-otp" \
-  -H 'Origin: https://localhost' \
+  -H 'Origin: https://ishliayol.uz' \
   -H 'Access-Control-Request-Method: POST' \
   -H 'Access-Control-Request-Headers: content-type' || true)"
-echo "$HDR" | head -20
-if echo "$HDR" | grep -qi 'Access-Control-Allow-Origin: https://localhost'; then
-  echo "OK: Capacitor Origin ruxsat etilgan"
+if echo "$HDR" | grep -qi 'Access-Control-Allow-Origin: https://ishliayol.uz'; then
+  echo "OK: CORS https://ishliayol.uz"
 else
-  echo "WARN: Allow-Origin hali yo'q — API jarayoni eski kod bilan ishlayotgan bo'lishi mumkin"
-  echo "  ps aux | rg 'node|nest|pm2'"
-  echo "  ss -lntp | rg 4000"
+  echo "WARN: CORS — API eski jarayon bo'lishi mumkin"
 fi
 
 echo "Done."
