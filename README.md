@@ -1,70 +1,52 @@
-# Mexrli Qo'llar.uz (`qulay_ish`)
+# Mexrli Qo'llar.uz
 
-Samarqand ish platformasi — **React (Vite) + NestJS + PostgreSQL + Capacitor**.  
-Brauzer, Android APK va iOS loyihasi **bir xil** `https://ishliayol.uz/api` va bir xil PostgreSQL bilan ishlaydi.
-
-| | |
-|--|--|
-| App ID | `uz.mexrliqollar.app` |
-| Brend | Mexrli Qo'llar.uz |
-| Production API | `https://ishliayol.uz/api` |
-| Repo | `https://github.com/Kamol0303/qulay_ish` |
+Ish platformasi: **Vite/React + NestJS + PostgreSQL + Capacitor**.  
+Sayt, APK va iOS — bitta API: `https://ishliayol.uz/api`.
 
 ---
 
-## 1) Kali — bir marta o‘rnatish
+## Tezkor yo‘l (Kali)
 
 ```bash
-sudo apt update
-sudo apt install -y openjdk-21-jdk git curl wget unzip
+# 1) Java 21
+sudo apt update && sudo apt install -y openjdk-21-jdk git curl wget unzip
+source scripts/env-kali.sh   # yoki: export JAVA_HOME=... (pastda)
 
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-export PATH="$JAVA_HOME/bin:$PATH"
-java -version
-javac -version   # majburiy
-```
-
-```bash
+# 2) Kod
 cd ~/Desktop/qulay_ish
 git remote set-url origin https://github.com/Kamol0303/qulay_ish.git
-git fetch origin main
-git reset --hard origin/main
+git fetch origin main && git reset --hard origin/main
 chmod +x scripts/*.sh
 
+# 3) Env + paketlar
 ./scripts/write-local-envs.sh
-npm install
-cd api && npm install && cd ..
+npm install && (cd api && npm install)
 
+# 4) Android SDK (bir marta)
 ./scripts/setup-android-sdk.sh
-export ANDROID_HOME=$HOME/Android/Sdk
-export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+source scripts/env-kali.sh
+
+# 5) APK
+./scripts/build-apk.sh debug
+ls -lh artifacts/mexrliqollar-debug-latest.apk
 ```
 
-Har yangi terminalda:
-
-```bash
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-export ANDROID_HOME=$HOME/Android/Sdk
-export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-```
+Release: `./scripts/build-apk.sh release`
 
 ---
 
-## 2) Env fayllar
+## Env fayllar
 
-| Fayl | Vazifa |
-|------|--------|
-| `.env` | Lokal Vite → `VITE_API_URL=/api` |
-| `.env.capacitor` | APK/iOS bake → `https://ishliayol.uz/api` |
-| `api/.env` | Nest + **DEVSMS_TOKEN** (OTP SMS shu yerda) |
+| Fayl | Nima uchun |
+|------|------------|
+| `.env` | Lokal sayt → `/api` |
+| `.env.capacitor` | APK → `https://ishliayol.uz/api` |
+| `api/.env` | Nest + **SMS token** (`DEVSMS_*`) |
 
-Yozish:
+Yaratish: `./scripts/write-local-envs.sh`  
+Namuna: `.env.example`, `.env.capacitor.example`, `api/.env.example`
 
-```bash
-./scripts/write-local-envs.sh
-```
-
-`api/.env` da SMS uchun majburiy:
+`api/.env` SMS (majburiy):
 
 ```env
 DEVSMS_TOKEN=...
@@ -73,163 +55,89 @@ DEVSMS_SERVICE_NAME=Mexrli Qollar
 DEVSMS_DEV_MODE=false
 ```
 
-Tekshiruv:
-
-```bash
-./scripts/check-otp.sh
-```
+Tekshiruv: `./scripts/check-otp.sh`
 
 ---
 
-## 3) Lokal sayt
+## Lokal sayt
 
 ```bash
-cd ~/Desktop/qulay_ish
-npm run db:up          # PostgreSQL (Docker)
+source scripts/env-kali.sh
+npm run db:up
+# terminal 1
 cd api && npm run start:dev
-```
-
-Boshqa terminal:
-
-```bash
-cd ~/Desktop/qulay_ish
+# terminal 2
 npm run dev:web
 ```
 
-- Sayt: http://localhost:3000  
-- API: http://localhost:4000/api  
-- Super Admin: http://localhost:3000/super-admin-login  
-
-Yoki birgalikda: `npm run dev`
+- http://localhost:3000  
+- http://localhost:4000/api  
+- Super Admin: `/super-admin-login` (`api/.env` → `SUPER_ADMIN_*`)
 
 ---
 
-## 4) Android APK yaratish
+## OTP SMS (APK)
 
-```bash
-cd ~/Desktop/qulay_ish
-git fetch origin main && git reset --hard origin/main
-
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-export ANDROID_HOME=$HOME/Android/Sdk
-export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-
-./scripts/write-local-envs.sh
-./scripts/build-apk.sh debug
-# yoki: ./scripts/build-apk.sh release
-
-ls -lh artifacts/mexrliqollar-*-latest.apk
-```
-
-Telefon: `artifacts/mexrliqollar-debug-latest.apk` yoki `mexrliqollar-release-latest.apk`  
-Telegram orqali APK yuborib o‘rnatish mumkin.
-
----
-
-## 5) OTP SMS (production VPS — majburiy)
-
-APK SMS ni o‘zi yubormaydi — `https://ishliayol.uz/api` dagi Nest + `api/.env` dagi DevSMS token ishlashi shart.
+APK SMS yubormaydi. Server (`ishliayol.uz`) dagi Nest `api/.env` ishlashi shart.
 
 ```bash
 ssh USER@185.203.237.57
-# USER = root / ubuntu (to'g'ri parol yoki SSH kalit)
-
-find /var/www /home /opt /root -maxdepth 4 -type d \( -name 'qulay_ish' -o -name 'qulay-ish' \) 2>/dev/null
-cd /TOPILGAN/PAPKA
-
-git remote set-url origin https://github.com/Kamol0303/qulay_ish.git
+cd /LOYIHA_PAPKA
 git fetch origin main && git reset --hard origin/main
-
-# api/.env — DEVSMS_TOKEN va DEVSMS_SERVICE_NAME=Mexrli Qollar
+# api/.env ga DEVSMS_TOKEN + DEVSMS_SERVICE_NAME=Mexrli Qollar
 FORCE_PROD_REDEPLOY=1 ./scripts/redeploy-api-production.sh
-
-curl -s https://ishliayol.uz/api/auth/sms-status
-# "configured":true bo'lishi kerak
+curl -s https://ishliayol.uz/api/auth/sms-status   # configured:true
 ```
 
-Keyin Kali’da:
-
-```bash
-./scripts/check-otp.sh
-./scripts/build-apk.sh release
-```
+Keyin: `./scripts/build-apk.sh release`
 
 ---
 
-## 6) iOS
-
-Loyiha: `ios/` (Capacitor).  
-**IPA faqat macOS + Xcode** da yig‘iladi. Kali’da:
+## iOS
 
 ```bash
-./scripts/build-ios.sh sync
+./scripts/build-ios.sh sync     # Kali/Linux — faqat loyiha
+./scripts/build-ios.sh open     # faqat macOS + Xcode
 ```
 
-Mac da: `./scripts/build-ios.sh open` → Signing → Run / Archive.  
-Telegramga `.ipa` tashlab o‘rnatib bo‘lmaydi — TestFlight / App Store kerak.
+IPA Telegram orqali o‘rnatilmaydi (TestFlight/App Store).
 
 ---
 
-## 7) Asosiy skriptlar
+## Skriptlar
 
-| Skript | Vazifa |
+| Buyruq | Vazifa |
 |--------|--------|
-| `scripts/write-local-envs.sh` | `.env` / `.env.capacitor` / `api/.env` |
-| `scripts/check-otp.sh` | Env + DevSMS + production SMS diagnostika |
+| `scripts/env-kali.sh` | `JAVA_HOME` + `ANDROID_HOME` |
+| `scripts/write-local-envs.sh` | 3 ta env yozish |
+| `scripts/check-otp.sh` | SMS/env diagnostika |
 | `scripts/setup-android-sdk.sh` | Android SDK |
-| `scripts/build-apk.sh` | `debug` / `release` APK |
+| `scripts/build-apk.sh` | `debug` / `release` |
 | `scripts/build-ios.sh` | `sync` / `open` / `archive` |
-| `scripts/redeploy-api-production.sh` | VPS da Nest API yangilash |
-| `scripts/fix-otp-sms.sh` | DevSMS env + API rebuild |
+| `scripts/redeploy-api-production.sh` | VPS API |
 
-npm:
+---
 
-```bash
-npm run dev              # stack
-npm run db:setup         # Postgres + migrate
-npm run api:dev          # faqat API
-npm run dev:web          # faqat frontend
-./scripts/build-apk.sh debug
-./scripts/build-apk.sh release
+## Papkalar
+
+```
+src/          frontend (+ src/mobile/)
+api/          NestJS + prisma + uploads/
+android/      Capacitor Android
+ios/          Capacitor iOS
+scripts/      build / env / deploy
+artifacts/    tayyor APK chiqishi
+public/       statik assetlar
+plugins/      Vite Nest proxy
 ```
 
 ---
 
-## 8) Arxitektura (qisqa)
+## Xatolar
 
-```
-Brauzer / Android APK / iOS
-        │  HTTPS + JWT
-        ▼
-https://ishliayol.uz/api  →  NestJS  →  PostgreSQL
-        │
-   DevSMS (OTP SMS)
-```
-
-- Frontend: `src/` (mobil UI: `src/mobile/`)
-- API: `api/`
-- Android: `android/`
-- iOS: `ios/`
-- Production nginx namunasi: `nginx-config.conf`
-
----
-
-## 9) Tez xato-javob
-
-| Xato | Yechim |
-|------|--------|
-| `javac yo'q` / Java 25 | `sudo apt install -y openjdk-21-jdk` + `JAVA_HOME` |
-| `Android SDK topilmadi` | `./scripts/setup-android-sdk.sh` |
-| `@capacitor/haptics` | `npm install` (build-apk o‘zi ham qiladi) |
-| APK OTP SMS kelmaydi | VPS `api/.env` DEVSMS + redeploy; `sms-status` → configured:true |
-| `Permission denied (publickey)` | `git remote set-url origin https://github.com/Kamol0303/qulay_ish.git` |
-| SSH VPS parol rad | Hosting panel / boshqa user / parol reset |
-
----
-
-## 10) Super Admin (lokal)
-
-`api/.env` dagi qiymatlar:
-
-- URL: `/super-admin-login`
-- Email / telefon / parol: `SUPER_ADMIN_*`
+| Muammo | Yechim |
+|--------|--------|
+| `javac` yo‘q | `openjdk-21-jdk` + `source scripts/env-kali.sh` |
+| SDK yo‘q | `./scripts/setup-android-sdk.sh` |
+| APK OTP yo‘q | VPS `api/.env` + redeploy; `sms-status` → true |
+| Git SSH xato | `git remote set-url origin https://github.com/Kamol0303/qulay_ish.git` |
