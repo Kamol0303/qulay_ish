@@ -318,10 +318,6 @@ Quyidagilar **alohida/nusxa/lokal** ma’lumot yaratadi yoki API ni yashiradi �
 
 ## Keyingi qadam
 
-**Bosqich 1** (ARCHITECTURE_DECISION.md) — auditga asosan yo‘l tanlash:
-
-- Qaror daraxti bo‘yicha: **to‘liq REST API mavjud** → rasmiy tavsiya **React Native (Expo)**.
-- Shu bilan birga sizning “standart tavsiya Variant A (Capacitor)” yo‘lingiz ham mavjud: mavjud SPA ni shell ga o‘rash — UI/CRUD pariteti eng tez, lekin bu daraxtning “API yo‘q → monolit” tarmog‘ida yozilgan.
-
-**Men Bosqich 1 ga o‘tmayman.**  
-Iltimos, shu `AUDIT.md` ni tasdiqlang (yoki tuzatish so‘rang) — keyin arxitektura qarorini yozaman.
+`AUDIT.md` tasdiqlandi (2026-08-08).  
+**Bosqich 1** → qarang: [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md)  
+**Tanlov:** Capacitor Variant A (mavjud SPA + bir xil Nest API). Bosqich 2 — foydalanuvchi tasdig‘idan keyin.
