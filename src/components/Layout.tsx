@@ -1,6 +1,7 @@
 import React from 'react';
 import Header from './Header';
 import { useTranslation } from 'react-i18next';
+import { useIsMobileUi } from '../hooks/useIsMobileUi';
 
 export default function Layout({
   children,
@@ -11,6 +12,12 @@ export default function Layout({
   minimalNav?: boolean;
 }) {
   const { t } = useTranslation();
+  const mobileUi = useIsMobileUi();
+
+  if (mobileUi) {
+    return <div className="min-h-full bg-background">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header minimalNav={minimalNav} />

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { cn, normalizeLanguageCode } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useIsMobileUi } from '../hooks/useIsMobileUi';
 
 export default function DashboardLayout({ children, title }: { children: React.ReactNode, title?: string }) {
   const { profile, loading } = useAuth();
@@ -16,6 +17,7 @@ export default function DashboardLayout({ children, title }: { children: React.R
   const [isLangOpen, setIsLangOpen] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const location = useLocation();
+  const mobileUi = useIsMobileUi();
 
   React.useEffect(() => {
     if (!profile?.uid) return;
@@ -65,6 +67,21 @@ export default function DashboardLayout({ children, title }: { children: React.R
 
   // Don't show back button on main dashboards
   const isMainDashboard = ['/worker/dashboard', '/employer/dashboard', '/admin/dashboard', '/super-admin/dashboard'].includes(location.pathname);
+
+  // MobileShell already provides top chrome + bottom tabs — skip desktop sidebar/header.
+  if (mobileUi) {
+    return (
+      <div className="min-h-full bg-background">
+        {(title || !isMainDashboard) && (
+          <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+            {!isMainDashboard && <BackButton />}
+            {title && <h1 className="text-lg font-black truncate">{title}</h1>}
+          </div>
+        )}
+        <div className="px-4 py-3 pb-6">{children}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background transition-colors duration-500">
