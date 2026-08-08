@@ -6,6 +6,11 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    // Prefer JDK 17/21 — Kali's Java 25 JRE often lacks JAVA_COMPILER (javac).
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
     defaultConfig {
         applicationId "uz.ishliayol.app"
         minSdkVersion rootProject.ext.minSdkVersion

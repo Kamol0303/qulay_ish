@@ -12,7 +12,7 @@ Bitta backend (NestJS) + bitta PostgreSQL. Brauzer va Android APK shu manbaga ul
 | Node.js | **20+** | `node -v` |
 | npm | 10+ | `npm -v` |
 | Docker | (PostgreSQL uchun) | `docker --version` |
-| JDK | 21 (faqat APK uchun) | `java -version` |
+| JDK | **17 yoki 21** to‘liq (`javac` majburiy; faqat APK) | `javac -version` |
 | Android SDK | (faqat APK uchun) | `echo $ANDROID_HOME` |
 
 Windows: Git Bash yoki WSL tavsiya etiladi.
@@ -226,11 +226,23 @@ Sayt va APK **bir xil** production API ga ulanadi: `https://ishliayol.uz/api`.
 
 Batafsil: [`MOBILE.md`](./MOBILE.md)
 
+### Kali: avval JDK 21 (Java 25 xatosini oldini olish)
+
+```bash
+sudo apt update
+sudo apt install -y openjdk-21-jdk
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH="$JAVA_HOME/bin:$PATH"
+javac -version   # ishlashi shart
+```
+
+### Build
+
 ```bash
 cd ~/Desktop/qulay_ish
 
-# JDK 21 + Android SDK o‘rnatilgan bo‘lishi kerak
-export ANDROID_HOME=/opt/android-sdk   # o‘z yo‘lingiz
+# Android SDK yo‘li (o‘zingiznikiga moslang)
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 
 chmod +x scripts/build-apk.sh
 ./scripts/build-apk.sh debug     # debug APK
@@ -239,10 +251,18 @@ chmod +x scripts/build-apk.sh
 
 Chiqish:
 
+- `artifacts/ishliayol-debug-latest.apk`
 - `android/app/build/outputs/apk/debug/app-debug.apk`
-- `android/app/build/outputs/apk/release/app-release.apk`
 
 Telefoningizga `.apk` ni o‘rnating → login → saytda shu akkaunt ko‘rinishi kerak.
+
+### `JAVA_COMPILER` xatosi
+
+```text
+.../java-25-openjdk-amd64' does not provide ... [JAVA_COMPILER]
+```
+
+→ Yuqoridagi `openjdk-21-jdk` ni o‘rnating, `JAVA_HOME` ni 21 ga qo‘ying, qayta `./scripts/build-apk.sh debug`.
 
 ---
 

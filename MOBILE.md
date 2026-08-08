@@ -6,13 +6,46 @@ Demo/local-only ma’lumot o‘chirilgan.
 ## Talablar
 
 - Node 20+
-- JDK 21
+- **JDK 17 yoki 21** (to‘liq `*-jdk`, faqat JRE emas — `javac` bo‘lishi shart)
 - Android SDK (`ANDROID_HOME`, platform 35+)
 - Backend ishlayotgan bo‘lishi shart (production yoki local API)
 
-## Tezkor build
+### Kali Linux: `JAVA_COMPILER` / Java 25 xatosi
+
+Agar shunday xato chiqsa:
+
+```text
+Toolchain installation '.../java-25-openjdk-amd64' does not provide the required capabilities: [JAVA_COMPILER]
+```
+
+Java 25 da ba’zan `javac` yo‘q. **JDK 21** o‘rnating:
 
 ```bash
+sudo apt update
+sudo apt install -y openjdk-21-jdk
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH="$JAVA_HOME/bin:$PATH"
+java -version    # 21 bo‘lishi kerak
+javac -version   # majburiy — ishlashi kerak
+
+cd ~/Desktop/qulay_ish
+./scripts/build-apk.sh debug
+```
+
+Doimiy qilish uchun `~/.zshrc` yoki `~/.bashrc` ga qo‘shing:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH="$JAVA_HOME/bin:$PATH"
+```
+
+## Tezkor build
+
+Repo **ildizidan** (yoki `scripts/` dan ham ishlaydi):
+
+```bash
+cd ~/Desktop/qulay_ish
+
 # Debug APK
 ./scripts/build-apk.sh debug
 
@@ -20,7 +53,7 @@ Demo/local-only ma’lumot o‘chirilgan.
 ./scripts/build-apk.sh release
 ```
 
-APK chiqishi: `/opt/cursor/artifacts/ishliayol-*-latest.apk` (yoki `APK_OUT=...`).
+APK chiqishi: `artifacts/ishliayol-*-latest.apk` (yoki `APK_OUT=...`).
 
 ## Qo‘lda
 
