@@ -87,6 +87,10 @@ fi
 OUT_DIR="${APK_OUT:-$ROOT/artifacts}"
 mkdir -p "$OUT_DIR"
 
+# Pull'dan keyin yangi paketlar (masalan @capacitor/haptics) o'rnatilmagan bo'lishi mumkin
+echo "==> npm install (frontend deps)"
+npm install --no-fund --no-audit
+
 echo "==> Vite build (mode=capacitor, API=https://ishliayol.uz/api)"
 npm run build -- --mode capacitor
 
