@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Capacitor Android APK against production API (ishliayol.uz).
+# Build Capacitor Android APK against production API (mexrliqollar.uz).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -92,8 +92,8 @@ echo "==> npm install (frontend deps)"
 npm install --no-fund --no-audit
 
 # Belt-and-suspenders: even if .env.capacitor missing, bake production API
-export VITE_API_URL="${VITE_API_URL:-https://ishliayol.uz/api}"
-export VITE_APP_URL="${VITE_APP_URL:-https://ishliayol.uz}"
+export VITE_API_URL="${VITE_API_URL:-https://mexrliqollar.uz/api}"
+export VITE_APP_URL="${VITE_APP_URL:-https://mexrliqollar.uz}"
 export VITE_AI_MOCK_MODE="${VITE_AI_MOCK_MODE:-false}"
 export VITE_USE_EMULATOR="${VITE_USE_EMULATOR:-false}"
 
@@ -102,11 +102,11 @@ npm run build -- --mode capacitor
 
 # Guard: APK must never ship relative /api-only bundles
 JS_BUNDLE="$(ls dist/assets/index-*.js 2>/dev/null | head -1 || true)"
-if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://ishliayol.uz/api' "$JS_BUNDLE"; then
-  echo "ERROR: dist ichida https://ishliayol.uz/api topilmadi. APK relative /api bilan ishlamaydi."
+if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://mexrliqollar.uz/api' "$JS_BUNDLE"; then
+  echo "ERROR: dist ichida https://mexrliqollar.uz/api topilmadi. APK relative /api bilan ishlamaydi."
   exit 1
 fi
-echo "==> API URL baked OK ($(grep -o 'https://ishliayol.uz/api' "$JS_BUNDLE" | wc -l) hits)"
+echo "==> API URL baked OK ($(grep -o 'https://mexrliqollar.uz/api' "$JS_BUNDLE" | wc -l) hits)"
 
 echo "==> Capacitor sync android"
 npx cap sync android
@@ -117,17 +117,17 @@ if [[ "$MODE" == "release" ]]; then
     echo "==> Generating local release keystore (NOT for Play Store reuse): $KEYSTORE"
     keytool -genkeypair -v \
       -keystore "$KEYSTORE" \
-      -alias ishliayol \
+      -alias mexrliqollar \
       -keyalg RSA -keysize 2048 -validity 10000 \
-      -storepass "${RELEASE_STORE_PASSWORD:-ishliayol_release}" \
-      -keypass "${RELEASE_KEY_PASSWORD:-ishliayol_release}" \
-      -dname "CN=ishliayol.uz, OU=Mobile, O=ishliayol, L=Samarkand, ST=Samarkand, C=UZ"
+      -storepass "${RELEASE_STORE_PASSWORD:-mexrliqollar_release}" \
+      -keypass "${RELEASE_KEY_PASSWORD:-mexrliqollar_release}" \
+      -dname "CN=mexrliqollar.uz, OU=Mobile, O=mexrliqollar, L=Samarkand, ST=Samarkand, C=UZ"
   fi
   cat > "$ROOT/android/key.properties" <<EOF
 storeFile=$KEYSTORE
-storePassword=${RELEASE_STORE_PASSWORD:-ishliayol_release}
-keyAlias=ishliayol
-keyPassword=${RELEASE_KEY_PASSWORD:-ishliayol_release}
+storePassword=${RELEASE_STORE_PASSWORD:-mexrliqollar_release}
+keyAlias=mexrliqollar
+keyPassword=${RELEASE_KEY_PASSWORD:-mexrliqollar_release}
 EOF
   echo "==> assembleRelease"
   (cd android && ./gradlew assembleRelease -Dorg.gradle.java.home="$JAVA_HOME")
@@ -139,9 +139,9 @@ else
 fi
 
 STAMP=$(date +%Y%m%d-%H%M%S)
-DEST="$OUT_DIR/ishliayol-${MODE}-${STAMP}.apk"
+DEST="$OUT_DIR/mexrliqollar-${MODE}-${STAMP}.apk"
 cp -f "$APK" "$DEST"
-cp -f "$APK" "$OUT_DIR/ishliayol-${MODE}-latest.apk"
+cp -f "$APK" "$OUT_DIR/mexrliqollar-${MODE}-latest.apk"
 echo "APK ready: $DEST"
 ls -lh "$DEST"
-echo "Also: $OUT_DIR/ishliayol-${MODE}-latest.apk"
+echo "Also: $OUT_DIR/mexrliqollar-${MODE}-latest.apk"

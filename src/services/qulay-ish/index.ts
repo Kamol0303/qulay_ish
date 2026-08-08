@@ -1,5 +1,5 @@
 /**
- * ishliayol.uz Services
+ * mexrliqollar.uz Services
  * AI-ready services for job recommendations, salary estimation, and safety detection
  */
 

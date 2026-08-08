@@ -1,4 +1,4 @@
-package uz.ishliayol.app;
+package uz.mexrliqollar.app;
 
 import android.os.Bundle;
 import android.webkit.WebView;

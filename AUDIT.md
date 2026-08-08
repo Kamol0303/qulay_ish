@@ -1,6 +1,6 @@
 # AUDIT.md — Bosqich 0: To‘liq kod bazasi auditi
 
-**Loyiha:** `Kamol0303/qulay_ish` (ishliayol.uz)  
+**Loyiha:** `Kamol0303/qulay_ish` (mexrliqollar.uz)  
 **Audit sanasi:** 2026-08-08  
 **Maqsad:** Veb-sayt bilan **bir xil NestJS API + PostgreSQL** ustida ishlaydigan production Android `.apk` uchun arxitektura qarori asosi.  
 **Usul:** Faqat mavjud kod o‘qildi; taxmin qilinmadi. Yangi funksiya kodi yozilmadi.
@@ -41,7 +41,7 @@
 | Port | `API_PORT` yoki **4000** |
 | Arxitektura | **API-based** (SSR monolit emas). Frontend alohida Vite build → nginx `dist/` |
 | Modullar | `AuthModule`, `ResourcesModule`, `UploadsModule`, `VerificationModule`, `PrismaModule`, `ConfigModule` |
-| Production proxy | `nginx-config.conf`: `https://ishliayol.uz` → `/api/` → `127.0.0.1:4000` |
+| Production proxy | `nginx-config.conf`: `https://mexrliqollar.uz` → `/api/` → `127.0.0.1:4000` |
 
 **Xulosa qaror daraxti uchun:** To‘liq REST API **mavjud** (GraphQL yo‘q). Server-rendered monolit emas.
 
@@ -257,8 +257,8 @@ Manba: `src/App.tsx`.
 
 | Band | Holat |
 |------|--------|
-| HTTPS | Nest HTTP; TLS **nginx + Let’s Encrypt** (`nginx-config.conf`, ishliayol.uz) |
-| CORS | `CORS_ORIGIN` CSV; default localhost:3000 + ishliayol.uz; `credentials: true` |
+| HTTPS | Nest HTTP; TLS **nginx + Let’s Encrypt** (`nginx-config.conf`, mexrliqollar.uz) |
+| CORS | `CORS_ORIGIN` CSV; default localhost:3000 + mexrliqollar.uz; `credentials: true` |
 | Rate limit | Faqat OTP (60s/telefon). Global throttler **yo‘q** |
 | Validation | Global `ValidationPipe` (whitelist, forbidNonWhitelisted) |
 | Headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` |
@@ -291,7 +291,7 @@ Quyidagilar **alohida/nusxa/lokal** ma’lumot yaratadi yoki API ni yashiradi �
 ## APK uchun texnik oqibatlar (fakt, hali qaror emas)
 
 1. Backend **tayyor REST** — mobil client ulanishi mumkin (`Authorization: Bearer`).
-2. Hozirgi `VITE_API_URL=/api` WebView da ishlamaydi — **absolute** URL kerak (`https://ishliayol.uz/api`).
+2. Hozirgi `VITE_API_URL=/api` WebView da ishlamaydi — **absolute** URL kerak (`https://mexrliqollar.uz/api`).
 3. `BrowserRouter` deep-link uchun Capacitor/server fallback yoki `HashRouter` kerak.
 4. Demo/mock qatlamni o‘chirmasdan “bitta baza” kafolatlanmaydi.
 5. Chat real-time emas — polling qoladi yoki keyin WebSocket qo‘shiladi.

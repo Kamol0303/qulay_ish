@@ -21,7 +21,7 @@ const DEFAULTS: SystemSettingsData = {
   registrationEnabled: true,
   premiumEnabled: true,
   verificationRequired: true,
-  supportEmail: 'support@ishliayol.uz',
+  supportEmail: 'support@mexrliqollar.uz',
   maxJobPostsPerUser: 10,
   aiAssistantEnabled: true,
 };

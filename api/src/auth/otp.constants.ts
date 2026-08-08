@@ -11,5 +11,5 @@ export function buildOtpSmsMessage(
   _purpose?: 'login' | 'register' | 'reset',
 ): string {
   // my.eskiz.uz da tasdiqlangan shablon (login/register/reset uchun hozircha bir xil)
-  return `ishliayol.uz saytiga ro'yxatdan o'tish uchun tasdiqlash kodi: ${code}`;
+  return `mexrliqollar.uz saytiga ro'yxatdan o'tish uchun tasdiqlash kodi: ${code}`;
 }

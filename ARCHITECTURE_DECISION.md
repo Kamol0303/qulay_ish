@@ -26,7 +26,7 @@ Rasmiy daraxt **Expo** ni ko‘rsatadi. Shu bilan birga sizning bosh talabingiz 
 | Band | Qiymat |
 |------|--------|
 | **Tanlov** | Capacitor 7 + mavjud Vite/React frontend |
-| **Backend** | O‘zgarishsiz: `https://ishliayol.uz/api` → NestJS → PostgreSQL |
+| **Backend** | O‘zgarishsiz: `https://mexrliqollar.uz/api` → NestJS → PostgreSQL |
 | **UI kod** | Bitta `src/` — sayt va APK bir xil builddan |
 | **Keyingi evolyutsiya** | Kerak bo‘lsa keyin Expo/RN ga bosqichma-bosqich (Variant B+) |
 
@@ -70,7 +70,7 @@ Bu “tabiiy qism” — yangi biznes API emas.
 
 ```
 ┌─────────────────────┐     ┌─────────────────────┐
-│  Brauzer (ishliayol)│     │  Android APK        │
+│  Brauzer (mexrliqollar)│     │  Android APK        │
 │  Vite React SPA     │     │  Capacitor WebView  │
 │  dist/              │     │  xuddi shu dist/    │
 └─────────┬───────────┘     └─────────┬───────────┘
@@ -101,7 +101,7 @@ Bu “tabiiy qism” — yangi biznes API emas.
    - `DEMO_JOBS` fallback yo‘q
    - `qulay_ish_demo_session` ignore
    - AI mock faqat aniq `VITE_AI_MOCK_MODE=true` da (default production = false)
-2. `VITE_API_URL=https://ishliayol.uz/api` (yoki env bo‘yicha staging)
+2. `VITE_API_URL=https://mexrliqollar.uz/api` (yoki env bo‘yicha staging)
 3. Upload/media URL lar absolute host bilan ishlashi
 
 ### 5.2 Capacitor shell

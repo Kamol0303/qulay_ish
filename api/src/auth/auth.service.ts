@@ -129,7 +129,7 @@ export class AuthService {
         throw new UnauthorizedException('Super Admin login yoki parol noto\'g\'ri');
       }
 
-      const email = envEmail || user?.email || 'superadmin@ishliayol.uz';
+      const email = envEmail || user?.email || 'superadmin@mexrliqollar.uz';
 
       if (user) {
         // Keep password hash / identity in sync with api/.env for local/dev convenience

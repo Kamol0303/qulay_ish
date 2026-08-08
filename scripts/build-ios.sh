@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare / build Capacitor iOS app against production API (ishliayol.uz).
+# Prepare / build Capacitor iOS app against production API (mexrliqollar.uz).
 # IPA/archive requires macOS + Xcode. On Linux this script syncs the project only.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,8 +10,8 @@ MODE="${1:-sync}" # sync | open | archive
 echo "==> npm install (frontend deps)"
 npm install --no-fund --no-audit
 
-export VITE_API_URL="${VITE_API_URL:-https://ishliayol.uz/api}"
-export VITE_APP_URL="${VITE_APP_URL:-https://ishliayol.uz}"
+export VITE_API_URL="${VITE_API_URL:-https://mexrliqollar.uz/api}"
+export VITE_APP_URL="${VITE_APP_URL:-https://mexrliqollar.uz}"
 export VITE_AI_MOCK_MODE="${VITE_AI_MOCK_MODE:-false}"
 export VITE_USE_EMULATOR="${VITE_USE_EMULATOR:-false}"
 
@@ -19,8 +19,8 @@ echo "==> Vite build (mode=capacitor, API=$VITE_API_URL)"
 npm run build -- --mode capacitor
 
 JS_BUNDLE="$(ls dist/assets/index-*.js 2>/dev/null | head -1 || true)"
-if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://ishliayol.uz/api' "$JS_BUNDLE"; then
-  echo "ERROR: dist ichida https://ishliayol.uz/api topilmadi."
+if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://mexrliqollar.uz/api' "$JS_BUNDLE"; then
+  echo "ERROR: dist ichida https://mexrliqollar.uz/api topilmadi."
   exit 1
 fi
 echo "==> API URL baked OK"
@@ -71,7 +71,7 @@ EOF
     SCHEME="${IOS_SCHEME:-App}"
     WORKSPACE="$ROOT/ios/App/App.xcworkspace"
     PROJECT="$ROOT/ios/App/App.xcodeproj"
-    ARCHIVE_PATH="$OUT_DIR/ishliayol-ios.xcarchive"
+    ARCHIVE_PATH="$OUT_DIR/mexrliqollar-ios.xcarchive"
     EXPORT_PATH="$OUT_DIR/ios-export"
     rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
     mkdir -p "$EXPORT_PATH"
@@ -103,8 +103,8 @@ EOF
         -exportOptionsPlist "$EXPORT_PLIST"
       IPA="$(ls "$EXPORT_PATH"/*.ipa 2>/dev/null | head -1 || true)"
       if [[ -n "$IPA" ]]; then
-        cp -f "$IPA" "$OUT_DIR/ishliayol-ios-latest.ipa"
-        echo "IPA: $OUT_DIR/ishliayol-ios-latest.ipa"
+        cp -f "$IPA" "$OUT_DIR/mexrliqollar-ios-latest.ipa"
+        echo "IPA: $OUT_DIR/mexrliqollar-ios-latest.ipa"
       fi
     else
       echo "Archive: $ARCHIVE_PATH"

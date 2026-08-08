@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "uz.ishliayol.app"
+    namespace = "uz.mexrliqollar.app"
     compileSdk = rootProject.ext.compileSdkVersion
     buildFeatures {
         buildConfig = true
@@ -12,7 +12,7 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     defaultConfig {
-        applicationId "uz.ishliayol.app"
+        applicationId "uz.mexrliqollar.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

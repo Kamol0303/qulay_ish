@@ -83,5 +83,5 @@ Quyidagilar hali alohida `*Mobile` ekranga ega emas; `DashboardLayout` / `Layout
 
 ## APK
 
-`./scripts/build-apk.sh release` → `artifacts/ishliayol-release-latest.apk`  
+`./scripts/build-apk.sh release` → `artifacts/mexrliqollar-release-latest.apk`  
 (Capacitor/android/build skriptlari Bu bosqichda o‘zgartirilmagan.)

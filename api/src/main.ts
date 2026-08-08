@@ -21,15 +21,15 @@ async function bootstrap() {
   const requiredOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://ishliayol.uz',
-    'https://www.ishliayol.uz',
+    'https://mexrliqollar.uz',
+    'https://www.mexrliqollar.uz',
     'https://localhost',
     'http://localhost',
     'capacitor://localhost',
     'ionic://localhost',
-    // Capacitor iOS/Android with server.hostname = ishliayol.uz
-    'capacitor://ishliayol.uz',
-    'ionic://ishliayol.uz',
+    // Capacitor iOS/Android with server.hostname = mexrliqollar.uz
+    'capacitor://mexrliqollar.uz',
+    'ionic://mexrliqollar.uz',
   ];
   const corsOrigins = Array.from(new Set([...requiredOrigins, ...fromEnv]));
   app.enableCors({

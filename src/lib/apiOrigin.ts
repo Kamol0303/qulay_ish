@@ -1,6 +1,6 @@
 import { resolveApiBase } from './api/client';
 
-/** Origin hosting Nest (no trailing slash), e.g. https://ishliayol.uz */
+/** Origin hosting Nest (no trailing slash), e.g. https://mexrliqollar.uz */
 export function resolveApiOrigin(): string {
   const base = resolveApiBase();
   if (base.startsWith('http://') || base.startsWith('https://')) {
@@ -10,9 +10,9 @@ export function resolveApiOrigin(): string {
     const { protocol, host } = window.location;
     // Capacitor WebView uses https://localhost — never treat that as API host
     if (host === 'localhost' || host.endsWith('.local') || protocol === 'capacitor:' || protocol === 'ionic:') {
-      return 'https://ishliayol.uz';
+      return 'https://mexrliqollar.uz';
     }
     return window.location.origin;
   }
-  return 'https://ishliayol.uz';
+  return 'https://mexrliqollar.uz';
 }

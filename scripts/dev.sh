@@ -9,7 +9,7 @@ cd "$ROOT"
 API_PORT="${API_PORT:-4000}"
 WEB_PORT="${WEB_PORT:-3000}"
 
-echo "=== ishliayol.uz — npm run dev ==="
+echo "=== mexrliqollar.uz — npm run dev ==="
 
 ensure_postgres() {
   if pg_isready -h localhost -p 5432 >/dev/null 2>&1; then

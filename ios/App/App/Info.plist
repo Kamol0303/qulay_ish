@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>ishliayol.uz</string>
+        <string>mexrliqollar.uz</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -73,7 +73,7 @@
 	<string>Passport/selfi va profil rasmini yuklash uchun galereya kerak.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Yuklab olingan hujjatlarni saqlash uchun ruxsat kerak.</string>
-	<!-- HTTPS-only to production API (ishliayol.uz) -->
+	<!-- HTTPS-only to production API (mexrliqollar.uz) -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

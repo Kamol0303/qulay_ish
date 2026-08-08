@@ -93,7 +93,7 @@ export default function SuperAdminLogin() {
                 value={login}
                 onChange={(e) => setLogin(e.target.value)}
                 className="w-full px-5 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/40 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
-                placeholder="superadmin@ishliayol.uz yoki +998..."
+                placeholder="superadmin@mexrliqollar.uz yoki +998..."
                 autoComplete="username"
               />
             </div>

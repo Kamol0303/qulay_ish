@@ -1,6 +1,6 @@
-# ishliayol.uz — Umumiy xulosa (sayt + APK + tizim)
+# mexrliqollar.uz — Umumiy xulosa (sayt + APK + tizim)
 
-**Loyiha nomi:** ishliayol.uz  
+**Loyiha nomi:** mexrliqollar.uz  
 **Repo:** https://github.com/Kamol0303/qulay_ish  
 **Branch:** `main`  
 **Maqsad:** Samarqand uchun ishchi–ish beruvchi onlayn platforma. Brauzer (sayt) va Android ilova (APK) **bir xil backend va bir xil ma’lumotlar bazasi** bilan ishlaydi.
@@ -9,7 +9,7 @@
 
 ## 1. Loyiha nima?
 
-**ishliayol.uz** — ish e’lonlari, arizalar, shartnomalar, chat, shaxsni tasdiqlash va admin boshqaruvi bo‘lgan marketplace.
+**mexrliqollar.uz** — ish e’lonlari, arizalar, shartnomalar, chat, shaxsni tasdiqlash va admin boshqaruvi bo‘lgan marketplace.
 
 | Tomon | Vazifa |
 |-------|--------|
@@ -35,7 +35,7 @@
 | ORM / DB | Prisma 6 + **PostgreSQL** |
 | Auth | JWT Bearer + bcrypt parol + SMS OTP (DevSMS) |
 | Fayllar | Lokal disk (`uploads/public`, `uploads/private`) |
-| Production | https://ishliayol.uz → nginx → Nest (`:4000`) + static `dist/` |
+| Production | https://mexrliqollar.uz → nginx → Nest (`:4000`) + static `dist/` |
 
 ### 2.2 Sayt nimalarni qamrab oladi
 
@@ -45,12 +45,12 @@
 - Worker / Employer dashboardlar, service posts, saved jobs
 - Shartnomalar, nizolar, reviews, notifications, chat (HTTP polling)
 - Admin va Super Admin panellari
-- Favicon / brending: Samarqand gerbi, brend nomi **ishliayol.uz**
+- Favicon / brending: Samarqand gerbi, brend nomi **mexrliqollar.uz**
 
 ### 2.3 Sayt arxitekturasi (sodda chizma)
 
 ```
-Brauzer (localhost:3000 yoki ishliayol.uz)
+Brauzer (localhost:3000 yoki mexrliqollar.uz)
         │  HTTPS / JWT
         ▼
    NestJS API  (/api)
@@ -80,10 +80,10 @@ Frontend alohida SPA; backend alohida API. SSR monolit emas.
 
 | Band | Qiymat |
 |------|--------|
-| App ID | `uz.ishliayol.app` |
-| App nomi | ishliayol.uz |
+| App ID | `uz.mexrliqollar.app` |
+| App nomi | mexrliqollar.uz |
 | UI kodi | Sayt bilan **bir xil** `src/` |
-| API | `https://ishliayol.uz/api` (absolute HTTPS) |
+| API | `https://mexrliqollar.uz/api` (absolute HTTPS) |
 | Nega Capacitor? | Bitta frontend = sinxron kafolat, tez APK, barcha sahifalar darhol |
 
 React Native (Expo) keyinroq mumkin (push/offline uchun), lekin hozirgi talab uchun Capacitor eng to‘g‘ri.
@@ -97,7 +97,7 @@ Android telefon
               │
               │  HTTPS + JWT
               ▼
-        https://ishliayol.uz/api  →  NestJS  →  PostgreSQL
+        https://mexrliqollar.uz/api  →  NestJS  →  PostgreSQL
 ```
 
 - Offline’da UI ochilishi mumkin, lekin **ma’lumot serverdan** keladi.
@@ -111,10 +111,10 @@ Android telefon
 | 1 | JDK 21 | `sudo apt install openjdk-21-jdk` (Kali: Java 25 JRE yetarli emas) |
 | 2 | Android SDK | `./scripts/setup-android-sdk.sh` → `~/Android/Sdk` |
 | 3 | Env | `JAVA_HOME`, `ANDROID_HOME` |
-| 4 | Web build | `vite build --mode capacitor` → `VITE_API_URL=https://ishliayol.uz/api` |
+| 4 | Web build | `vite build --mode capacitor` → `VITE_API_URL=https://mexrliqollar.uz/api` |
 | 5 | Sync | `npx cap sync android` |
 | 6 | Gradle | `assembleDebug` yoki `assembleRelease` |
-| 7 | Natija | `artifacts/ishliayol-*-latest.apk` |
+| 7 | Natija | `artifacts/mexrliqollar-*-latest.apk` |
 
 **Bitta buyruq:**
 
@@ -126,15 +126,15 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME
 
 ./scripts/setup-android-sdk.sh   # birinchi marta
 ./scripts/build-apk.sh release
-ls -lh artifacts/ishliayol-release-latest.apk
+ls -lh artifacts/mexrliqollar-release-latest.apk
 ```
 
 ### 3.4 APK fayl qayerda va qanday ulashish
 
 | Fayl | Yo‘l |
 |------|------|
-| Release (tavsiya) | `artifacts/ishliayol-release-latest.apk` |
-| Debug | `artifacts/ishliayol-debug-latest.apk` |
+| Release (tavsiya) | `artifacts/mexrliqollar-release-latest.apk` |
+| Debug | `artifacts/mexrliqollar-debug-latest.apk` |
 | Gradle | `android/app/build/outputs/apk/...` |
 
 **Ulashish:** Telegram, Google Drive, Mega — link yoki fayl.  
@@ -147,7 +147,7 @@ ls -lh artifacts/ishliayol-release-latest.apk
 - WebView debug **faqat DEBUG** buildda
 - Release: R8/ProGuard minify
 - Keystore / `key.properties` — **repo ga commit qilinmaydi**
-- Navigatsiya whitelist: `ishliayol.uz`, localhost
+- Navigatsiya whitelist: `mexrliqollar.uz`, localhost
 
 ---
 
@@ -205,10 +205,10 @@ npm run dev
 
 | Band | Holat |
 |------|--------|
-| Domen | https://ishliayol.uz |
+| Domen | https://mexrliqollar.uz |
 | Proxy | `nginx-config.conf` — `/api` → Nest 4000, static → `dist/` |
 | TLS | Let’s Encrypt (nginx) |
-| APK API | Xuddi shu domen: `https://ishliayol.uz/api` |
+| APK API | Xuddi shu domen: `https://mexrliqollar.uz/api` |
 
 ---
 
@@ -258,7 +258,7 @@ npm run dev
 
 ## 11. Yakuniy xulosa
 
-1. **Sayt** — ishlab chiqilgan, API-asosida, production domeni `ishliayol.uz`.  
+1. **Sayt** — ishlab chiqilgan, API-asosida, production domeni `mexrliqollar.uz`.  
 2. **APK** — saytning Capacitor qobig‘i; alohida baza yo‘q; ma’lumot faqat serverdan.  
 3. **Sinxron** — bir tizim, ikki klient (brauzer + Android).  
 4. **Qurish** — JDK 21 + Android SDK + `./scripts/build-apk.sh release` → `artifacts/*.apk`.  

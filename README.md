@@ -1,4 +1,4 @@
-# ishliayol.uz
+# mexrliqollar.uz
 
 Samarqand ish platformasi — **React (Vite) + NestJS + PostgreSQL**.  
 Brauzer va Android APK **bir xil backend / bir xil baza** bilan ishlaydi.
@@ -40,7 +40,7 @@ npm run dev
 | [`MOBILE.md`](./MOBILE.md) | Android APK (Capacitor) |
 | [`AUDIT.md`](./AUDIT.md) | Kod bazasi auditi |
 | [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md) | Mobil arxitektura qarori |
-| [`nginx-config.conf`](./nginx-config.conf) | Production nginx (ishliayol.uz) |
+| [`nginx-config.conf`](./nginx-config.conf) | Production nginx (mexrliqollar.uz) |
 
 ## Asosiy buyruqlar
 

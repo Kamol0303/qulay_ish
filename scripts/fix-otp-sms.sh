@@ -37,7 +37,7 @@ sed -i '/^DEVSMS_FROM=/d' "$ENV_FILE"
 sed -i '/^# DEVSMS_FROM=/d' "$ENV_FILE"
 
 if ! grep -q '^DEVSMS_SERVICE_NAME=' "$ENV_FILE"; then
-  echo 'DEVSMS_SERVICE_NAME=ishliayol.uz' >> "$ENV_FILE"
+  echo 'DEVSMS_SERVICE_NAME=mexrliqollar.uz' >> "$ENV_FILE"
 fi
 
 if ! grep -q '^DEVSMS_TOKEN=.\+' "$ENV_FILE"; then

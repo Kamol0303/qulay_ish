@@ -270,7 +270,7 @@ export class OtpService {
         );
       }
       const uid = randomUUID().replace(/-/g, '').slice(0, 28);
-      const email = `${phone.replace(/\D/g, '')}@ishliayol.uz`;
+      const email = `${phone.replace(/\D/g, '')}@mexrliqollar.uz`;
       const meta = (session.metadata && typeof session.metadata === 'object'
         ? session.metadata
         : {}) as { passwordHash?: string };

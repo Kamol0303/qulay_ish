@@ -1,4 +1,4 @@
-# ishliayol.uz — To‘liq clone va ishga tushirish qo‘llanmasi
+# mexrliqollar.uz — To‘liq clone va ishga tushirish qo‘llanmasi
 
 Bitta backend (NestJS) + bitta PostgreSQL. Brauzer va Android APK shu manbaga ulanadi.
 
@@ -78,7 +78,7 @@ VITE_APP_URL=http://localhost:3000
 VITE_AI_MOCK_MODE=false
 VITE_USE_EMULATOR=false
 
-VITE_SUPER_ADMIN_EMAIL=superadmin@ishliayol.uz
+VITE_SUPER_ADMIN_EMAIL=superadmin@mexrliqollar.uz
 VITE_SUPER_ADMIN_PHONE=+998900707081
 VITE_SUPER_ADMIN_PASSWORD=Hur_135642
 ```
@@ -100,18 +100,18 @@ JWT_SECRET=change-me-in-production-use-long-random
 JWT_EXPIRES_IN=30d
 
 API_PORT=4000
-CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost
+CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://mexrliqollar.uz,https://www.mexrliqollar.uz,https://localhost,capacitor://localhost
 # Nest main.ts Capacitor originlarni CORS_ORIGIN bo'sh/tor bo'lsa ham qo'shadi.
 # Production OTP uchun DEVSMS_TOKEN majburiy.
 
-SUPER_ADMIN_EMAIL=superadmin@ishliayol.uz
+SUPER_ADMIN_EMAIL=superadmin@mexrliqollar.uz
 SUPER_ADMIN_PHONE=+998900707081
 SUPER_ADMIN_PASSWORD=Hur_135642
 
 # SMS OTP (bo'sh bo'lsa — lokalda OTP API konsoliga chiqadi)
 DEVSMS_TOKEN=
 DEVSMS_BASE_URL=https://devsms.uz/api
-DEVSMS_SERVICE_NAME=ishliayol.uz
+DEVSMS_SERVICE_NAME=mexrliqollar.uz
 ```
 
 **Muhim:** `SUPER_ADMIN_PASSWORD` ni o‘zgartirsangiz, API ni **qayta ishga tushiring**.
@@ -197,7 +197,7 @@ npm run dev:web
 ### Super Admin
 
 1. Brauzer: http://localhost:3000/super-admin-login  
-2. Email: `superadmin@ishliayol.uz` **yoki** telefon: `+998900707081`  
+2. Email: `superadmin@mexrliqollar.uz` **yoki** telefon: `+998900707081`  
 3. Parol: `api/.env` dagi `SUPER_ADMIN_PASSWORD` (yuqoridagi misolda `Hur_135642`)
 
 ### Oddiy foydalanuvchi (worker / employer)
@@ -224,7 +224,7 @@ npm run db:down
 
 ## 9. Android APK (ixtiyoriy)
 
-Sayt va APK **bir xil** production API ga ulanadi: `https://ishliayol.uz/api`.
+Sayt va APK **bir xil** production API ga ulanadi: `https://mexrliqollar.uz/api`.
 
 Batafsil: [`MOBILE.md`](./MOBILE.md)
 
@@ -253,7 +253,7 @@ chmod +x scripts/build-apk.sh
 
 Chiqish:
 
-- `artifacts/ishliayol-debug-latest.apk`
+- `artifacts/mexrliqollar-debug-latest.apk`
 - `android/app/build/outputs/apk/debug/app-debug.apk`
 
 Telefoningizga `.apk` ni o‘rnating → login → saytda shu akkaunt ko‘rinishi kerak.
@@ -339,4 +339,4 @@ cd api && npm install && npx prisma migrate deploy && cd ..
 | [`MOBILE.md`](./MOBILE.md) | APK build |
 | [`AUDIT.md`](./AUDIT.md) | Kod bazasi auditi |
 | [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md) | Mobil arxitektura |
-| [`nginx-config.conf`](./nginx-config.conf) | Production (ishliayol.uz) |
+| [`nginx-config.conf`](./nginx-config.conf) | Production (mexrliqollar.uz) |

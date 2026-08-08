@@ -30,7 +30,7 @@ export default function MobileShell({ children }: { children: React.ReactNode })
         <header className="sticky top-0 z-[65] border-b border-border bg-card/95 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
           <div className="flex items-center justify-between min-h-[52px] px-4">
             <Link to="/" className="font-black tracking-tight text-primary text-lg">
-              ishliayol
+              mexrliqollar
             </Link>
             <div className="flex items-center gap-1">
               {profile && (

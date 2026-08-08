@@ -48,8 +48,8 @@ export class DevSmsService implements OnModuleInit {
       (!this.token && process.env.NODE_ENV !== 'production');
     this.balanceWarnThreshold = Number(process.env.DEVSMS_BALANCE_WARN_THRESHOLD || 10000);
 
-    const primary = process.env.DEVSMS_SERVICE_NAME?.trim() || 'ishliayol.uz';
-    const names = [primary, 'ishliayol', 'ishliayol.uz'];
+    const primary = process.env.DEVSMS_SERVICE_NAME?.trim() || 'mexrliqollar.uz';
+    const names = [primary, 'mexrliqollar', 'mexrliqollar.uz'];
     this.serviceNames = [...new Set(names)];
   }
 

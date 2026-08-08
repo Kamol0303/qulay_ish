@@ -1,6 +1,6 @@
-# ishliayol.uz — Android APK (Capacitor)
+# mexrliqollar.uz — Android APK (Capacitor)
 
-Web va APK **bir xil NestJS API + PostgreSQL** (`https://ishliayol.uz/api`) bilan ishlaydi.  
+Web va APK **bir xil NestJS API + PostgreSQL** (`https://mexrliqollar.uz/api`) bilan ishlaydi.  
 Demo/local-only ma’lumot o‘chirilgan.
 
 **iOS:** qarang [`IOS.md`](./IOS.md) — `./scripts/build-ios.sh sync` (IPA faqat macOS/Xcode).
@@ -27,7 +27,7 @@ export ANDROID_HOME=$HOME/Android/Sdk
 export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
 ./scripts/build-apk.sh release
-ls -lh artifacts/ishliayol-release-latest.apk
+ls -lh artifacts/mexrliqollar-release-latest.apk
 ```
 
 APK ni Telegram / Google Drive orqali ulashing (GitHub `gh` shart emas).
@@ -77,13 +77,13 @@ cd ~/Desktop/qulay_ish
 
 `build-apk.sh` avval `npm install` qiladi (masalan `@capacitor/haptics` pull’dan keyin kerak).
 
-APK chiqishi: `artifacts/ishliayol-*-latest.apk` (yoki `APK_OUT=...`).
+APK chiqishi: `artifacts/mexrliqollar-*-latest.apk` (yoki `APK_OUT=...`).
 
 ## Qo‘lda
 
 ```bash
 npm install
-npm run build -- --mode capacitor   # VITE_API_URL=https://ishliayol.uz/api
+npm run build -- --mode capacitor   # VITE_API_URL=https://mexrliqollar.uz/api
 npx cap sync android
 npx cap open android                # Android Studio
 # yoki
@@ -94,8 +94,8 @@ cd android && ./gradlew assembleDebug
 
 | Fayl | Vazifa |
 |------|--------|
-| `.env.capacitor` | APK build: `VITE_API_URL=https://ishliayol.uz/api` |
-| `capacitor.config.ts` | `hostname: ishliayol.uz`, `CapacitorHttp.enabled`, HTTPS-only |
+| `.env.capacitor` | APK build: `VITE_API_URL=https://mexrliqollar.uz/api` |
+| `capacitor.config.ts` | `hostname: mexrliqollar.uz`, `CapacitorHttp.enabled`, HTTPS-only |
 | `api/.env` `CORS_ORIGIN` | website + Capacitor originlar (Nest ularni har doim merge qiladi) |
 | `api/.env` `DEVSMS_TOKEN` | OTP SMS uchun majburiy (bo‘sh bo‘lsa register ishlamaydi) |
 
@@ -103,17 +103,17 @@ cd android && ./gradlew assembleDebug
 
 Sabab odatda WebView `Origin` (eski: `https://localhost`) production CORS da yo‘qligi. Hozir:
 
-1. APK WebView hostname = `ishliayol.uz` + native `CapacitorHttp`
+1. APK WebView hostname = `mexrliqollar.uz` + native `CapacitorHttp`
 2. Nest CORS Capacitor originlarni `CORS_ORIGIN` dan qat’i nazar qo‘shadi
 
 **Muhim:** `redeploy-api-production.sh` ni Kali desktopda emas, VPS da ishga tushiring
-(`ishliayol.uz` → odatda `185.203.237.57`, papka `/var/www/qulay-ish` yoki shunga o‘xshash).
+(`mexrliqollar.uz` → odatda `185.203.237.57`, papka `/var/www/qulay-ish` yoki shunga o‘xshash).
 
 Kali’da darhol:
 ```bash
 ./scripts/build-apk.sh release
 ```
-(Yangi APK `hostname=ishliayol.uz` + `CapacitorHttp` bilan CORS muammosini aylanib o‘tadi.)
+(Yangi APK `hostname=mexrliqollar.uz` + `CapacitorHttp` bilan CORS muammosini aylanib o‘tadi.)
 
 VPS da API/SMS:
 ```bash
@@ -126,7 +126,7 @@ git pull origin main && ./scripts/redeploy-api-production.sh
 ## Sinxron tekshiruv
 
 1. APK da login/register → DB da yozuv
-2. Saytda (`https://ishliayol.uz`) shu user/job ko‘rinsin
+2. Saytda (`https://mexrliqollar.uz`) shu user/job ko‘rinsin
 3. Saytda ish yarating → APK `/jobs` da yangilang
 
 ## Xavfsizlik

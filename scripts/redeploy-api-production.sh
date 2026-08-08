@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Production serverda (ishliayol.uz / 185.203.237.57) Nest API ni yangilash.
+# Production serverda (mexrliqollar.uz / 185.203.237.57) Nest API ni yangilash.
 # Bu skriptni Kali desktopda emas — VPS/SSH sessiyasida ishga tushiring.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PROD_HOST="${PROD_HOST:-ishliayol.uz}"
+PROD_HOST="${PROD_HOST:-mexrliqollar.uz}"
 PROD_IP="${PROD_IP:-185.203.237.57}"
 
 is_production_host() {
@@ -26,7 +26,7 @@ is_production_host() {
   fi
   # 4) Local Nest already serves /api on :4000 and nginx proxies (weak signal)
   if curl -sf "http://127.0.0.1:4000/api/stats/counts" >/dev/null 2>&1 \
-    && [[ -f /etc/nginx/sites-enabled/ishliayol.uz || -f /etc/nginx/sites-available/ishliayol.uz ]]; then
+    && [[ -f /etc/nginx/sites-enabled/mexrliqollar.uz || -f /etc/nginx/sites-available/mexrliqollar.uz ]]; then
     return 0
   fi
   return 1
@@ -78,7 +78,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 if ! grep -q 'CORS_ORIGIN=' "$ENV_FILE"; then
-  echo "CORS_ORIGIN=https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost,http://localhost:3000" >> "$ENV_FILE"
+  echo "CORS_ORIGIN=https://mexrliqollar.uz,https://www.mexrliqollar.uz,https://localhost,capacitor://localhost,http://localhost:3000" >> "$ENV_FILE"
   echo "==> CORS_ORIGIN qo'shildi"
 else
   echo "==> CORS_ORIGIN mavjud (Nest Capacitor originlarni ham merge qiladi)"
@@ -98,10 +98,10 @@ restart_api() {
     pm2 save || true
     return 0
   fi
-  if systemctl list-unit-files 2>/dev/null | grep -qE 'qulay|ishliayol'; then
+  if systemctl list-unit-files 2>/dev/null | grep -qE 'qulay|mexrliqollar'; then
     echo "==> systemctl restart"
     sudo systemctl restart qulay-ish-api 2>/dev/null \
-      || sudo systemctl restart ishliayol-api 2>/dev/null \
+      || sudo systemctl restart mexrliqollar-api 2>/dev/null \
       || true
     return 0
   fi
