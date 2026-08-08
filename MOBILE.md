@@ -104,8 +104,22 @@ Sabab odatda WebView `Origin` (eski: `https://localhost`) production CORS da yo�
 1. APK WebView hostname = `ishliayol.uz` + native `CapacitorHttp`
 2. Nest CORS Capacitor originlarni `CORS_ORIGIN` dan qat’i nazar qo‘shadi
 
-Serverda API yangilang: `./scripts/redeploy-api-production.sh`  
-Keyin APK: `./scripts/build-apk.sh release`
+**Muhim:** `redeploy-api-production.sh` ni Kali desktopda emas, VPS da ishga tushiring
+(`ishliayol.uz` → odatda `185.203.237.57`, papka `/var/www/qulay-ish` yoki shunga o‘xshash).
+
+Kali’da darhol:
+```bash
+./scripts/build-apk.sh release
+```
+(Yangi APK `hostname=ishliayol.uz` + `CapacitorHttp` bilan CORS muammosini aylanib o‘tadi.)
+
+VPS da API/SMS:
+```bash
+ssh root@185.203.237.57
+cd /var/www/qulay-ish   # topilmasa: find /var/www /home -name qulay_ish -type d
+git pull origin main && ./scripts/redeploy-api-production.sh
+# api/.env ichida DEVSMS_TOKEN bo'lsin
+```
 
 ## Sinxron tekshiruv
 

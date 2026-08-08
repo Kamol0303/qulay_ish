@@ -1,11 +1,66 @@
 #!/usr/bin/env bash
-# Production serverda (ishliayol.uz) Nest API ni yangilash.
-# APK "Failed to fetch" / CORS va SMS OTP uchun kerak.
+# Production serverda (ishliayol.uz / 185.203.237.57) Nest API ni yangilash.
+# Bu skriptni Kali desktopda emas — VPS/SSH sessiyasida ishga tushiring.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+PROD_HOST="${PROD_HOST:-ishliayol.uz}"
+PROD_IP="${PROD_IP:-185.203.237.57}"
+
+is_production_host() {
+  # 1) Explicit override
+  if [[ "${FORCE_PROD_REDEPLOY:-}" == "1" ]]; then
+    return 0
+  fi
+  # 2) Classic deploy path
+  if [[ "$ROOT" == /var/www/* ]] || [[ "$ROOT" == /srv/* ]]; then
+    return 0
+  fi
+  # 3) This machine has the public IP
+  if command -v hostname >/dev/null 2>&1; then
+    if hostname -I 2>/dev/null | tr ' ' '\n' | grep -qx "$PROD_IP"; then
+      return 0
+    fi
+  fi
+  # 4) Local Nest already serves /api on :4000 and nginx proxies (weak signal)
+  if curl -sf "http://127.0.0.1:4000/api/stats/counts" >/dev/null 2>&1 \
+    && [[ -f /etc/nginx/sites-enabled/ishliayol.uz || -f /etc/nginx/sites-available/ishliayol.uz ]]; then
+    return 0
+  fi
+  return 1
+}
+
+if ! is_production_host; then
+  cat <<EOF
+ERROR: Bu mashina production server emas.
+
+Siz hozir lokal papkadasiz: $ROOT
+Production: https://$PROD_HOST  (IP: $PROD_IP)
+
+Kali'da faqat APK qurish kifoya (CORS ni APK tomonda aylanib o'tadi):
+  cd ~/Desktop/qulay_ish
+  git pull origin main
+  ./scripts/build-apk.sh release
+
+Production API (CORS + SMS OTP) ni yangilash uchun VPS ga kiring:
+  ssh root@$PROD_IP
+  # yoki: ssh user@$PROD_HOST
+
+  cd /var/www/qulay-ish   # serverdagi haqiqiy papka
+  # agar papka boshqa bo'lsa:
+  #   find /var/www /home /opt -maxdepth 3 -type d -name 'qulay_ish' 2>/dev/null
+  git pull origin main
+  ./scripts/redeploy-api-production.sh
+
+Majburiy override (faqat chindan ham shu serverda bo'lsangiz):
+  FORCE_PROD_REDEPLOY=1 ./scripts/redeploy-api-production.sh
+EOF
+  exit 1
+fi
+
+echo "==> Production host OK ($ROOT)"
 echo "==> git pull"
 git pull origin main
 
@@ -22,35 +77,50 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-# Ensure Capacitor / website origins are listed (main.ts also merges these,
-# but keep .env explicit for ops clarity).
 if ! grep -q 'CORS_ORIGIN=' "$ENV_FILE"; then
   echo "CORS_ORIGIN=https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost,http://localhost:3000" >> "$ENV_FILE"
   echo "==> CORS_ORIGIN qo'shildi"
 else
-  echo "==> CORS_ORIGIN mavjud (Nest endi Capacitor originlarni har doim qo'shadi)"
+  echo "==> CORS_ORIGIN mavjud (Nest Capacitor originlarni ham merge qiladi)"
 fi
 
 if ! grep -qE '^DEVSMS_TOKEN=.+' "$ENV_FILE"; then
-  echo "WARNING: DEVSMS_TOKEN bo'sh — OTP SMS ishlamaydi. DevSMS token qo'ying va qayta restart qiling."
+  echo "WARNING: DEVSMS_TOKEN bo'sh — OTP SMS ishlamaydi. DevSMS token qo'ying."
 fi
 
-# Prefer pm2 if present
-if command -v pm2 >/dev/null 2>&1; then
-  echo "==> pm2 restart"
-  # Common process names — adjust if your process is named differently
-  pm2 restart qulay-ish-api 2>/dev/null \
-    || pm2 restart api 2>/dev/null \
-    || pm2 restart all \
-    || true
-  pm2 save || true
-else
-  echo "pm2 topilmadi — API ni o'zingiz restart qiling (systemd/docker)."
-fi
+restart_api() {
+  if command -v pm2 >/dev/null 2>&1; then
+    echo "==> pm2 restart"
+    pm2 restart qulay-ish-api 2>/dev/null \
+      || pm2 restart qulay_ish_api 2>/dev/null \
+      || pm2 restart api 2>/dev/null \
+      || pm2 restart all
+    pm2 save || true
+    return 0
+  fi
+  if systemctl list-unit-files 2>/dev/null | grep -qE 'qulay|ishliayol'; then
+    echo "==> systemctl restart"
+    sudo systemctl restart qulay-ish-api 2>/dev/null \
+      || sudo systemctl restart ishliayol-api 2>/dev/null \
+      || true
+    return 0
+  fi
+  if [[ -f "$ROOT/api/dist/main.js" ]]; then
+    echo "==> no pm2/systemd — trying pkill + node dist"
+    pkill -f 'node.*dist/main' 2>/dev/null || true
+    sleep 1
+    (cd "$ROOT/api" && nohup node dist/main.js >>/var/log/qulay-ish-api.log 2>&1 &)
+    return 0
+  fi
+  echo "ERROR: API process ni restart qila olmadim (pm2/systemd yo'q)."
+  return 1
+}
 
-echo "==> CORS smoke (https://localhost origin)"
+restart_api
+
+echo "==> CORS smoke (Origin: https://localhost → $PROD_HOST)"
 sleep 2
-HDR="$(curl -sI -X OPTIONS 'https://ishliayol.uz/api/auth/send-otp' \
+HDR="$(curl -sI -X OPTIONS "https://$PROD_HOST/api/auth/send-otp" \
   -H 'Origin: https://localhost' \
   -H 'Access-Control-Request-Method: POST' \
   -H 'Access-Control-Request-Headers: content-type' || true)"
@@ -58,7 +128,9 @@ echo "$HDR" | head -20
 if echo "$HDR" | grep -qi 'Access-Control-Allow-Origin: https://localhost'; then
   echo "OK: Capacitor Origin ruxsat etilgan"
 else
-  echo "WARN: Allow-Origin hali yo'q — API restart / nginx cache tekshiring"
+  echo "WARN: Allow-Origin hali yo'q — API jarayoni eski kod bilan ishlayotgan bo'lishi mumkin"
+  echo "  ps aux | rg 'node|nest|pm2'"
+  echo "  ss -lntp | rg 4000"
 fi
 
 echo "Done."
