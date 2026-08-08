@@ -45,6 +45,7 @@ import RoleProtectedRoute from './components/RoleProtectedRoute';
 import { useAuth, AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ChatAssistant from './components/ChatAssistant';
+import OfflineBanner from './components/OfflineBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import QualayIshPage from './pages/QualayIshPage';
 import SavedJobsPage from './pages/SavedJobsPage';
@@ -144,6 +145,7 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
               </Routes>
+              <OfflineBanner />
               <ChatAssistant />
             </div>
           </ErrorBoundary>

@@ -95,6 +95,22 @@ Login va parol `api/.env` dagi `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PHONE` va `SUP
 1. `/auth?mode=register` — telefon + parol (min 8) + OTP
 2. `/auth?mode=login` — telefon + OTP
 
+## Android APK (Capacitor)
+
+Sayt va APK **bir xil backend** (`https://ishliayol.uz/api` → NestJS → PostgreSQL) bilan ishlaydi.
+
+To‘liq yo‘riqnoma: [`MOBILE.md`](./MOBILE.md) · Audit: [`AUDIT.md`](./AUDIT.md) · Qaror: [`ARCHITECTURE_DECISION.md`](./ARCHITECTURE_DECISION.md)
+
+```bash
+# Debug
+./scripts/build-apk.sh debug
+
+# Imzolangan release (local keystore; Play Store uchun alohida saqlang)
+./scripts/build-apk.sh release
+```
+
+APK: `android/app/build/outputs/apk/...` yoki `/opt/cursor/artifacts/ishliayol-*-latest.apk`
+
 ## To‘xtatish
 
 Terminalda `Ctrl + C`.

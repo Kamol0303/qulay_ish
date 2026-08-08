@@ -1,7 +1,6 @@
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
-import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
 import { Activity, Clock, User, Shield } from 'lucide-react';
 import { format } from 'date-fns';
@@ -28,45 +27,10 @@ function toLogDate(value: SystemLog['timestamp']): Date {
 
 export default function SystemLogs() {
   const { t } = useTranslation();
-  const { isDemo } = useAuth();
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isDemo) {
-      setLogs([
-        {
-          id: '1',
-          action: 'User Login',
-          userId: 'demo_admin',
-          userName: 'Demo Admin',
-          timestamp: new Date().toISOString(),
-          details: 'Admin logged into the system',
-          type: 'info'
-        },
-        {
-          id: '2',
-          action: 'Profile Verified',
-          userId: 'worker_123',
-          userName: 'Lola Karimova',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          details: 'Worker profile was verified by admin',
-          type: 'security'
-        },
-        {
-          id: '3',
-          action: 'Job Deleted',
-          userId: 'employer_456',
-          userName: 'Azizbek Toshmatov',
-          timestamp: new Date(Date.now() - 7200000).toISOString(),
-          details: 'Job posting #JOB-789 was deleted',
-          type: 'warning'
-        }
-      ]);
-      setLoading(false);
-      return;
-    }
-
     const load = async () => {
       try {
         const rows = await api.systemLogs.list();
@@ -81,7 +45,7 @@ export default function SystemLogs() {
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, [isDemo]);
+  }, []);
 
   const getTypeColor = (type: string) => {
     switch (type) {

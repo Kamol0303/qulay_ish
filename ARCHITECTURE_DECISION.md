@@ -166,12 +166,7 @@ EVOLVE: Expo/native modules later if push/offline demand it
 
 ---
 
-## Keyingi qadam
+## Holat
 
-**Bosqich 2** (amalga oshirish) shu hujjat tasdiqlangach boshlanadi.
-
-Iltimos javob bering:
-
-- **`tasdiqladim`** — Capacitor Variant A bilan Bosqich 2 ga o‘tamiz  
-- yoki **`Expo qil`** — qarorni React Native (Expo) ga o‘zgartiramiz  
-- yoki tuzatishlar yozing
+**Bosqich 2–8 amalga oshirildi** (2026-08-08): Capacitor Android loyihasi, demo/mock olib tashlandi, HTTPS-only, Preferences token, offline banner, debug/release APK build scriptlari.  
+Yo‘riqnoma: [`MOBILE.md`](./MOBILE.md).

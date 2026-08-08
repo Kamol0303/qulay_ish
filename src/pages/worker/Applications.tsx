@@ -31,12 +31,6 @@ export default function WorkerApplications() {
     if (!profile?.uid) return;
     setLoading(true);
 
-    if (isDemo) {
-      setApplications([]);
-      setLoading(false);
-      return;
-    }
-
     const load = async () => {
       try {
         const appsData = await applicationService.getByWorker(profile.uid);
@@ -56,7 +50,7 @@ export default function WorkerApplications() {
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, [profile, isDemo]);
+  }, [profile]);
 
   return (
     <DashboardLayout>

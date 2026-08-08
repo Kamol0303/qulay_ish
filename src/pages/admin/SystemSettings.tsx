@@ -60,7 +60,6 @@ export default function SystemSettings() {
   const showToast = (msg: string, type: 'success' | 'error') => setToast({ msg, type });
 
   useEffect(() => {
-    if (isDemo) { setLoading(false); return; }
     (async () => {
       try {
         const data = await api.settings.getGlobal();
@@ -74,7 +73,7 @@ export default function SystemSettings() {
         setLoading(false);
       }
     })();
-  }, [isDemo]);
+  }, []);
 
   function validate(): boolean {
     const errs: typeof errors = {};
@@ -91,11 +90,6 @@ export default function SystemSettings() {
 
   async function handleSave() {
     if (!validate()) return;
-
-    if (isDemo) {
-      showToast(t('admin.settings.demo_save'), 'success');
-      return;
-    }
 
     setSaving(true);
     try {

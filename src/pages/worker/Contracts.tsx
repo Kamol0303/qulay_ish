@@ -45,12 +45,6 @@ export default function WorkerContracts() {
       if (!profile?.uid) return;
       setLoading(true);
 
-      if (isDemo) {
-        setContracts([]);
-        setLoading(false);
-        return;
-      }
-
       try {
         const contractsData = await contractService.getByWorker(profile.uid);
 
@@ -69,7 +63,7 @@ export default function WorkerContracts() {
     }
 
     fetchContracts();
-  }, [profile, isDemo]);
+  }, [profile]);
 
   const handleSign = async (contractId: string) => {
     try {

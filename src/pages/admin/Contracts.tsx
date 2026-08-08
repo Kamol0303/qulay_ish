@@ -51,7 +51,7 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmClass = 'bg-blue-60
 
 export default function AdminContracts() {
   const { t, i18n } = useTranslation();
-  const { profile, isDemo } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const [contracts, setContracts] = useState<(Contract & { employer?: Profile; worker?: Profile; job?: Job })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,30 +66,6 @@ export default function AdminContracts() {
       if (profile?.role !== 'admin' && profile?.role !== 'super_admin') return;
       setLoading(true);
 
-      if (isDemo) {
-        setContracts([
-          {
-            id: '1',
-            jobId: 'job1',
-            workerId: 'worker1',
-            employerId: 'employer1',
-            amount: 500000,
-            status: 'signed',
-            adminApproved: false,
-            createdAt: { toDate: () => new Date() } as any,
-            employer: { fullName: 'Demo Ish beruvchi' } as any,
-            worker: { fullName: 'Demo Ishchi' } as any,
-            job: { title: 'Demo Ish' } as any,
-            startDate: new Date().toISOString(),
-            endDate: new Date().toISOString(),
-            terms: 'Demo shartlar',
-            employerSigned: true,
-            workerSigned: true
-          } as any
-        ]);
-        setLoading(false);
-        return;
-      }
 
       try {
         const contractsData = await contractService.list();

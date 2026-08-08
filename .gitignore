@@ -28,3 +28,18 @@ api/.env
 api/node_modules/
 api/dist/
 api/uploads/
+
+# Android / Capacitor secrets & local build
+*.keystore
+*.jks
+android/key.properties
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+android/.idea/
+*.apk
+*.aab
+!docs/**/*.apk
+android/release.keystore

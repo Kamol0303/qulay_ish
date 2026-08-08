@@ -13,7 +13,6 @@ import { uz, ru, enUS } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { performanceUtils } from '../../lib/performance';
-import { demoStore } from '../../lib/demoStore';
 import { getWorkerCompletion, getEmployerCompletion } from '../../lib/profileCompletion';
 import { downloadResumePdf } from '../../lib/resumePdf';
 import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
@@ -326,44 +325,29 @@ export default function UsersManagement() {
       const sorted = performanceUtils.sortByCreatedAtDesc(fetched);
       const { items, hasMore: more } = performanceUtils.paginate(sorted, pageSize, nextPage);
 
-      const merged = reset ? demoStore.mergeUsers(items) : [...users, ...items];
+      const merged = reset ? items : [...users, ...items];
       setUsers(merged as Profile[]);
       setHasMore(more);
       if (!reset) setPage(nextPage + 1);
       else setPage(1);
     } catch (error) {
       debugLogger.error('Error fetching users:', error);
-      setUsers(demoStore.getUsers() as Profile[]);
+      if (reset) setUsers([]);
       setHasMore(false);
     } finally {
       setLoading(false);
     }
   }
 
-  /** Apply a patch to a user in all state layers: local state, selectedUser, demoStore, API */
+  /** Apply a patch via API and optimistic local state (no local-only store). */
   const applyUserPatch = useCallback(async (uid: string, patch: Partial<Profile> & Record<string, any>) => {
     const now = new Date().toISOString();
     const patchWithTime = { ...patch, updatedAt: now };
 
-    // 1. Update local React state immediately (optimistic)
     setUsers(prev => prev.map(u => u.uid === uid ? { ...u, ...patchWithTime } : u));
     setSelectedUser(prev => prev?.uid === uid ? { ...prev, ...patchWithTime } as Profile : prev);
 
-    // 2. Persist to localStorage — upsert full record so status survives page navigation.
-    //    Use usersRef to get the current user without stale closure.
-    const current = usersRef.current.find(u => u.uid === uid);
-    if (current) {
-      demoStore.upsertUser({ ...current, ...patchWithTime });
-    } else {
-      demoStore.updateUser(uid, patchWithTime);
-    }
-
-    // 3. Try API (best-effort — fails silently for demo users)
-    try {
-      await api.users.update(uid, patchWithTime as Parameters<typeof api.users.update>[1]);
-    } catch (err) {
-      debugLogger.warn('[UsersManagement] API update skipped:', err);
-    }
+    await api.users.update(uid, patchWithTime as Parameters<typeof api.users.update>[1]);
   }, []);
 
   async function handleVerify(user: Profile) {
@@ -422,7 +406,6 @@ export default function UsersManagement() {
     setActionLoading(true);
     try {
       await applyUserPatch(user.uid, { status: 'deleted', isBlocked: true });
-      demoStore.removeUser(user.uid);
       setUsers(prev => prev.filter(u => u.uid !== user.uid));
       setSelectedUser(null);
       showToast("Foydalanuvchi o'chirildi", 'success');

@@ -13,12 +13,10 @@ import ApplyModal from '../components/ApplyModal';
 import { getDistrictKey, filterJobsForSamarkand } from '../lib/utils';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { demoStore } from '../lib/demoStore';
-import { DEMO_JOBS } from '../constants/demoData';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 
 export default function JobsPage() {
-  const { profile, isDemo } = useAuth();
+  const { profile } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -55,9 +53,7 @@ export default function JobsPage() {
         const apiJobs = await api.jobs.list({ status: 'open' });
         if (cancelled) return;
 
-        const mergedJobs = isDemo ? demoStore.mergeJobs([...DEMO_JOBS, ...apiJobs]) : apiJobs;
-
-        let filtered = filterJobsForSamarkand(mergedJobs, {
+        let filtered = filterJobsForSamarkand(apiJobs, {
           status: 'open',
           district: selectedDistrict || undefined,
         });
@@ -84,13 +80,7 @@ export default function JobsPage() {
         setJobs(filtered);
       } catch (error) {
         debugLogger.error('Error fetching jobs:', error);
-        if (!cancelled) {
-          let fallbackJobs = demoStore.mergeJobs(DEMO_JOBS)
-            .filter((j: Job) => j.status === 'open' && j.region === selectedRegion) as Job[];
-          if (selectedDistrict) fallbackJobs = fallbackJobs.filter((j: Job) => j.district === selectedDistrict);
-          if (selectedCategory) fallbackJobs = fallbackJobs.filter((j: Job) => j.category === selectedCategory);
-          setJobs(fallbackJobs);
-        }
+        if (!cancelled) setJobs([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }

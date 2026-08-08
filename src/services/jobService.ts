@@ -1,6 +1,5 @@
 import { debugLogger } from '../lib/debugLogger';
 import { Job } from '../types';
-import { demoStore } from '../lib/demoStore';
 import rateLimitService from './rateLimitService';
 import systemLogService from './systemLogService';
 import { api } from '../lib/api';
@@ -36,13 +35,6 @@ export const jobService = {
 
       await systemLogService.logAction('POST_JOB', jobData.employerId, undefined, { jobId: created.id, title: jobData.title }, 'info');
 
-      demoStore.upsertJob({
-        ...jobData,
-        id: created.id,
-        status: jobData.status || 'open',
-        createdAt: new Date().toISOString(),
-      });
-
       return { success: true, jobId: created.id };
     } catch (error) {
       debugLogger.error('Error creating job with rate limit:', error);
@@ -53,12 +45,6 @@ export const jobService = {
   async create(jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null> {
     try {
       const created = await api.jobs.create({ ...jobData, status: jobData.status || 'open' });
-      demoStore.upsertJob({
-        ...jobData,
-        id: created.id,
-        status: jobData.status || 'open',
-        createdAt: new Date().toISOString(),
-      });
       return created.id;
     } catch (error) {
       debugLogger.error('Error creating job:', error);

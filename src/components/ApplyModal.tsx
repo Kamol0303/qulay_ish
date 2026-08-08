@@ -65,21 +65,6 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         return;
       }
 
-      const isDemo = profile.uid.startsWith('demo_');
-
-      if (isDemo) {
-        // Demo mode - just show success
-        setSuccess(true);
-        setTimeout(() => {
-          onClose();
-          setSuccess(false);
-          setMessage('');
-          setCoverLetter('');
-          setExpectedSalary(job.price ? String(job.price) : '');
-        }, 1500);
-        return;
-      }
-
       if (!job.employerId) {
         setError('Ish beruvchi topilmadi. E\'lonni qayta oching.');
         setLoading(false);
