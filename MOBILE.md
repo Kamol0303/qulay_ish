@@ -10,6 +10,26 @@ Demo/local-only ma’lumot o‘chirilgan.
 - Android SDK (`ANDROID_HOME`, platform 35+)
 - Backend ishlayotgan bo‘lishi shart (production yoki local API)
 
+### Kali Linux: Android SDK yo‘q
+
+```bash
+sudo apt update
+sudo apt install -y openjdk-21-jdk unzip curl wget
+
+cd ~/Desktop/qulay_ish
+chmod +x scripts/setup-android-sdk.sh scripts/build-apk.sh
+./scripts/setup-android-sdk.sh
+
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+
+./scripts/build-apk.sh release
+ls -lh artifacts/ishliayol-release-latest.apk
+```
+
+APK ni Telegram / Google Drive orqali ulashing (GitHub `gh` shart emas).
+
 ### Kali Linux: `JAVA_COMPILER` / Java 25 xatosi
 
 Agar shunday xato chiqsa:
