@@ -3,6 +3,8 @@ node_modules/
 
 # Build
 dist/
+artifacts/*
+!artifacts/.gitkeep
 
 # Environment (secrets — never commit)
 .env
@@ -27,7 +29,12 @@ data/firestore-export/
 api/.env
 api/node_modules/
 api/dist/
-api/uploads/
+api/uploads/**
+!api/uploads/.gitkeep
+!api/uploads/public/
+!api/uploads/public/.gitkeep
+!api/uploads/private/
+!api/uploads/private/.gitkeep
 
 # Android / Capacitor secrets & local build
 *.keystore

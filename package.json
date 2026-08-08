@@ -9,6 +9,8 @@
     "dev:web-only": "SKIP_API=1 vite --port=3000 --host=0.0.0.0",
     "dev:stack": "bash scripts/dev.sh",
     "build": "vite build",
+    "env:write": "bash scripts/write-local-envs.sh",
+    "otp:check": "bash scripts/check-otp.sh",
     "build:apk": "vite build --mode capacitor && npx cap sync android",
     "build:ios": "vite build --mode capacitor && npx cap sync ios",
     "cap:sync": "npx cap sync android",
