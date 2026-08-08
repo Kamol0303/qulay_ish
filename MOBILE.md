@@ -73,6 +73,8 @@ cd ~/Desktop/qulay_ish
 ./scripts/build-apk.sh release
 ```
 
+`build-apk.sh` avval `npm install` qiladi (masalan `@capacitor/haptics` pull’dan keyin kerak).
+
 APK chiqishi: `artifacts/ishliayol-*-latest.apk` (yoki `APK_OUT=...`).
 
 ## Qo‘lda
