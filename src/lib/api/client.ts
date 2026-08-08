@@ -123,7 +123,18 @@ export async function apiRequest<T>(
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const url = `${API_BASE}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    const hint =
+      detail.toLowerCase().includes('failed to fetch') || detail.toLowerCase().includes('network')
+        ? 'Serverga ulanib bo‘lmadi. Internetni tekshiring yoki birozdan keyin qayta urinib ko‘ring.'
+        : detail;
+    throw new ApiError(hint, 0, { url, cause: detail });
+  }
 
   // Read body once — Response streams can only be consumed a single time.
   // (Calling res.json() then res.text() throws "Body has already been consumed".)

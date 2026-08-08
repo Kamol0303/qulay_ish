@@ -20,9 +20,17 @@ function mapApiError(error: unknown): string {
     if (typeof remaining === 'number' && remaining > 0) {
       return `${error.message} (${remaining} ta urinish qoldi)`;
     }
+    if (!error.status || error.message.toLowerCase().includes('failed to fetch')) {
+      return 'Serverga ulanib bo‘lmadi. Internetni tekshiring.';
+    }
     return error.message;
   }
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    if (error.message.toLowerCase().includes('failed to fetch')) {
+      return 'Serverga ulanib bo‘lmadi. Internetni tekshiring.';
+    }
+    return error.message;
+  }
   return "Noma'lum xatolik";
 }
 

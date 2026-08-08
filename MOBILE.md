@@ -92,9 +92,20 @@ cd android && ./gradlew assembleDebug
 
 | Fayl | Vazifa |
 |------|--------|
-| `.env.capacitor` | APK build: absolute API URL |
-| `capacitor.config.ts` | appId `uz.ishliayol.app`, HTTPS-only, allowNavigation |
-| `api/.env` `CORS_ORIGIN` | `https://localhost`, `capacitor://localhost` qo‘shilgan |
+| `.env.capacitor` | APK build: `VITE_API_URL=https://ishliayol.uz/api` |
+| `capacitor.config.ts` | `hostname: ishliayol.uz`, `CapacitorHttp.enabled`, HTTPS-only |
+| `api/.env` `CORS_ORIGIN` | website + Capacitor originlar (Nest ularni har doim merge qiladi) |
+| `api/.env` `DEVSMS_TOKEN` | OTP SMS uchun majburiy (bo‘sh bo‘lsa register ishlamaydi) |
+
+### APKda “Failed to fetch”
+
+Sabab odatda WebView `Origin` (eski: `https://localhost`) production CORS da yo‘qligi. Hozir:
+
+1. APK WebView hostname = `ishliayol.uz` + native `CapacitorHttp`
+2. Nest CORS Capacitor originlarni `CORS_ORIGIN` dan qat’i nazar qo‘shadi
+
+Serverda API yangilang: `./scripts/redeploy-api-production.sh`  
+Keyin APK: `./scripts/build-apk.sh release`
 
 ## Sinxron tekshiruv
 

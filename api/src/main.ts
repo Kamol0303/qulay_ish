@@ -12,22 +12,25 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api');
-  const corsOrigins = (process.env.CORS_ORIGIN || '')
+  const fromEnv = (process.env.CORS_ORIGIN || '')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
-  const defaultOrigins = [
+  // Always allow website + Capacitor WebView origins (even if CORS_ORIGIN is set
+  // narrowly on the server — otherwise APK gets opaque "Failed to fetch").
+  const requiredOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'https://ishliayol.uz',
     'https://www.ishliayol.uz',
-    // Capacitor Android WebView (androidScheme: https)
     'https://localhost',
+    'http://localhost',
     'capacitor://localhost',
     'ionic://localhost',
   ];
+  const corsOrigins = Array.from(new Set([...requiredOrigins, ...fromEnv]));
   app.enableCors({
-    origin: corsOrigins.length ? corsOrigins : defaultOrigins,
+    origin: corsOrigins,
     credentials: true,
   });
   app.useGlobalPipes(

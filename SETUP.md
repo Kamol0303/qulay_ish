@@ -100,7 +100,9 @@ JWT_SECRET=change-me-in-production-use-long-random
 JWT_EXPIRES_IN=30d
 
 API_PORT=4000
-CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://localhost,capacitor://localhost
+CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost
+# Nest main.ts Capacitor originlarni CORS_ORIGIN bo'sh/tor bo'lsa ham qo'shadi.
+# Production OTP uchun DEVSMS_TOKEN majburiy.
 
 SUPER_ADMIN_EMAIL=superadmin@ishliayol.uz
 SUPER_ADMIN_PHONE=+998900707081

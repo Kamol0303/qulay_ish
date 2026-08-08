@@ -91,8 +91,22 @@ mkdir -p "$OUT_DIR"
 echo "==> npm install (frontend deps)"
 npm install --no-fund --no-audit
 
-echo "==> Vite build (mode=capacitor, API=https://ishliayol.uz/api)"
+# Belt-and-suspenders: even if .env.capacitor missing, bake production API
+export VITE_API_URL="${VITE_API_URL:-https://ishliayol.uz/api}"
+export VITE_APP_URL="${VITE_APP_URL:-https://ishliayol.uz}"
+export VITE_AI_MOCK_MODE="${VITE_AI_MOCK_MODE:-false}"
+export VITE_USE_EMULATOR="${VITE_USE_EMULATOR:-false}"
+
+echo "==> Vite build (mode=capacitor, API=$VITE_API_URL)"
 npm run build -- --mode capacitor
+
+# Guard: APK must never ship relative /api-only bundles
+JS_BUNDLE="$(ls dist/assets/index-*.js 2>/dev/null | head -1 || true)"
+if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://ishliayol.uz/api' "$JS_BUNDLE"; then
+  echo "ERROR: dist ichida https://ishliayol.uz/api topilmadi. APK relative /api bilan ishlamaydi."
+  exit 1
+fi
+echo "==> API URL baked OK ($(grep -o 'https://ishliayol.uz/api' "$JS_BUNDLE" | wc -l) hits)"
 
 echo "==> Capacitor sync android"
 npx cap sync android

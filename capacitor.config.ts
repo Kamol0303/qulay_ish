@@ -5,8 +5,10 @@ const config: CapacitorConfig = {
   appName: 'ishliayol.uz',
   webDir: 'dist',
   server: {
-    // Bundled SPA talks to production API via VITE_API_URL (absolute HTTPS).
+    // Bundled SPA + absolute API (VITE_API_URL). Hostname matches production
+    // so WebView Origin is https://ishliayol.uz (CORS/same-site friendly).
     androidScheme: 'https',
+    hostname: 'ishliayol.uz',
     cleartext: false,
     allowNavigation: [
       'ishliayol.uz',
@@ -21,6 +23,10 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: false,
   },
   plugins: {
+    // Native HTTP patches fetch/XHR — WebView CORS cheklovlarini aylanib o'tadi
+    CapacitorHttp: {
+      enabled: true,
+    },
     SplashScreen: {
       launchAutoHide: true,
       launchShowDuration: 1200,

@@ -83,8 +83,12 @@ export class OtpService {
       this.logger.warn(`DevSMS xatosi: ${err.code} — ${err.message}`);
       throw new BadRequestException(`SMS yuborib bo'lmadi: ${err.message}`);
     }
-    this.logger.error('DevSMS noma\'lum xato', err);
-    throw new BadRequestException('SMS yuborib bo\'lmadi. Birozdan keyin qayta urinib ko\'ring');
+    this.logger.error('DevSMS noma\'lum xato', err instanceof Error ? err.stack : err);
+    const detail =
+      err instanceof Error && err.message
+        ? err.message
+        : 'Birozdan keyin qayta urinib ko\'ring';
+    throw new BadRequestException(`SMS yuborib bo'lmadi: ${detail}`);
   }
 
   /** POST /auth/send-otp — SMS only when needed (prefer password auth; reset uses OTP) */
