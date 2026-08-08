@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
     // Bundled SPA + absolute API (VITE_API_URL). Hostname matches production
     // so WebView Origin is https://ishliayol.uz (CORS/same-site friendly).
     androidScheme: 'https',
+    iosScheme: 'https',
     hostname: 'ishliayol.uz',
     cleartext: false,
     allowNavigation: [
@@ -21,6 +22,12 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     backgroundColor: '#0f172a',
     webContentsDebuggingEnabled: false,
+  },
+  ios: {
+    backgroundColor: '#0f172a',
+    contentInset: 'automatic',
+    preferredContentMode: 'mobile',
+    scrollEnabled: true,
   },
   plugins: {
     // Native HTTP patches fetch/XHR — WebView CORS cheklovlarini aylanib o'tadi

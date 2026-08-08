@@ -43,3 +43,12 @@ android/.idea/
 *.aab
 !docs/**/*.apk
 android/release.keystore
+
+# iOS / Capacitor local artifacts
+*.ipa
+*.xcarchive
+ios/ExportOptions.plist
+ios/App/Pods/
+ios/App/build/
+ios/App/output/
+ios/DerivedData/

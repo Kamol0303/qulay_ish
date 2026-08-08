@@ -27,6 +27,9 @@ async function bootstrap() {
     'http://localhost',
     'capacitor://localhost',
     'ionic://localhost',
+    // Capacitor iOS/Android with server.hostname = ishliayol.uz
+    'capacitor://ishliayol.uz',
+    'ionic://ishliayol.uz',
   ];
   const corsOrigins = Array.from(new Set([...requiredOrigins, ...fromEnv]));
   app.enableCors({

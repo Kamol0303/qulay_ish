@@ -3,6 +3,8 @@
 Web va APK **bir xil NestJS API + PostgreSQL** (`https://ishliayol.uz/api`) bilan ishlaydi.  
 Demo/local-only ma’lumot o‘chirilgan.
 
+**iOS:** qarang [`IOS.md`](./IOS.md) — `./scripts/build-ios.sh sync` (IPA faqat macOS/Xcode).
+
 ## Talablar
 
 - Node 20+
