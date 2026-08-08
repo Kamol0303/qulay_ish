@@ -1,8 +1,37 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as dotenv from 'dotenv';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, UserRole } from '@prisma/client';
+
+const SUPER_ADMIN_ENV_KEYS = [
+  'SUPER_ADMIN_EMAIL',
+  'SUPER_ADMIN_PHONE',
+  'SUPER_ADMIN_PASSWORD',
+  'VITE_SUPER_ADMIN_EMAIL',
+  'VITE_SUPER_ADMIN_PHONE',
+  'VITE_SUPER_ADMIN_PASSWORD',
+] as const;
+
+/** Re-read only Super Admin keys from api/.env (no full env override). */
+function reloadSuperAdminEnvFromDisk(): void {
+  const candidates = [
+    join(__dirname, '..', '.env'),
+    join(process.cwd(), '.env'),
+    join(process.cwd(), 'api', '.env'),
+  ];
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    const parsed = dotenv.parse(readFileSync(path));
+    for (const key of SUPER_ADMIN_ENV_KEYS) {
+      if (parsed[key] !== undefined) process.env[key] = parsed[key];
+    }
+    return;
+  }
+}
 
 export interface JwtPayload {
   sub: string;
@@ -58,7 +87,18 @@ export class AuthService {
     return user;
   }
 
+  private phoneMatches(login: string, phone: string): boolean {
+    if (!phone) return false;
+    const loginNorm = login.replace(/\s+/g, '');
+    const phoneNorm = phone.replace(/\s+/g, '');
+    if (loginNorm === phoneNorm) return true;
+    const loginDigits = login.replace(/\D/g, '');
+    const phoneDigits = phone.replace(/\D/g, '');
+    return loginDigits.length >= 9 && phoneDigits.endsWith(loginDigits);
+  }
+
   async superAdminLogin(login: string, password: string): Promise<User> {
+    reloadSuperAdminEnvFromDisk();
     const envEmail = (process.env.SUPER_ADMIN_EMAIL || process.env.VITE_SUPER_ADMIN_EMAIL || '').trim();
     const envPhone = (process.env.SUPER_ADMIN_PHONE || process.env.VITE_SUPER_ADMIN_PHONE || '').trim();
     const envPassword = process.env.SUPER_ADMIN_PASSWORD || process.env.VITE_SUPER_ADMIN_PASSWORD || '';
@@ -71,33 +111,42 @@ export class AuthService {
     }
 
     const normalizedLogin = login.trim();
-    const loginDigits = normalizedLogin.replace(/\D/g, '');
-    const envPhoneDigits = envPhone.replace(/\D/g, '');
-    const loginOk =
-      (envEmail && normalizedLogin.toLowerCase() === envEmail.toLowerCase()) ||
-      (envPhone && (
-        normalizedLogin.replace(/\s+/g, '') === envPhone.replace(/\s+/g, '') ||
-        (loginDigits.length >= 9 && envPhoneDigits.endsWith(loginDigits))
-      ));
-
-    if (!loginOk || password !== envPassword) {
-      throw new UnauthorizedException('Super Admin login yoki parol noto\'g\'ri');
-    }
-
-    const email = envEmail || 'superadmin@ishliayol.uz';
 
     try {
       let user = await this.prisma.user.findFirst({
         where: { role: UserRole.super_admin },
       });
 
+      // Accept env credentials OR the existing super_admin row (covers email rename in .env
+      // while a long-running API still has stale process.env until restart).
+      const loginOk =
+        (envEmail && normalizedLogin.toLowerCase() === envEmail.toLowerCase()) ||
+        this.phoneMatches(normalizedLogin, envPhone) ||
+        (!!user?.email && normalizedLogin.toLowerCase() === user.email.toLowerCase()) ||
+        (!!user?.phoneNumber && this.phoneMatches(normalizedLogin, user.phoneNumber));
+
+      if (!loginOk || password !== envPassword) {
+        throw new UnauthorizedException('Super Admin login yoki parol noto\'g\'ri');
+      }
+
+      const email = envEmail || user?.email || 'superadmin@ishliayol.uz';
+
       if (user) {
-        // Keep password hash in sync with api/.env for local/dev convenience
+        // Keep password hash / identity in sync with api/.env for local/dev convenience
         const hash = await bcrypt.hash(envPassword, 10);
+        let phoneNumber: string | null | undefined = undefined;
+        if (envPhone && user.phoneNumber !== envPhone) {
+          const taken = await this.prisma.user.findFirst({
+            where: { phoneNumber: envPhone, NOT: { id: user.id } },
+            select: { id: true },
+          });
+          if (!taken) phoneNumber = envPhone;
+        }
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
             email,
+            ...(phoneNumber !== undefined ? { phoneNumber } : {}),
             passwordHash: hash,
             isVerified: true,
             verificationStatus: 'verified',
@@ -131,6 +180,7 @@ export class AuthService {
       });
       return user;
     } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("Can't reach database") || message.includes('P1001')) {
         throw new UnauthorizedException('Database ishlamayapti (PostgreSQL localhost:5432)');
