@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">mexrliqollar.uz</string>
-    <string name="title_activity_main">mexrliqollar.uz</string>
+    <string name="app_name">Mexrli Qo'llar.uz</string>
+    <string name="title_activity_main">Mexrli Qo'llar.uz</string>
     <string name="package_name">uz.mexrliqollar.app</string>
     <string name="custom_url_scheme">uz.mexrliqollar.app</string>
 </resources>
