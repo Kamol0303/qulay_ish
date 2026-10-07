@@ -50,8 +50,8 @@ if [[ ! -d "$ROOT/api/node_modules" ]]; then
   (cd "$ROOT/api" && npm install)
 fi
 
-if [[ ! -f "$ROOT/api/.env" && -f "$ROOT/api/.env.example" ]]; then
-  cp "$ROOT/api/.env.example" "$ROOT/api/.env"
+if [[ ! -f "$ROOT/api/.env" ]]; then
+  "$ROOT/scripts/write-local-envs.sh"
   echo "✓ api/.env yaratildi"
 fi
 

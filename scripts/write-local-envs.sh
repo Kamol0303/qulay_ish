@@ -35,6 +35,14 @@ DEVSMS_TOKEN=${TOKEN}
 DEVSMS_BASE_URL=https://devsms.uz/api
 DEVSMS_SERVICE_NAME=Mexrli Qollar
 DEVSMS_DEV_MODE=false
+PAYMENT_CARD_NUMBER=
+OWNER_OTP_PHONE=
+SUBSCRIPTION_PRICE=
+SMS_PROVIDER_API_KEY=
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
 EOF
 
 echo "OK: .env, .env.capacitor, api/.env yozildi"

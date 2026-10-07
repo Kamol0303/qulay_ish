@@ -67,8 +67,8 @@ else
 fi
 
 if [[ ! -f api/.env ]]; then
-  cp api/.env.example api/.env
-  echo "api/.env yaratildi (.env.example dan)"
+  ./scripts/write-local-envs.sh
+  echo "api/.env yaratildi (write-local-envs.sh orqali)"
 fi
 
 echo "Migratsiyalar qo'llanmoqda..."
