@@ -167,6 +167,7 @@
     "all_categories": "Все категории",
     "sort_by": "Сортировка",
     "newest": "Самые новые",
+    "nearest": "Ближайшие",
     "price_low": "Самые дешевые",
     "price_high": "Самые дорогие",
     "nearby_jobs": "Работа поблизости",
@@ -599,17 +600,25 @@
     "no_location": "Не удалось получить местоположение"
   },
   "districts": {
-    "samarkand_city": "Город Самарканд",
-    "urgut": "Ургут",
-    "kattaqorgon": "Каттакурган",
-    "pastdargom": "Пастдаргом",
-    "payariq": "Пайарык",
-    "ishtixon": "Иштихан",
-    "narpay": "Нарпай",
-    "toyloq": "Тайлак",
-    "qoshrabot": "Кошрабад",
-    "bulungur": "Булунгур",
-    "jomboy": "Джамбай"
+    "samarkand_city": "город Самарканд",
+    "samarqand_shahri": "город Самарканд",
+    "kattaqorgon_shahri": "город Каттакурган",
+    "oqtosh_shahri": "город Акташ",
+    "jomboy_shahri": "город Джамбай",
+    "bulungur": "Булунгурский район",
+    "ishtixon": "Иштыханский район",
+    "jomboy": "Джамбайский район",
+    "kattaqorgon": "Каттакурганский район",
+    "narpay": "Нарпайский район",
+    "nurobod": "Нурабадский район",
+    "oqdaryo": "Акдарьинский район",
+    "pastdargom": "Пастдаргомский район",
+    "paxtachi": "Пахтачийский район",
+    "payariq": "Пайарыкский район",
+    "qoshrabot": "Кошрабадский район",
+    "samarqand_tumani": "Самаркандский район",
+    "toyloq": "Тайлакский район",
+    "urgut": "Ургутский район"
   },
   "skills": {
     "house_cleaning": "Уборка дома",
@@ -736,7 +745,12 @@
     "profession": "Ваша специальность",
     "profession_placeholder": "Выберите",
     "education_level": "Уровень образования",
-    "education_placeholder": "Выберите"
+    "education_placeholder": "Выберите",
+    "district": "Район / город (Самаркандская область)",
+    "district_placeholder": "Выберите",
+    "district_required": "Выберите район или город",
+    "cities": "Города",
+    "districts": "Районы"
   },
   "errors": {
     "unexpected": "Произошла непредвиденная ошибка.",

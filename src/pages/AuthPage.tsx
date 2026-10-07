@@ -8,6 +8,11 @@ import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
 import { CATEGORIES, EDUCATION_LEVELS } from '../constants/categories';
 import {
+  SAMARQAND_DISTRICT_CITIES,
+  SAMARQAND_DISTRICT_TUMANLAR,
+  isValidDistrictId,
+} from '../constants/districts';
+import {
   validatePhoneNumber,
   validateFullName,
   formatPhoneNumber,
@@ -35,6 +40,7 @@ type AuthState = {
   selectedRole: 'worker' | 'employer';
   profession: string;
   educationLevel: string;
+  district: string;
   loading: boolean;
   error: string;
   success: string;
@@ -46,6 +52,7 @@ type AuthState = {
     phone?: string;
     password?: string;
     confirmPassword?: string;
+    district?: string;
     otp?: string;
   };
 };
@@ -61,6 +68,7 @@ const initialState: AuthState = {
   selectedRole: 'worker',
   profession: '',
   educationLevel: '',
+  district: '',
   loading: false,
   error: '',
   success: '',
@@ -213,6 +221,11 @@ export default function AuthPage() {
     if (!confirmValidation.isValid) {
       fieldErrors.confirmPassword = confirmValidation.error || '';
     }
+    if (!isValidDistrictId(state.district)) {
+      fieldErrors.district = t('auth.district_required', {
+        defaultValue: 'Tuman yoki shaharni tanlang',
+      });
+    }
     if (Object.keys(fieldErrors).length > 0) {
       setPartialState({
         fieldErrors,
@@ -231,6 +244,7 @@ export default function AuthPage() {
         lastName: state.lastName.trim() || undefined,
         role: state.selectedRole,
         password: state.password,
+        district: state.district,
         profession:
           state.selectedRole === 'worker' && state.profession ? state.profession : undefined,
         educationLevel:
@@ -263,6 +277,7 @@ export default function AuthPage() {
     state.selectedRole,
     state.profession,
     state.educationLevel,
+    state.district,
     setPartialState,
     t,
   ]);
@@ -819,6 +834,46 @@ export default function AuthPage() {
                   </div>
                 </div>
 
+                <div>
+                  <label htmlFor="auth-district" className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('auth.district', { defaultValue: 'Tuman / shahar (Samarqand viloyati)' })}
+                  </label>
+                  <select
+                    id="auth-district"
+                    value={state.district}
+                    onChange={(e) => {
+                      clearMessages();
+                      setPartialState({
+                        district: e.target.value,
+                        fieldErrors: { ...state.fieldErrors, district: undefined },
+                      });
+                    }}
+                    className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                    disabled={state.loading}
+                    aria-invalid={Boolean(state.fieldErrors.district)}
+                    required
+                  >
+                    <option value="">{t('auth.district_placeholder', { defaultValue: 'Tanlang' })}</option>
+                    <optgroup label={t('auth.cities', { defaultValue: 'Shaharlar' })}>
+                      {SAMARQAND_DISTRICT_CITIES.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {t(`districts.${d.id}`, { defaultValue: d.name })}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={t('auth.districts', { defaultValue: 'Tumanlar' })}>
+                      {SAMARQAND_DISTRICT_TUMANLAR.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {t(`districts.${d.id}`, { defaultValue: d.name })}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  {state.fieldErrors.district && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.district}</p>
+                  )}
+                </div>
+
                 {state.selectedRole === 'worker' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -873,7 +928,8 @@ export default function AuthPage() {
                   disabled={
                     state.loading ||
                     state.password.length < 8 ||
-                    state.password !== state.confirmPassword
+                    state.password !== state.confirmPassword ||
+                    !isValidDistrictId(state.district)
                   }
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 >

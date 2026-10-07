@@ -167,6 +167,7 @@
     "all_categories": "Barcha toifalar",
     "sort_by": "Saralash",
     "newest": "Eng yangi",
+    "nearest": "Eng yaqin",
     "price_low": "Eng arzon",
     "price_high": "Eng qimmat",
     "nearby_jobs": "Yaqindagi ishlar",
@@ -599,17 +600,25 @@
     "no_location": "Lokatsiya olinmadi"
   },
   "districts": {
-    "samarkand_city": "Samarqand shahar",
-    "urgut": "Urgut",
-    "kattaqorgon": "Kattaqoʻrgʻon",
-    "pastdargom": "Pastdargʻom",
-    "payariq": "Payariq",
-    "ishtixon": "Ishtixon",
-    "narpay": "Narpay",
-    "toyloq": "Toyloq",
-    "qoshrabot": "Qoʻshrabot",
-    "bulungur": "Bulungʻur",
-    "jomboy": "Jomboy"
+    "samarkand_city": "Samarqand shahri",
+    "samarqand_shahri": "Samarqand shahri",
+    "kattaqorgon_shahri": "Kattaqoʻrgʻon shahri",
+    "oqtosh_shahri": "Oqtosh shahri",
+    "jomboy_shahri": "Jomboy shahri",
+    "bulungur": "Bulungʻur tumani",
+    "ishtixon": "Ishtixon tumani",
+    "jomboy": "Jomboy tumani",
+    "kattaqorgon": "Kattaqoʻrgʻon tumani",
+    "narpay": "Narpay tumani",
+    "nurobod": "Nurobod tumani",
+    "oqdaryo": "Oqdaryo tumani",
+    "pastdargom": "Past Dargʻom tumani",
+    "paxtachi": "Paxtachi tumani",
+    "payariq": "Payariq tumani",
+    "qoshrabot": "Qoʻshrabot tumani",
+    "samarqand_tumani": "Samarqand tumani",
+    "toyloq": "Toyloq tumani",
+    "urgut": "Urgut tumani"
   },
   "skills": {
     "house_cleaning": "Uy tozalash",
@@ -736,7 +745,12 @@
     "profession": "Mutaxassisligingiz",
     "profession_placeholder": "Tanlang",
     "education_level": "Ta'lim darajasi",
-    "education_placeholder": "Tanlang"
+    "education_placeholder": "Tanlang",
+    "district": "Tuman / shahar (Samarqand viloyati)",
+    "district_placeholder": "Tanlang",
+    "district_required": "Tuman yoki shaharni tanlang",
+    "cities": "Shaharlar",
+    "districts": "Tumanlar"
   },
   "errors": {
     "unexpected": "Kutilmagan xatolik yuz berdi.",

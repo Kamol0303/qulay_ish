@@ -260,6 +260,7 @@ export const api = {
       password?: string;
       profession?: string;
       educationLevel?: string;
+      district?: string;
     }) {
       return apiRequest<{ success: true }>('/auth/send-otp', {
         method: 'POST',
@@ -487,6 +488,7 @@ export const api = {
       skill?: string;
       page?: number;
       pageSize?: number;
+      nearDistrict?: string;
     }) {
       return apiRequest<EmployerWorkersResponse>(`/employer/workers${toQuery(stringifyParams(params))}`);
     },

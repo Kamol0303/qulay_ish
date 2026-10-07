@@ -28,7 +28,10 @@ export default function JobsMobile() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await api.jobs.list({ status: 'open' });
+      const rows = await api.jobs.list({
+        status: 'open',
+        ...(profile?.district ? { nearDistrict: profile.district } : {}),
+      });
       let filtered = filterJobsForSamarkand(rows, { status: 'open' });
       if (category) filtered = filtered.filter((j) => j.category === category);
       setJobs(filtered);
@@ -37,7 +40,7 @@ export default function JobsMobile() {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, profile?.district]);
 
   useEffect(() => {
     void load();

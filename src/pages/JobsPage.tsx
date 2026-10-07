@@ -27,7 +27,7 @@ export default function JobsPage() {
   const [selectedRegion, setSelectedRegion] = React.useState('Samarqand viloyati');
   const [selectedDistrict, setSelectedDistrict] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState('');
-  const [sortBy, setSortBy] = React.useState('newest');
+  const [sortBy, setSortBy] = React.useState('nearest');
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
   const [selectedJob, setSelectedJob] = React.useState<Job | null>(null);
   const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
@@ -50,7 +50,10 @@ export default function JobsPage() {
 
     const loadJobs = async () => {
       try {
-        const apiJobs = await api.jobs.list({ status: 'open' });
+        const apiJobs = await api.jobs.list({
+          status: 'open',
+          ...(profile?.district ? { nearDistrict: profile.district } : {}),
+        });
         if (cancelled) return;
 
         let filtered = filterJobsForSamarkand(apiJobs, {
@@ -92,7 +95,7 @@ export default function JobsPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [selectedRegion, selectedDistrict, selectedCategory, sortBy, searchQuery]);
+  }, [selectedRegion, selectedDistrict, selectedCategory, sortBy, searchQuery, profile?.district]);
 
   /**
    * Clear all filters and reset to defaults
@@ -102,7 +105,7 @@ export default function JobsPage() {
     setSelectedRegion('Samarqand viloyati');
     setSelectedDistrict('');
     setSelectedCategory('');
-    setSortBy('newest');
+    setSortBy('nearest');
     setIsFilterOpen(false);
   };
 
@@ -244,6 +247,7 @@ export default function JobsPage() {
                       onChange={(e) => setSortBy(e.target.value)}
                       className="w-full pl-11 pr-4 py-4 rounded-2xl border border-purple-200 bg-purple-50 focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-bold text-purple-900"
                     >
+                      <option value="nearest">{t('jobs.nearest', { defaultValue: 'Eng yaqin' })}</option>
                       <option value="newest">{t('jobs.newest')}</option>
                       <option value="price-low">{t('jobs.price_low')}</option>
                       <option value="price-high">{t('jobs.price_high')}</option>

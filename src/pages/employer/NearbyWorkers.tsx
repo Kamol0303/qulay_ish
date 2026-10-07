@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import DashboardLayout from '../../components/DashboardLayout';
 import { api, type EmployerWorker } from '../../lib/api';
 import { getCurrentPosition, isGeolocationAvailable } from '../../lib/geolocation';
+import { useAuth } from '../../hooks/useAuth';
 import { SKILLS } from '../../constants/categories';
 import { REGIONS } from '../../constants/locations';
 import { MapPin, Search, Phone, BadgeCheck, Loader2, User, Navigation } from 'lucide-react';
@@ -74,6 +75,7 @@ function WorkerCardItem({ w }: { w: EmployerWorker }) {
 
 export default function NearbyWorkers() {
   const { t } = useTranslation();
+  const { profile } = useAuth();
   const [radiusKm, setRadiusKm] = useState<number>(30);
   const [skill, setSkill] = useState('');
   const [region, setRegion] = useState('');
@@ -122,6 +124,7 @@ export default function NearbyWorkers() {
           search: search || undefined,
           skill: skill || undefined,
           region: region || undefined,
+          nearDistrict: profile?.district || undefined,
           page: pageArg,
           pageSize: PAGE_SIZE,
         });
@@ -135,7 +138,7 @@ export default function NearbyWorkers() {
         setLoading(false);
       }
     },
-    [search, skill, region],
+    [search, skill, region, profile?.district],
   );
 
   const useMyLocation = useCallback(async () => {
