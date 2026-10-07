@@ -15,6 +15,7 @@
 #   ./run.sh apk:debug       # Android APK (debug)
 #   ./run.sh aab             # Android App Bundle (.aab, Google Play uchun)
 #   ./run.sh android         # apk (release) + aab
+#   ./run.sh apk:serve       # artifacts/ ni brauzer orqali yuklab olish uchun ulashish
 #   ./run.sh ios             # iOS loyihani tayyorlash (sync)
 #   ./run.sh ios:archive     # iOS .xcarchive/.ipa (faqat macOS + Xcode)
 #
@@ -88,6 +89,20 @@ case "$CMD" in
   apk|apk:release) apk_release ;;
   apk:debug)       apk_debug ;;
   aab)             aab_build ;;
+  apk:serve|serve)
+    PORT="${2:-8080}"
+    mkdir -p "$ROOT/artifacts"
+    if ! ls "$ROOT/artifacts"/*.apk >/dev/null 2>&1; then
+      bold "⚠  artifacts/ da APK yo'q. Avval:  ./run.sh apk   (yoki apk:debug)"
+    fi
+    IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    hr "Yuklab olish uchun ulashildi (Ctrl+C — to'xtatish)"
+    echo "  Kompyuterdan:  http://localhost:${PORT}/"
+    [[ -n "$IP" ]] && echo "  Telefondan (bir xil Wi-Fi):  http://${IP}:${PORT}/"
+    echo "  Serverdan:     http://<server-ip>:${PORT}/"
+    echo ""
+    exec python3 -m http.server "$PORT" --directory "$ROOT/artifacts"
+    ;;
   android)
     run_step "Android APK (release)" apk_release
     run_step "Android AAB (release)" aab_build
