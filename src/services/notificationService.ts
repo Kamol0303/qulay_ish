@@ -89,7 +89,7 @@ export const notificationService = {
     return this.create({
       userId,
       title: 'Shartnoma imzolandi',
-      message: `"${jobTitle}" ishi uchun shartnoma ${role === 'worker' ? 'ish beruvchi' : 'ishchi'} tomonidan imzolandi`,
+      message: `"${jobTitle}" ishi uchun shartnoma ${role === 'worker' ? 'buyurtmachi' : 'ishchi'} tomonidan imzolandi`,
       type: 'contract',
       link: role === 'worker' ? '/worker/contracts' : '/employer/contracts',
     });

@@ -149,14 +149,16 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="mb-8">
-                  <CoreIndicatorsCard
-                    userId={worker.uid}
-                    value={worker.coreIndicators}
-                    editable={false}
-                    embedded
-                  />
-                </div>
+                {currentProfile?.role === 'super_admin' && (
+                  <div className="mb-8">
+                    <CoreIndicatorsCard
+                      userId={worker.uid}
+                      value={worker.coreIndicators}
+                      editable
+                      embedded
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="w-full md:w-80 space-y-4">

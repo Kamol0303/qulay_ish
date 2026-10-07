@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RolesGuard } from '../auth/roles.guard';
+import { DevSmsService } from '../auth/devsms.service';
+import { SubscriptionModule } from '../subscription/subscription.module';
 import {
   UsersController,
   JobsController,
@@ -20,7 +22,8 @@ import {
 } from './resources.controllers';
 
 @Module({
-  providers: [RolesGuard],
+  imports: [SubscriptionModule],
+  providers: [RolesGuard, DevSmsService],
   controllers: [
     UsersController,
     JobsController,

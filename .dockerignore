@@ -1,0 +1,16 @@
+node_modules
+dist
+artifacts
+android
+ios
+api
+scripts
+.git
+.github
+*.apk
+*.aab
+.env
+.env.*
+!.env.server.example
+npm-debug.log*
+.DS_Store

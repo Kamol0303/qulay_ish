@@ -223,7 +223,7 @@ export default function QualayIshJobDetailsPage() {
               {/* Employer Information */}
               {employer && (
                 <div className="bg-card rounded-2xl border border-border p-8 mb-6">
-                  <h2 className="text-2xl font-bold mb-4">Ish beruvchi</h2>
+                  <h2 className="text-2xl font-bold mb-4">Buyurtmachi</h2>
                   <div className="flex items-center gap-4 mb-4">
                     {employer.photoUrl && (
                       <img

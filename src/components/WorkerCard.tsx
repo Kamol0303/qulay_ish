@@ -55,6 +55,11 @@ export default function WorkerCard({ worker }: WorkerCardProps) {
                 <Award size={10} className="mr-0.5" /> {t('worker_profile.top_worker')}
               </span>
             )}
+            {worker.availability === 'busy' && (
+              <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest">
+                {t('workers.busy', { defaultValue: 'Band' })}
+              </span>
+            )}
           </div>
           <div className="flex items-center text-gray-500 text-xs mb-2">
             <MapPin size={12} className="mr-1 text-gray-400" />

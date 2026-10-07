@@ -1,10 +1,95 @@
-import { apiRequest, setAccessToken, clearAccessToken, toQuery } from './client';
+import { apiRequest, setAccessToken, clearAccessToken, toQuery, API_BASE, getAccessToken } from './client';
 import { ensureArray } from './errors';
 import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost, WorkerPersonalInfo, WorkerCoreIndicators } from '../../types';
 
 export interface AuthResponse {
   accessToken: string;
   user: Profile & { id?: string };
+}
+
+export interface EmployerWorker {
+  uid: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string;
+  photoUrl: string | null;
+  phoneNumber: string | null;
+  region: string;
+  district: string | null;
+  skills: string[];
+  availability: string | null;
+  experienceLevel: string | null;
+  isVerified: boolean;
+  rating: number;
+  lookingForWork: boolean;
+  distanceKm?: number;
+  distanceLabel?: string;
+}
+
+export interface AiMatchWorker {
+  uid: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string;
+  photoUrl: string | null;
+  phoneNumber: string | null;
+  region: string;
+  district: string | null;
+  skills: string[];
+  experienceLevel: string | null;
+  isVerified: boolean;
+  rating: number;
+  matchScore: number;
+  matchedSkills: string[];
+  distanceKm?: number;
+  distanceLabel?: string;
+}
+
+export type SubscriptionStatusValue = 'active' | 'grace' | 'expired';
+
+export interface SubscriptionStatusResponse {
+  status: SubscriptionStatusValue;
+  freeUntil: string | null;
+  paidUntil: string | null;
+  effectiveUntil: string | null;
+  lastPaymentAt: string | null;
+  priceSom: number;
+  daysRemaining: number;
+  graceDaysRemaining: number;
+  inWarningWindow: boolean;
+  blocked: boolean;
+  priceRange: { min: number; max: number };
+  warningDays: number;
+  graceDays: number;
+  blockedPaths: string[];
+}
+
+export interface EmployerWorkersResponse {
+  data: EmployerWorker[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  radiusKm?: number;
+}
+
+export interface JobsNearbyResponse {
+  data: Job[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  radiusKm?: number;
+}
+
+function stringifyParams(
+  params?: Record<string, string | number | undefined> | null,
+): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(params ?? {})) {
+    out[k] = v === undefined ? undefined : String(v);
+  }
+  return out;
 }
 
 function asJsonArray<T>(value: unknown): T[] {
@@ -17,6 +102,8 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
   return {
     uid: String(u.id ?? ''),
     fullName: String(u.fullName ?? ''),
+    firstName: (u.firstName as string | undefined) ?? undefined,
+    lastName: (u.lastName as string | undefined) ?? undefined,
     email: String(u.email ?? ''),
     phoneNumber: u.phoneNumber as string | undefined,
     role: u.role as Profile['role'],
@@ -31,6 +118,8 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
       ? (u.coreIndicators as WorkerCoreIndicators)
       : undefined,
     skills: Array.isArray(u.skills) ? (u.skills as string[]) : [],
+    profession: u.profession as string | undefined,
+    educationLevel: u.educationLevel as string | undefined,
     photoUrl: u.photoUrl as string | undefined,
     coverUrl: u.coverUrl as string | undefined,
     telegram: u.telegram as string | undefined,
@@ -72,6 +161,10 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     createdAt: u.createdAt as string | Date | undefined,
     updatedAt: u.updatedAt as string | Date | undefined,
     lastActive: u.lastActive as string | Date | undefined,
+    latitude: typeof u.latitude === 'number' ? u.latitude : undefined,
+    longitude: typeof u.longitude === 'number' ? u.longitude : undefined,
+    locationUpdatedAt: u.locationUpdatedAt as string | Date | undefined,
+    locationSharingEnabled: Boolean(u.locationSharingEnabled),
   };
 }
 
@@ -143,6 +236,17 @@ export const api = {
       if (!user) throw new Error('Invalid profile response');
       return user;
     },
+    /**
+     * Slide the session forward without re-authenticating (no OTP/SMS). Stores the
+     * fresh token so the user stays logged in across app restarts. Returns the
+     * mapped profile, or null if the server didn't return a new token.
+     */
+    async refresh() {
+      const res = await apiRequest<AuthResponse>('/auth/refresh', { method: 'POST' });
+      if (res.accessToken) setAccessToken(res.accessToken);
+      const user = res.user ? mapUser(res.user as unknown as Record<string, unknown>) : null;
+      return user;
+    },
     logout() {
       clearAccessToken();
     },
@@ -150,8 +254,13 @@ export const api = {
       phone: string;
       purpose?: 'login' | 'register' | 'reset';
       fullName?: string;
+      firstName?: string;
+      lastName?: string;
       role?: Profile['role'];
       password?: string;
+      profession?: string;
+      educationLevel?: string;
+      district?: string;
     }) {
       return apiRequest<{ success: true }>('/auth/send-otp', {
         method: 'POST',
@@ -233,6 +342,167 @@ export const api = {
         },
       );
     },
+    updateLocation(id: string, body: { latitude?: number; longitude?: number; enabled?: boolean }) {
+      return apiRequest<{ locationSharingEnabled: boolean; locationUpdatedAt: string | null }>(
+        `/users/${id}/location`,
+        { method: 'PUT', body: JSON.stringify(body) },
+      );
+    },
+    clearLocation(id: string) {
+      return apiRequest<{ locationSharingEnabled: boolean }>(`/users/${id}/location`, {
+        method: 'DELETE',
+      });
+    },
+  },
+
+  ai: {
+    status() {
+      return apiRequest<{ live: boolean; provider: string }>('/ai/status');
+    },
+    vacancy(body: {
+      title?: string;
+      category?: string;
+      description?: string;
+      requirements?: string[];
+      region?: string;
+      salary?: number | string;
+      language?: string;
+    }) {
+      return apiRequest<{ text: string; provider: string }>('/ai/employer/vacancy', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+    match(body: {
+      profession?: string;
+      skills?: string[];
+      region?: string;
+      lat?: number;
+      lng?: number;
+      radiusKm?: number;
+      limit?: number;
+    }) {
+      return apiRequest<{ data: AiMatchWorker[]; total: number; aiProvider: string }>(
+        '/ai/employer/match',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+    },
+    resume(body?: { userId?: string; language?: string }) {
+      return apiRequest<{ text: string; provider: string }>('/ai/worker/resume', {
+        method: 'POST',
+        body: JSON.stringify(body ?? {}),
+      });
+    },
+    riskSummary(userId: string, language?: string) {
+      return apiRequest<{ text: string; provider: string; advisory: boolean }>(
+        `/ai/admin/risk-summary/${userId}`,
+        { method: 'POST', body: JSON.stringify({ language }) },
+      );
+    },
+  },
+
+  subscription: {
+    status() {
+      return apiRequest<SubscriptionStatusResponse>('/admin/subscription/status');
+    },
+    setPrice(priceSom: number) {
+      return apiRequest<SubscriptionStatusResponse>('/admin/subscription/price', {
+        method: 'POST',
+        body: JSON.stringify({ priceSom }),
+      });
+    },
+    pay() {
+      return apiRequest<{ cardNumber: string; amount: number }>('/admin/subscription/pay', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+    },
+    requestOtp() {
+      return apiRequest<{ sent: true; maskedPhone: string; expiresInMs: number }>(
+        '/admin/subscription/paid',
+        { method: 'POST', body: JSON.stringify({}) },
+      );
+    },
+    verifyOtp(code: string) {
+      return apiRequest<SubscriptionStatusResponse>('/admin/subscription/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ code }),
+      });
+    },
+  },
+
+  admin: {
+    /** Streams a server-generated .xlsx of users and triggers a browser download. */
+    async exportUsersXlsx(params?: {
+      role?: string;
+      region?: string;
+      district?: string;
+      verificationStatus?: string;
+      search?: string;
+      ids?: string[];
+    }) {
+      const query = stringifyParams({
+        role: params?.role,
+        region: params?.region,
+        district: params?.district,
+        verificationStatus: params?.verificationStatus,
+        search: params?.search,
+        ids: params?.ids?.length ? params.ids.join(',') : undefined,
+      });
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/admin/export/users.xlsx${toQuery(query)}`, {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        let message = `Export ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body?.message) message = Array.isArray(body.message) ? body.message.join(', ') : String(body.message);
+        } catch {
+          /* non-JSON error body */
+        }
+        throw new Error(message);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="?([^"]+)"?/i);
+      const filename = match?.[1] || `users-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      return { filename };
+    },
+  },
+
+  employer: {
+    workers(params?: {
+      search?: string;
+      region?: string;
+      district?: string;
+      skill?: string;
+      page?: number;
+      pageSize?: number;
+      nearDistrict?: string;
+    }) {
+      return apiRequest<EmployerWorkersResponse>(`/employer/workers${toQuery(stringifyParams(params))}`);
+    },
+    workersNearby(params: {
+      lat: number;
+      lng: number;
+      radius_km?: number;
+      skill?: string;
+      region?: string;
+      page?: number;
+      pageSize?: number;
+    }) {
+      return apiRequest<EmployerWorkersResponse>(`/employer/workers/nearby${toQuery(stringifyParams(params))}`);
+    },
   },
 
   uploads: {
@@ -298,6 +568,19 @@ export const api = {
     list(params?: Record<string, string>) {
       return apiRequest<unknown>(`/jobs${toQuery(params ?? {})}`).then(mapJobs);
     },
+    nearby(params: {
+      lat: number;
+      lng: number;
+      radius_km?: number;
+      category?: string;
+      region?: string;
+      page?: number;
+      pageSize?: number;
+    }) {
+      return apiRequest<JobsNearbyResponse>(`/jobs/nearby${toQuery(stringifyParams(params))}`).then(
+        (res) => ({ ...res, data: mapJobs(res.data) }),
+      );
+    },
     get(id: string) {
       return apiRequest<Job>(`/jobs/${id}`);
     },
@@ -321,6 +604,9 @@ export const api = {
     },
     update(id: string, data: Partial<Application>) {
       return apiRequest<Application>(`/applications/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    complete(id: string) {
+      return apiRequest<Application>(`/applications/${id}/complete`, { method: 'POST' });
     },
   },
 

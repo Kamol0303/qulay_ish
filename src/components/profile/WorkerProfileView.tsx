@@ -26,8 +26,8 @@ import { SkillsSelector } from './SkillsSelector';
 import { EducationEditor, ExperienceEditor } from './TimelineEditors';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
 import { PersonalInfoCard } from './PersonalInfoCard';
-import { CoreIndicatorsCard } from './CoreIndicatorsCard';
-
+import { LocationSharingCard } from './LocationSharingCard';
+import { ResumeAiCard } from './ResumeAiCard';
 const WORKER_TABS_BASE = [
   { id: 'overview' as const, label: 'Umumiy' },
   { id: 'experience' as const, label: 'Tajriba' },
@@ -222,7 +222,7 @@ export function WorkerProfileView({
             <ProfileCard title="Shaxsiy ma'lumot">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-sm sm:col-span-2">
-                  <span className="mb-1 block text-muted-foreground">To\'liq ism</span>
+                  <span className="mb-1 block text-muted-foreground">To'liq ism</span>
                   <input
                     disabled={!editable}
                     value={draft.fullName}
@@ -322,11 +322,6 @@ export function WorkerProfileView({
                 onChange={(skills) => patch({ skills })}
               />
             </ProfileCard>
-            <CoreIndicatorsCard
-              userId={draft.uid}
-              value={draft.coreIndicators}
-              editable={false}
-            />
           </div>
         )}
         {tab === 'portfolio' && (
@@ -506,31 +501,36 @@ export function WorkerProfileView({
               seedPhone={draft.phoneNumber}
               seedEmail={draft.email}
             />
-            <CoreIndicatorsCard
-              userId={draft.uid}
-              value={draft.coreIndicators}
-              editable={false}
-            />
           </div>
         )}
         {tab === 'settings' && (
-          <ProfileCard title="Profil sozlamalari">
-            <div className="space-y-3 text-sm">
-              <p className="text-muted-foreground">Til, bildirishnomalar va maxfiylik keyingi bosqichda kengaytiriladi.</p>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={draft.lookingForWork !== false}
-                  disabled={!editable}
-                  onChange={(e) => patch({ lookingForWork: e.target.checked })}
-                />
-                Profil ochiq — ish beruvchilar ko\'rishi mumkin
-              </label>
-              <Link to="/verification" className="inline-flex text-primary hover:underline">
-                Shaxsni tasdiqlash →
-              </Link>
-            </div>
-          </ProfileCard>
+          <div className="space-y-5">
+            <ProfileCard title="Profil sozlamalari">
+              <div className="space-y-3 text-sm">
+                <p className="text-muted-foreground">Til, bildirishnomalar va maxfiylik keyingi bosqichda kengaytiriladi.</p>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={draft.lookingForWork !== false}
+                    disabled={!editable}
+                    onChange={(e) => patch({ lookingForWork: e.target.checked })}
+                  />
+                  Profil ochiq — buyurtmachilar koʻrishi mumkin
+                </label>
+                <Link to="/verification" className="inline-flex text-primary hover:underline">
+                  Shaxsni tasdiqlash →
+                </Link>
+              </div>
+            </ProfileCard>
+            {editable && (
+              <LocationSharingCard
+                userId={draft.uid}
+                enabled={draft.locationSharingEnabled}
+                updatedAt={draft.locationUpdatedAt}
+              />
+            )}
+            {editable && <ResumeAiCard userId={draft.uid} />}
+          </div>
         )}
       </motion.div>
     </div>

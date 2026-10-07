@@ -16,7 +16,7 @@ const DEMO_USERS = [
   },
   {
     uid: 'demo_employer_001',
-    fullName: 'Ish Beruvchi Demo',
+    fullName: 'Buyurtmachi Demo',
     email: 'demo@employer.uz',
     phoneNumber: '+998901234568',
     role: 'employer',

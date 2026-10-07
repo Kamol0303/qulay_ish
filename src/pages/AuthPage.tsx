@@ -6,6 +6,12 @@ import { AlertCircle, CheckCircle, Loader, Mail, User, ArrowLeft, Eye, EyeOff } 
 import { authService } from '../lib/authService';
 import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
+import { CATEGORIES, EDUCATION_LEVELS } from '../constants/categories';
+import {
+  SAMARQAND_DISTRICT_CITIES,
+  SAMARQAND_DISTRICT_TUMANLAR,
+  isValidDistrictId,
+} from '../constants/districts';
 import {
   validatePhoneNumber,
   validateFullName,
@@ -27,18 +33,26 @@ type AuthState = {
   phone: string;
   otp: string;
   fullName: string;
+  firstName: string;
+  lastName: string;
   password: string;
   confirmPassword: string;
   selectedRole: 'worker' | 'employer';
+  profession: string;
+  educationLevel: string;
+  district: string;
   loading: boolean;
   error: string;
   success: string;
   resendSeconds: number;
   fieldErrors: {
     fullName?: string;
+    firstName?: string;
+    lastName?: string;
     phone?: string;
     password?: string;
     confirmPassword?: string;
+    district?: string;
     otp?: string;
   };
 };
@@ -47,9 +61,14 @@ const initialState: AuthState = {
   phone: '',
   otp: '',
   fullName: '',
+  firstName: '',
+  lastName: '',
   password: '',
   confirmPassword: '',
   selectedRole: 'worker',
+  profession: '',
+  educationLevel: '',
+  district: '',
   loading: false,
   error: '',
   success: '',
@@ -184,9 +203,15 @@ export default function AuthPage() {
     if (!phoneValidation.isValid) {
       fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
     }
-    const fullNameValidation = validateFullName(state.fullName);
-    if (!fullNameValidation.isValid) {
-      fieldErrors.fullName = fullNameValidation.error || '';
+    const firstNameValidation = validateFullName(state.firstName);
+    if (!firstNameValidation.isValid) {
+      fieldErrors.firstName = firstNameValidation.error || '';
+    }
+    if (state.lastName.trim()) {
+      const lastNameValidation = validateFullName(state.lastName);
+      if (!lastNameValidation.isValid) {
+        fieldErrors.lastName = lastNameValidation.error || '';
+      }
     }
     const passwordValidation = validatePassword(state.password);
     if (!passwordValidation.isValid) {
@@ -195,6 +220,11 @@ export default function AuthPage() {
     const confirmValidation = validatePasswordConfirm(state.password, state.confirmPassword);
     if (!confirmValidation.isValid) {
       fieldErrors.confirmPassword = confirmValidation.error || '';
+    }
+    if (!isValidDistrictId(state.district)) {
+      fieldErrors.district = t('auth.district_required', {
+        defaultValue: 'Tuman yoki shaharni tanlang',
+      });
     }
     if (Object.keys(fieldErrors).length > 0) {
       setPartialState({
@@ -209,9 +239,18 @@ export default function AuthPage() {
       const result = await authService.sendOtp({
         phone: state.phone,
         purpose: 'register',
-        fullName: state.fullName.trim(),
+        fullName: `${state.firstName} ${state.lastName}`.trim().replace(/\s+/g, ' '),
+        firstName: state.firstName.trim(),
+        lastName: state.lastName.trim() || undefined,
         role: state.selectedRole,
         password: state.password,
+        district: state.district,
+        profession:
+          state.selectedRole === 'worker' && state.profession ? state.profession : undefined,
+        educationLevel:
+          state.selectedRole === 'worker' && state.educationLevel
+            ? state.educationLevel
+            : undefined,
       });
       if (!result.success) {
         setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
@@ -233,8 +272,12 @@ export default function AuthPage() {
     state.phone,
     state.password,
     state.confirmPassword,
-    state.fullName,
+    state.firstName,
+    state.lastName,
     state.selectedRole,
+    state.profession,
+    state.educationLevel,
+    state.district,
     setPartialState,
     t,
   ]);
@@ -566,37 +609,70 @@ export default function AuthPage() {
             {/* REGISTER */}
             {mode === 'register' && step === 'form' && (
               <form onSubmit={handleRegister} className="space-y-5" noValidate>
-                <div>
-                  <label htmlFor="auth-fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Toʻliq ismingiz
-                  </label>
-                  <input
-                    id="auth-fullName"
-                    type="text"
-                    autoComplete="name"
-                    maxLength={100}
-                    value={state.fullName}
-                    onChange={(e) => {
-                      clearMessages();
-                      const fullName = e.target.value;
-                      const v = validateFullName(fullName);
-                      setPartialState({
-                        fullName,
-                        fieldErrors: {
-                          ...state.fieldErrors,
-                          fullName: fullName ? (v.isValid ? undefined : v.error) : undefined,
-                        },
-                      });
-                    }}
-                    placeholder="Ism Familiya"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                    disabled={state.loading}
-                    aria-invalid={Boolean(state.fieldErrors.fullName)}
-                    required
-                  />
-                  {state.fieldErrors.fullName && (
-                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.fullName}</p>
-                  )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="auth-firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Ism
+                    </label>
+                    <input
+                      id="auth-firstName"
+                      type="text"
+                      autoComplete="given-name"
+                      maxLength={60}
+                      value={state.firstName}
+                      onChange={(e) => {
+                        clearMessages();
+                        const firstName = e.target.value;
+                        const v = validateFullName(firstName);
+                        setPartialState({
+                          firstName,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            firstName: firstName ? (v.isValid ? undefined : v.error) : undefined,
+                          },
+                        });
+                      }}
+                      placeholder="Ism"
+                      className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      aria-invalid={Boolean(state.fieldErrors.firstName)}
+                      required
+                    />
+                    {state.fieldErrors.firstName && (
+                      <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.firstName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="auth-lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Familiya
+                    </label>
+                    <input
+                      id="auth-lastName"
+                      type="text"
+                      autoComplete="family-name"
+                      maxLength={60}
+                      value={state.lastName}
+                      onChange={(e) => {
+                        clearMessages();
+                        const lastName = e.target.value;
+                        const v = lastName.trim() ? validateFullName(lastName) : { isValid: true, error: undefined };
+                        setPartialState({
+                          lastName,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            lastName: v.isValid ? undefined : v.error,
+                          },
+                        });
+                      }}
+                      placeholder="Familiya"
+                      className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      aria-invalid={Boolean(state.fieldErrors.lastName)}
+                    />
+                    {state.fieldErrors.lastName && (
+                      <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.lastName}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -753,17 +829,107 @@ export default function AuthPage() {
                           : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                       }`}
                     >
-                      <Mail size={18} /> Ish beruvchi
+                      <Mail size={18} /> Buyurtmachi
                     </button>
                   </div>
                 </div>
+
+                <div>
+                  <label htmlFor="auth-district" className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('auth.district', { defaultValue: 'Tuman / shahar (Samarqand viloyati)' })}
+                  </label>
+                  <select
+                    id="auth-district"
+                    value={state.district}
+                    onChange={(e) => {
+                      clearMessages();
+                      setPartialState({
+                        district: e.target.value,
+                        fieldErrors: { ...state.fieldErrors, district: undefined },
+                      });
+                    }}
+                    className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                    disabled={state.loading}
+                    aria-invalid={Boolean(state.fieldErrors.district)}
+                    required
+                  >
+                    <option value="">{t('auth.district_placeholder', { defaultValue: 'Tanlang' })}</option>
+                    <optgroup label={t('auth.cities', { defaultValue: 'Shaharlar' })}>
+                      {SAMARQAND_DISTRICT_CITIES.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {t(`districts.${d.id}`, { defaultValue: d.name })}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={t('auth.districts', { defaultValue: 'Tumanlar' })}>
+                      {SAMARQAND_DISTRICT_TUMANLAR.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {t(`districts.${d.id}`, { defaultValue: d.name })}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  {state.fieldErrors.district && (
+                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.district}</p>
+                  )}
+                </div>
+
+                {state.selectedRole === 'worker' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="auth-profession" className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('auth.profession', { defaultValue: 'Mutaxassisligingiz' })}
+                      </label>
+                      <select
+                        id="auth-profession"
+                        value={state.profession}
+                        onChange={(e) => {
+                          clearMessages();
+                          setPartialState({ profession: e.target.value });
+                        }}
+                        className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                        disabled={state.loading}
+                      >
+                        <option value="">{t('auth.profession_placeholder', { defaultValue: 'Tanlang' })}</option>
+                        {CATEGORIES.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {t(`categories.${c.id}`, { defaultValue: c.name })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="auth-education" className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('auth.education_level', { defaultValue: "Ta'lim darajasi" })}
+                      </label>
+                      <select
+                        id="auth-education"
+                        value={state.educationLevel}
+                        onChange={(e) => {
+                          clearMessages();
+                          setPartialState({ educationLevel: e.target.value });
+                        }}
+                        className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                        disabled={state.loading}
+                      >
+                        <option value="">{t('auth.education_placeholder', { defaultValue: 'Tanlang' })}</option>
+                        {EDUCATION_LEVELS.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {t(`education_levels.${e.id}`, { defaultValue: e.name })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="submit"
                   disabled={
                     state.loading ||
                     state.password.length < 8 ||
-                    state.password !== state.confirmPassword
+                    state.password !== state.confirmPassword ||
+                    !isValidDistrictId(state.district)
                   }
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 >

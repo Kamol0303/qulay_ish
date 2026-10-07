@@ -52,7 +52,13 @@ export {
 export interface Profile {
   uid: string;
   fullName: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
+  latitude?: number;
+  longitude?: number;
+  locationUpdatedAt?: string | Date;
+  locationSharingEnabled?: boolean;
   phoneNumber?: string;
   passwordHash?: string;
   role: 'worker' | 'employer' | 'admin' | 'super_admin';
@@ -65,6 +71,10 @@ export interface Profile {
   /** Core risk / development indicators */
   coreIndicators?: WorkerCoreIndicators;
   skills?: string[];
+  /** Worker's main specialty/profession (category id) */
+  profession?: string;
+  /** Worker's education level: secondary | vocational | bachelor | master | phd | other */
+  educationLevel?: string;
   photoUrl?: string;
   coverUrl?: string;
   telegram?: string;
@@ -131,6 +141,8 @@ export interface Job {
   images?: string[];
   createdAt?: any;
   updatedAt?: any;
+  distanceKm?: number;
+  distanceLabel?: string;
 }
 
 export interface Application {
@@ -142,7 +154,10 @@ export interface Application {
   jobTitle?: string;
   message?: string;
   coverLetter?: string;
-  status?: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  status?: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'completed';
+  acceptedAt?: any;
+  completedAt?: any;
+  reviewed?: boolean;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -288,6 +303,7 @@ export interface Review {
   rating: number;
   comment?: string;
   contractId?: string;
+  applicationId?: string;
   createdAt?: any;
 }
 

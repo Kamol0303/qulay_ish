@@ -100,7 +100,7 @@ export default function RoleSelectionModal({ onComplete }: RoleSelectionModalPro
                 <Building2 className="w-10 h-10 text-white" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Ish beruvchi</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Buyurtmachi</h3>
                 <p className="text-sm text-gray-600">
                   Ish e'lon qilish, ishchilar topish, boshqarish
                 </p>

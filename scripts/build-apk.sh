@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-MODE="${1:-debug}" # debug | release
+MODE="${1:-debug}" # debug | release | aab
 
 # --- JDK: Android Gradle needs a FULL JDK with javac (not JRE / broken Java 25 on Kali) ---
 pick_java_home() {
@@ -125,7 +125,8 @@ else
   echo "    VPS: git pull && ./scripts/redeploy-api-production.sh"
 fi
 
-if [[ "$MODE" == "release" ]]; then
+# release APK and AAB both need a signing keystore
+if [[ "$MODE" == "release" || "$MODE" == "aab" ]]; then
   KEYSTORE="${RELEASE_KEYSTORE:-$ROOT/android/release.keystore}"
   if [[ ! -f "$KEYSTORE" ]]; then
     echo "==> Generating local release keystore (NOT for Play Store reuse): $KEYSTORE"
@@ -143,19 +144,37 @@ storePassword=${RELEASE_STORE_PASSWORD:-mexrliqollar_release}
 keyAlias=mexrliqollar
 keyPassword=${RELEASE_KEY_PASSWORD:-mexrliqollar_release}
 EOF
-  echo "==> assembleRelease"
-  (cd android && ./gradlew assembleRelease -Dorg.gradle.java.home="$JAVA_HOME")
-  APK="$ROOT/android/app/build/outputs/apk/release/app-release.apk"
-else
-  echo "==> assembleDebug"
-  (cd android && ./gradlew assembleDebug -Dorg.gradle.java.home="$JAVA_HOME")
-  APK="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
 fi
 
+case "$MODE" in
+  debug)
+    echo "==> assembleDebug (APK)"
+    (cd android && ./gradlew assembleDebug -Dorg.gradle.java.home="$JAVA_HOME")
+    ARTIFACT="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
+    EXT="apk"
+    ;;
+  release)
+    echo "==> assembleRelease (APK)"
+    (cd android && ./gradlew assembleRelease -Dorg.gradle.java.home="$JAVA_HOME")
+    ARTIFACT="$ROOT/android/app/build/outputs/apk/release/app-release.apk"
+    EXT="apk"
+    ;;
+  aab)
+    echo "==> bundleRelease (AAB — Google Play uchun)"
+    (cd android && ./gradlew bundleRelease -Dorg.gradle.java.home="$JAVA_HOME")
+    ARTIFACT="$ROOT/android/app/build/outputs/bundle/release/app-release.aab"
+    EXT="aab"
+    ;;
+  *)
+    echo "Usage: $0 [debug|release|aab]"
+    exit 1
+    ;;
+esac
+
 STAMP=$(date +%Y%m%d-%H%M%S)
-DEST="$OUT_DIR/mexrliqollar-${MODE}-${STAMP}.apk"
-cp -f "$APK" "$DEST"
-cp -f "$APK" "$OUT_DIR/mexrliqollar-${MODE}-latest.apk"
-echo "APK ready: $DEST"
+DEST="$OUT_DIR/mexrliqollar-${MODE}-${STAMP}.${EXT}"
+cp -f "$ARTIFACT" "$DEST"
+cp -f "$ARTIFACT" "$OUT_DIR/mexrliqollar-${MODE}-latest.${EXT}"
+echo "Artifact ready: $DEST"
 ls -lh "$DEST"
-echo "Also: $OUT_DIR/mexrliqollar-${MODE}-latest.apk"
+echo "Also: $OUT_DIR/mexrliqollar-${MODE}-latest.${EXT}"

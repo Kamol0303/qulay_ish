@@ -233,7 +233,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            {CATEGORIES.map((category) => (
+            {CATEGORIES.slice(0, 12).map((category) => (
               <motion.div
                 key={category.id}
                 whileHover={{ scale: 1.02 }}

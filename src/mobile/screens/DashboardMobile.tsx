@@ -105,7 +105,7 @@ export function EmployerDashboardMobile() {
       <div className="px-4 py-5 space-y-4">
         <div>
           <p className="text-sm text-muted-foreground">Tashkilot</p>
-          <h1 className="text-xl font-black">{profile?.fullName || 'Ish beruvchi'}</h1>
+          <h1 className="text-xl font-black">{profile?.fullName || 'Buyurtmachi'}</h1>
         </div>
         {loading ? (
           <SkeletonList count={2} />

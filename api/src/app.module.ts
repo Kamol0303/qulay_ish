@@ -6,6 +6,10 @@ import { AuthModule } from './auth/auth.module';
 import { ResourcesModule } from './resources/resources.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { VerificationModule } from './verification/verification.module';
+import { EmployerModule } from './employer/employer.module';
+import { AdminModule } from './admin/admin.module';
+import { SubscriptionModule } from './subscription/subscription.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -23,6 +27,10 @@ import { VerificationModule } from './verification/verification.module';
     ResourcesModule,
     UploadsModule,
     VerificationModule,
+    EmployerModule,
+    AdminModule,
+    SubscriptionModule,
+    AiModule,
   ],
 })
 export class AppModule {}

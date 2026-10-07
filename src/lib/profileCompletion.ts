@@ -8,7 +8,7 @@ export interface CompletionItem {
 
 export function getWorkerCompletion(profile: Profile): { percent: number; items: CompletionItem[] } {
   const items: CompletionItem[] = [
-    { id: 'personal', label: 'Shaxsiy ma\'lumot', done: Boolean(profile.fullName && profile.phoneNumber && profile.region) },
+    { id: 'personal', label: 'Shaxsiy ma\'lumot', done: Boolean((profile.firstName || profile.fullName) && profile.phoneNumber && profile.region) },
     { id: 'photo', label: 'Profil rasmi', done: Boolean(profile.photoUrl) },
     { id: 'summary', label: 'Professional summary', done: Boolean(profile.professionalSummary || profile.bio) },
     { id: 'skills', label: 'Ko\'nikmalar', done: (profile.skills?.length ?? 0) >= 2 },

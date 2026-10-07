@@ -171,6 +171,8 @@ export class AuthService {
           email,
           phoneNumber,
           fullName: 'Super Admin',
+          firstName: 'Super',
+          lastName: 'Admin',
           role: UserRole.super_admin,
           region: 'Samarqand viloyati',
           passwordHash: await bcrypt.hash(envPassword, 10),
@@ -198,7 +200,12 @@ export class AuthService {
   }
 
   sanitizeUser(user: User) {
-    const { passwordHash, ...rest } = user;
+    // Core/risk indicators are Super Admin-only — never return them to the account
+    // owner (worker/employer) in auth/login/me payloads.
+    const { passwordHash, coreIndicators, ...rest } = user as User & {
+      coreIndicators?: unknown;
+    };
+    void coreIndicators;
     return rest;
   }
 
@@ -206,5 +213,16 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
     return this.sanitizeUser(user);
+  }
+
+  /**
+   * Re-issue a fresh access token for an already-authenticated user (sliding
+   * session). This never triggers SMS/OTP — it only extends the login so the
+   * mobile app can keep the user signed in without re-entering a password.
+   */
+  async refreshToken(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    return this.signToken(user);
   }
 }

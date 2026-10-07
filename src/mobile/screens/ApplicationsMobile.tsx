@@ -9,6 +9,7 @@ import ChipFilter from '../components/ChipFilter';
 import { SkeletonList } from '../components/SkeletonCard';
 import PullToRefresh from '../components/PullToRefresh';
 import SwipeableRow from '../components/SwipeableRow';
+import ReviewModal from '../../components/ReviewModal';
 
 type Row = Application & { job?: Job; worker?: Profile };
 
@@ -17,6 +18,8 @@ export function WorkerApplicationsMobile() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('all');
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = async () => {
     if (!profile?.uid) return;
@@ -39,6 +42,20 @@ export function WorkerApplicationsMobile() {
     void load();
   }, [profile?.uid]);
 
+  const complete = async (id: string) => {
+    if (!window.confirm('Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi.')) return;
+    setActionError(null);
+    setCompletingId(id);
+    try {
+      await applicationService.complete(id);
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'completed' } : r)));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
   const filtered = status === 'all' ? rows : rows.filter((r) => r.status === status);
 
   return (
@@ -51,9 +68,15 @@ export function WorkerApplicationsMobile() {
           { id: 'all', label: 'Hammasi' },
           { id: 'pending', label: 'Kutilmoqda' },
           { id: 'accepted', label: 'Qabul' },
+          { id: 'completed', label: 'Yakunlangan' },
           { id: 'rejected', label: 'Rad' },
         ]}
       />
+      {actionError && (
+        <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl p-3">
+          {actionError}
+        </p>
+      )}
       <PullToRefresh onRefresh={load}>
         {loading ? (
           <SkeletonList />
@@ -70,6 +93,16 @@ export function WorkerApplicationsMobile() {
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                   {row.coverLetter || row.message || '—'}
                 </p>
+                {row.status === 'accepted' && (
+                  <button
+                    type="button"
+                    className="mt-3 w-full min-h-[44px] rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50"
+                    disabled={completingId === row.id}
+                    onClick={() => void complete(row.id)}
+                  >
+                    {completingId === row.id ? 'Yuborilmoqda...' : 'Ishni yakunlash'}
+                  </button>
+                )}
               </MobileCard>
             ))}
           </div>
@@ -84,6 +117,7 @@ export function EmployerApplicationsMobile() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('all');
+  const [reviewRow, setReviewRow] = useState<Row | null>(null);
 
   const load = async () => {
     if (!profile?.uid) return;
@@ -124,6 +158,7 @@ export function EmployerApplicationsMobile() {
           { id: 'all', label: 'Hammasi' },
           { id: 'pending', label: 'Yangi' },
           { id: 'accepted', label: 'Qabul' },
+          { id: 'completed', label: 'Yakunlangan' },
           { id: 'rejected', label: 'Rad' },
         ]}
       />
@@ -164,12 +199,36 @@ export function EmployerApplicationsMobile() {
                       </button>
                     </div>
                   )}
+                  {row.status === 'completed' && (
+                    row.reviewed ? (
+                      <p className="mt-3 text-xs font-bold text-amber-600">Baholangan</p>
+                    ) : (
+                      <button
+                        type="button"
+                        className="mt-3 w-full min-h-[44px] rounded-xl bg-amber-500 text-white text-sm font-bold"
+                        onClick={() => setReviewRow(row)}
+                      >
+                        Ishchini baholash
+                      </button>
+                    )
+                  )}
                 </MobileCard>
               </SwipeableRow>
             ))}
           </div>
         )}
       </PullToRefresh>
+
+      <ReviewModal
+        isOpen={Boolean(reviewRow)}
+        onClose={() => setReviewRow(null)}
+        applicationId={reviewRow?.id || ''}
+        workerName={reviewRow?.worker?.fullName || reviewRow?.workerName}
+        jobTitle={reviewRow?.job?.title || reviewRow?.jobTitle}
+        onSubmitted={() => {
+          setRows((prev) => prev.map((r) => (r.id === reviewRow?.id ? { ...r, reviewed: true } : r)));
+        }}
+      />
     </div>
   );
 }
@@ -179,6 +238,7 @@ function StatusBadge({ status }: { status?: string }) {
   const map: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-800',
     accepted: 'bg-emerald-100 text-emerald-800',
+    completed: 'bg-blue-100 text-blue-800',
     rejected: 'bg-red-100 text-red-800',
     withdrawn: 'bg-slate-100 text-slate-700',
   };

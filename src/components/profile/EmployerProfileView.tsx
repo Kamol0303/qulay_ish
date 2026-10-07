@@ -21,6 +21,7 @@ import { ProfileProgress } from './ProfileProgress';
 import { ProfileCard, EmptyState } from './ProfileCard';
 import { AvatarUploader, CoverUploader, FileUploadButton } from './MediaUploader';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
+import { LocationSharingCard } from './LocationSharingCard';
 import { Link } from 'react-router-dom';
 
 const EMPLOYER_TABS = [
@@ -331,14 +332,24 @@ export function EmployerProfileView({
         )}
 
         {tab === 'settings' && (
-          <ProfileCard title="Kompaniya sozlamalari">
-            <p className="text-sm text-muted-foreground">
-              Bildirishnomalar va maxfiylik sozlamalari platforma sozlamalaridan boshqariladi.
-            </p>
-            <Link to="/verification" className="mt-3 inline-flex text-sm text-primary hover:underline">
-              Shaxsni tasdiqlash →
-            </Link>
-          </ProfileCard>
+          <div className="space-y-5">
+            <ProfileCard title="Kompaniya sozlamalari">
+              <p className="text-sm text-muted-foreground">
+                Bildirishnomalar va maxfiylik sozlamalari platforma sozlamalaridan boshqariladi.
+              </p>
+              <Link to="/verification" className="mt-3 inline-flex text-sm text-primary hover:underline">
+                Shaxsni tasdiqlash →
+              </Link>
+            </ProfileCard>
+            {editable && (
+              <LocationSharingCard
+                userId={draft.uid}
+                enabled={draft.locationSharingEnabled}
+                updatedAt={draft.locationUpdatedAt}
+                role="employer"
+              />
+            )}
+          </div>
         )}
       </motion.div>
     </div>

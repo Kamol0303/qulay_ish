@@ -1,5 +1,7 @@
 import { debugLogger } from '../lib/debugLogger';
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { Profile } from '../types';
 import { api } from '../lib/api';
 import {
@@ -73,6 +75,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [setSession]);
 
+  /**
+   * Slide the login forward without re-authenticating (no OTP/SMS). Keeps the user
+   * signed in across app restarts. Best-effort: on network failure we keep the
+   * current session; only an explicit 401/403 (token truly invalid) signs out.
+   */
+  const slideSession = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token || !isAccessTokenValid(token)) return;
+    try {
+      const p = await api.auth.refresh();
+      if (p) setSession(p);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        clearAccessToken();
+        setUser(null);
+        setProfile(null);
+      }
+    }
+  }, [setSession]);
+
   useEffect(() => {
     clearLegacyDemoStorage();
     const token = getAccessToken();
@@ -85,9 +107,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Use refresh() so each launch both validates and slides the session forward,
+      // keeping the user signed in without ever re-sending an OTP.
       api.auth
-        .me()
-        .then((p) => setSession(p))
+        .refresh()
+        .then((p) => {
+          if (p) setSession(p);
+        })
         .catch((err) => {
           if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             clearAccessToken();
@@ -99,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (cached?.uid && isAccessTokenValid(token)) {
             setSession(cached);
             if (import.meta.env.DEV) {
-              debugLogger.warn('[AuthContext] /auth/me failed; using cached session until API is back');
+              debugLogger.warn('[AuthContext] /auth/refresh failed; using cached session until API is back');
             }
           }
         })
@@ -109,6 +135,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(false);
   }, [setSession]);
+
+  // Re-validate and slide the session each time the app returns to the foreground
+  // (native), so long-lived mobile sessions never silently expire.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let handle: { remove: () => void } | undefined;
+    void App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) void slideSession();
+    }).then((h) => {
+      handle = h;
+    });
+    return () => {
+      handle?.remove();
+    };
+  }, [slideSession]);
 
   const signOut = useCallback(async () => {
     clearLegacyDemoStorage();

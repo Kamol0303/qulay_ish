@@ -1,4 +1,4 @@
-# Mexrli Qo'llar.uz
+# Mehrli qo'llar
 
 Ish platformasi: **Vite/React + NestJS + PostgreSQL + Capacitor**.  
 Sayt, APK va iOS — bitta API: `https://ishliayol.uz/api`.
@@ -43,8 +43,8 @@ Release: `./scripts/build-apk.sh release`
 | `.env.capacitor` | APK → `https://ishliayol.uz/api` |
 | `api/.env` | Nest + **SMS token** (`DEVSMS_*`) |
 
-Yaratish: `./scripts/write-local-envs.sh`  
-Namuna: `.env.example`, `.env.capacitor.example`, `api/.env.example`
+Yaratish: `./scripts/write-local-envs.sh` (barcha env fayllarni yozadi).  
+Sirlar (`DEVSMS_TOKEN`, `PAYMENT_CARD_NUMBER`, `OWNER_OTP_PHONE`, AI kalitlari) faqat lokal `api/.env` da — gitga push qilinmaydi.
 
 `api/.env` SMS (majburiy):
 

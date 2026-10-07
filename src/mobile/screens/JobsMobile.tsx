@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { MapPin, Banknote } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { Job } from '../../types';
@@ -17,6 +18,7 @@ import { hapticLight } from '../haptics';
 
 export default function JobsMobile() {
   const { profile } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,10 @@ export default function JobsMobile() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await api.jobs.list({ status: 'open' });
+      const rows = await api.jobs.list({
+        status: 'open',
+        ...(profile?.district ? { nearDistrict: profile.district } : {}),
+      });
       let filtered = filterJobsForSamarkand(rows, { status: 'open' });
       if (category) filtered = filtered.filter((j) => j.category === category);
       setJobs(filtered);
@@ -35,7 +40,7 @@ export default function JobsMobile() {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, profile?.district]);
 
   useEffect(() => {
     void load();
@@ -44,8 +49,8 @@ export default function JobsMobile() {
   }, [load]);
 
   const chips = [
-    { id: '', label: 'Hammasi' },
-    ...CATEGORIES.slice(0, 8).map((c) => ({ id: c.id, label: c.name })),
+    { id: '', label: t('jobs.all_categories', { defaultValue: 'Barcha toifalar' }) },
+    ...CATEGORIES.map((c) => ({ id: c.id, label: t(`categories.${c.id}`, { defaultValue: c.name }) })),
   ];
 
   const onApply = (job: Job) => {
@@ -82,7 +87,7 @@ export default function JobsMobile() {
               <MobileCard key={job.id}>
                 <div className="flex justify-between gap-2 mb-2">
                   <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-1 rounded-lg">
-                    {job.category}
+                    {t(`categories.${job.category}`, { defaultValue: job.category })}
                   </span>
                   <span className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1">
                     <Banknote size={14} />

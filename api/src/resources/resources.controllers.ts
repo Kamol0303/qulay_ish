@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Patch, Put, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Patch, Put, Delete, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
 // Put: confidential personal-info updates (worker self / super_admin)
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -7,6 +7,14 @@ import { Roles } from '../auth/roles.decorator';
 import { randomUUID } from 'crypto';
 import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
 import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util';
+import { normalizeNameInput } from '../common/name.util';
+import { isValidLatLng, boundingBox, haversineKm, approxDistanceLabel } from '../common/geo.util';
+import { clampStars, foldRating } from '../common/rating.util';
+import { districtProximityKey } from '../common/district.util';
+import { isValidDistrictId } from '../common/samarqand-districts';
+import { DevSmsService } from '../auth/devsms.service';
+import { SubscriptionGuard } from '../subscription/subscription.guard';
+import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
 
 type AuthUser = { userId: string; role: string };
 
@@ -23,12 +31,20 @@ function canAccessPersonalInfo(reqUser: AuthUser, targetUserId: string, targetRo
 /** Strip identity / private verification docs and confidential personalInfo from public payloads */
 function toPublicUser(
   user: Record<string, unknown>,
-  opts?: { includePrivateDocs?: boolean; includePersonalInfo?: boolean },
+  opts?: {
+    includePrivateDocs?: boolean;
+    includePersonalInfo?: boolean;
+    includeCoreIndicators?: boolean;
+  },
 ) {
   const {
     passwordHash: _p,
     companyDocuments,
     personalInfo,
+    coreIndicators,
+    // Precise worker location never leaves the server in a public payload.
+    latitude: _lat,
+    longitude: _lng,
     ...rest
   } = user;
   const out: Record<string, unknown> = { ...rest };
@@ -37,6 +53,10 @@ function toPublicUser(
   }
   if (opts?.includePersonalInfo) {
     out.personalInfo = personalInfo ?? null;
+  }
+  // Core/risk indicators are Super Admin-only — never in worker/employer/public payloads.
+  if (opts?.includeCoreIndicators) {
+    out.coreIndicators = coreIndicators ?? null;
   }
   return out;
 }
@@ -120,8 +140,9 @@ export class UsersController {
     return { personalInfo: updated.personalInfo ?? null };
   }
 
-  /** Core indicators — readable on profile; writable by super_admin only */
-  @UseGuards(JwtAuthGuard)
+  /** Core/risk indicators — Super Admin only (worker & employer never see them) */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
   @Get(':id/core-indicators')
   async getCoreIndicators(@Param('id') id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -172,11 +193,71 @@ export class UsersController {
     return { coreIndicators: updated.coreIndicators ?? null };
   }
 
+  /** Worker opts in / updates their shared location (self or super_admin). */
+  @UseGuards(JwtAuthGuard)
+  @Put(':id/location')
+  async updateLocation(
+    @Param('id') id: string,
+    @Body() body: { latitude?: number; longitude?: number; enabled?: boolean },
+    @Req() req: { user: AuthUser },
+  ) {
+    if (req.user.userId !== id && req.user.role !== 'super_admin') {
+      throw new ForbiddenException('Lokatsiyani faqat egasi yoki Super Admin yangilaydi');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (user.role !== 'worker' && user.role !== 'employer') {
+      throw new BadRequestException('Lokatsiya faqat ishchi yoki buyurtmachi uchun');
+    }
+    const enabled = body.enabled !== false;
+    if (enabled) {
+      if (!isValidLatLng(body.latitude, body.longitude)) {
+        throw new BadRequestException('Koordinatalar noto\'g\'ri');
+      }
+    }
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: enabled
+        ? {
+            latitude: body.latitude,
+            longitude: body.longitude,
+            locationUpdatedAt: new Date(),
+            locationSharingEnabled: true,
+          }
+        : { locationSharingEnabled: false },
+    });
+    return {
+      locationSharingEnabled: updated.locationSharingEnabled,
+      locationUpdatedAt: updated.locationUpdatedAt,
+    };
+  }
+
+  /** Worker turns off sharing and wipes stored coordinates (self or super_admin). */
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/location')
+  async clearLocation(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    if (req.user.userId !== id && req.user.role !== 'super_admin') {
+      throw new ForbiddenException('Lokatsiyani faqat egasi yoki Super Admin o\'chiradi');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        latitude: null,
+        longitude: null,
+        locationUpdatedAt: null,
+        locationSharingEnabled: false,
+      },
+    });
+    return { locationSharingEnabled: false };
+  }
+
   @Get(':id')
   async get(@Param('id') id: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id } });
-    // Public profiles never expose company docs or confidential personalInfo.
-    // coreIndicators are intentionally included for profile visibility.
+    // Public profiles never expose company docs, confidential personalInfo,
+    // core/risk indicators, or precise location.
     return toPublicUser(user as unknown as Record<string, unknown>);
   }
 
@@ -188,8 +269,8 @@ export class UsersController {
     }
 
     const allowed = [
-      'fullName', 'email', 'phoneNumber', 'region', 'district', 'neighborhood',
-      'bio', 'skills', 'photoUrl', 'coverUrl', 'telegram', 'languages',
+      'fullName', 'firstName', 'lastName', 'email', 'phoneNumber', 'region', 'district', 'neighborhood',
+      'bio', 'skills', 'profession', 'educationLevel', 'photoUrl', 'coverUrl', 'telegram', 'languages',
       'availability', 'lookingForWork', 'professionalSummary', 'preferredContact',
       'experienceLevel', 'education', 'experience', 'certificates', 'portfolio',
       'resumeTemplate', 'companyName', 'businessType', 'industry',
@@ -219,6 +300,25 @@ export class UsersController {
       }
     }
 
+    // Keep firstName/lastName and fullName consistent regardless of which was sent.
+    if ('firstName' in data || 'lastName' in data || 'fullName' in data) {
+      const existing = await this.prisma.user.findUnique({
+        where: { id },
+        select: { firstName: true, lastName: true, fullName: true },
+      });
+      const name = normalizeNameInput({
+        firstName: 'firstName' in data ? (data.firstName as string) : existing?.firstName,
+        lastName: 'lastName' in data ? (data.lastName as string) : existing?.lastName,
+        fullName:
+          'firstName' in data || 'lastName' in data
+            ? undefined
+            : ('fullName' in data ? (data.fullName as string) : existing?.fullName),
+      });
+      data.firstName = name.firstName || null;
+      data.lastName = name.lastName || null;
+      if (name.fullName) data.fullName = name.fullName;
+    }
+
     // personalInfo / coreIndicators must go through dedicated endpoints (stricter validation + RBAC)
     // Never accept them via generic PATCH
 
@@ -230,6 +330,7 @@ export class UsersController {
     return toPublicUser(updated as unknown as Record<string, unknown>, {
       includePrivateDocs: includePrivate,
       includePersonalInfo: includePersonal,
+      includeCoreIndicators: req.user.role === 'super_admin',
     });
   }
 }
@@ -244,7 +345,107 @@ export class JobsController {
     if (query.employerId) where.employerId = query.employerId;
     if (query.status) where.status = query.status;
     if (query.region) where.region = query.region;
+
+    // When a worker's district is known, recommend the nearest jobs first. A
+    // job's location is taken from its employer's fixed registration district.
+    if (isValidDistrictId(query.nearDistrict)) {
+      const rows = await this.prisma.job.findMany({
+        where: where as any,
+        include: { employer: { select: { district: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      });
+      return (rows as any[])
+        .map((j) => ({
+          job: j,
+          key: districtProximityKey(query.nearDistrict, j.employer?.district ?? j.district),
+        }))
+        .sort((a, b) => a.key - b.key)
+        .map(({ job }) => {
+          const { employer: _employer, ...jobFields } = job;
+          return jobFields;
+        });
+    }
+
     return this.prisma.job.findMany({ where: where as any, orderBy: { createdAt: 'desc' } });
+  }
+
+  /**
+   * Open jobs near a worker's current location. The job's location is taken from
+   * its employer's opted-in shared coordinates (location_sharing_enabled). We do a
+   * bounding-box prefilter in SQL and the exact Haversine distance in JS. Workers
+   * receive only an approximate distance — never the employer's exact coordinates.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('nearby')
+  async nearby(
+    @Query('lat') latRaw?: string,
+    @Query('lng') lngRaw?: string,
+    @Query('radius_km') radiusRaw?: string,
+    @Query('category') category?: string,
+    @Query('region') region?: string,
+    @Query('page') pageRaw?: string,
+    @Query('pageSize') pageSizeRaw?: string,
+  ) {
+    const lat = Number(latRaw);
+    const lng = Number(lngRaw);
+    if (!isValidLatLng(lat, lng)) {
+      throw new BadRequestException('lat/lng noto\'g\'ri yoki yetishmayapti');
+    }
+    const radiusKm = Math.min(300, Math.max(1, Math.floor(Number(radiusRaw) || 30)));
+    const take = Math.min(100, Math.max(1, Math.floor(Number(pageSizeRaw) || 20)));
+    const currentPage = Math.max(1, Math.floor(Number(pageRaw) || 1));
+
+    const box = boundingBox(lat, lng, radiusKm);
+    const where: Record<string, unknown> = {
+      status: { in: ['active', 'open'] },
+      employer: {
+        is: {
+          locationSharingEnabled: true,
+          latitude: { gte: box.minLat, lte: box.maxLat },
+          longitude: { gte: box.minLng, lte: box.maxLng },
+        },
+      },
+    };
+    if (category) where.category = category;
+    if (region) where.region = region;
+
+    const rows = await this.prisma.job.findMany({
+      where: where as any,
+      include: { employer: { select: { latitude: true, longitude: true } } },
+      take: 2000,
+    });
+
+    const withDistance = (rows as any[])
+      .filter((j) => j.employer?.latitude != null && j.employer?.longitude != null)
+      .map((j) => ({
+        job: j,
+        distanceKm: haversineKm(lat, lng, j.employer.latitude, j.employer.longitude),
+      }))
+      .filter((x) => x.distanceKm <= radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+
+    const total = withDistance.length;
+    const start = (currentPage - 1) * take;
+    const pageItems = withDistance.slice(start, start + take);
+
+    const data = pageItems.map(({ job, distanceKm }) => {
+      const { employer: _employer, ...jobFields } = job;
+      return {
+        ...jobFields,
+        distanceKm: Math.round(distanceKm * 10) / 10,
+        distanceLabel: approxDistanceLabel(distanceKm),
+      };
+    });
+
+    return {
+      data,
+      total,
+      page: currentPage,
+      pageSize: take,
+      totalPages: Math.ceil(total / take),
+      radiusKm,
+    };
   }
 
   @Get(':id')
@@ -324,7 +525,21 @@ export class JobsController {
 
 @Controller('applications')
 export class ApplicationsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly devSms: DevSmsService,
+  ) {}
+
+  /** A worker is "busy" while they still have an accepted (not completed) job. */
+  private async findActiveAssignment(workerId: string, exceptId?: string) {
+    return this.prisma.application.findFirst({
+      where: {
+        workerId,
+        status: 'accepted',
+        ...(exceptId ? { NOT: { id: exceptId } } : {}),
+      },
+    });
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -387,6 +602,14 @@ export class ApplicationsController {
     });
     if (existing) {
       throw new BadRequestException('Siz allaqachon bu ishga ariza yuborgansiz');
+    }
+
+    // A worker who is already busy with an accepted job cannot take another one.
+    const busyWith = await this.findActiveAssignment(workerId);
+    if (busyWith) {
+      throw new BadRequestException(
+        'Siz hozir boshqa ish bilan bandsiz. Avval joriy ishni yakunlang.',
+      );
     }
 
     const coverLetter = String(body.coverLetter || '');
@@ -481,14 +704,41 @@ export class ApplicationsController {
     if (!isEmployer && !isAdmin) throw new ForbiddenException();
 
     const status = body.status as string | undefined;
+
+    // Completion has its own endpoint (worker-driven) — don't allow it via this PATCH.
+    if (status === 'completed') {
+      throw new BadRequestException(
+        'Ishni yakunlash uchun /applications/:id/complete dan foydalaning',
+      );
+    }
+
+    // Accepting hires the worker: make sure they aren't already busy elsewhere.
+    if (status === 'accepted' && existing.status !== 'accepted') {
+      const busyWith = await this.findActiveAssignment(existing.workerId, existing.id);
+      if (busyWith) {
+        throw new BadRequestException(
+          'Bu ishchi hozir boshqa ish bilan band. Avval joriy ishni yakunlashi kerak.',
+        );
+      }
+    }
+
     const updated = await this.prisma.application.update({
       where: { id },
       data: {
         ...(status ? { status: status as any } : {}),
+        ...(status === 'accepted' ? { acceptedAt: new Date() } : {}),
         ...(body.message !== undefined ? { message: body.message as string } : {}),
         ...(body.coverLetter !== undefined ? { coverLetter: body.coverLetter as string } : {}),
       },
     });
+
+    // Mark the worker busy on accept so they stop appearing as available.
+    if (status === 'accepted' && existing.status !== 'accepted') {
+      await this.prisma.user.update({
+        where: { id: existing.workerId },
+        data: { availability: 'busy' },
+      }).catch(() => undefined);
+    }
 
     if (status === 'accepted' || status === 'rejected') {
       await this.prisma.notification.create({
@@ -506,6 +756,95 @@ export class ApplicationsController {
         },
       });
     }
+
+    return updated;
+  }
+
+  /**
+   * Worker marks their accepted job as finished. This frees the worker (available
+   * again), bumps completedJobs, texts the employer that the job is done, and
+   * prompts the employer in-app to rate the worker.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/complete')
+  async complete(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    const app = await this.prisma.application.findUnique({ where: { id } });
+    if (!app) throw new NotFoundException('Ariza topilmadi');
+
+    const isOwnerWorker = app.workerId === req.user.userId;
+    if (!isOwnerWorker && !isStaff(req.user.role)) {
+      throw new ForbiddenException('Ishni faqat uni bajargan ishchi yakunlaydi');
+    }
+    if (app.status === 'completed') {
+      throw new BadRequestException('Bu ish allaqachon yakunlangan');
+    }
+    if (app.status !== 'accepted') {
+      throw new BadRequestException('Faqat qabul qilingan ishni yakunlash mumkin');
+    }
+
+    const updated = await this.prisma.application.update({
+      where: { id },
+      data: { status: 'completed', completedAt: new Date() },
+    });
+
+    // Free the worker and credit the finished job.
+    await this.prisma.user.update({
+      where: { id: app.workerId },
+      data: { availability: 'available', completedJobs: { increment: 1 } },
+    }).catch(() => undefined);
+
+    const jobTitle = app.jobTitle || 'ish';
+    const workerName = app.workerName || 'Ishchi';
+
+    // In-app prompt for the employer to rate the worker.
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: app.employerId,
+        title: 'Ish yakunlandi',
+        message: `${workerName} "${jobTitle}" ishini yakunladi. Iltimos, ishchini baholang.`,
+        type: 'application',
+        link: `/employer/applicants?review=${app.id}`,
+        read: false,
+      },
+    }).catch(() => undefined);
+
+    // Confirmation for the worker.
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: app.workerId,
+        title: 'Ish yakunlandi',
+        message: `Siz "${jobTitle}" ishini yakunladingiz. Buyurtmachi sizni baholaydi.`,
+        type: 'application',
+        link: '/worker/applications',
+        read: false,
+      },
+    }).catch(() => undefined);
+
+    // Best-effort SMS to the employer (never blocks completion).
+    const employer = await this.prisma.user.findUnique({
+      where: { id: app.employerId },
+      select: { phoneNumber: true },
+    });
+    if (employer?.phoneNumber) {
+      void this.devSms
+        .sendNotificationSms(
+          employer.phoneNumber,
+          `Mehrli qollar: ${workerName} "${jobTitle}" ishini yakunladi. Ilovaga kirib ishchini baholang.`,
+        )
+        .catch(() => undefined);
+    }
+
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'COMPLETE_JOB',
+        userId: req.user.userId,
+        details: { applicationId: app.id, workerId: app.workerId, employerId: app.employerId },
+        type: 'info',
+      },
+    }).catch(() => undefined);
 
     return updated;
   }
@@ -628,7 +967,7 @@ export class ContractsController {
 
     const isEmployer = app.employerId === req.user.userId;
     const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
-    if (!isEmployer && !isAdmin) throw new ForbiddenException('Faqat ish beruvchi shartnoma yarata oladi');
+    if (!isEmployer && !isAdmin) throw new ForbiddenException('Faqat buyurtmachi shartnoma yarata oladi');
 
     return this.create(
       {
@@ -666,7 +1005,7 @@ export class ContractsController {
       String(data.employerId) !== req.user.userId &&
       !isStaff(req.user.role)
     ) {
-      throw new ForbiddenException('Faqat ish beruvchi shartnoma yarata oladi');
+      throw new ForbiddenException('Faqat buyurtmachi shartnoma yarata oladi');
     }
 
     // Enrich names/title when missing
@@ -678,7 +1017,7 @@ export class ContractsController {
         : Promise.resolve(null),
     ]);
     if (!worker) throw new BadRequestException('Ishchi topilmadi');
-    if (!employer) throw new BadRequestException('Ish beruvchi topilmadi');
+    if (!employer) throw new BadRequestException('Buyurtmachi topilmadi');
 
     // Avoid FK 500 when jobId is stale/missing — keep title/amount from body/app
     const safeJobId = job ? job.id : null;
@@ -751,7 +1090,7 @@ export class ContractsController {
           id: randomUUID(),
           userId: admin.id,
           title: 'Yangi shartnoma',
-          message: `${created.employerName || 'Ish beruvchi'} — "${jobTitle}" shartnomasi tekshiruvga yuborildi`,
+          message: `${created.employerName || 'Buyurtmachi'} — "${jobTitle}" shartnomasi tekshiruvga yuborildi`,
           type: 'contract',
           link: '/super-admin/contracts',
           read: false,
@@ -1061,9 +1400,88 @@ export class ReviewsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
+    const rating = clampStars(body.rating);
+    if (rating < 1) {
+      throw new BadRequestException('Baho 1 dan 5 gacha yulduz bo\'lishi kerak');
+    }
+    const comment = body.comment != null ? String(body.comment).trim().slice(0, 1000) : null;
+    const applicationId = body.applicationId ? String(body.applicationId) : null;
+
+    let revieweeId = body.revieweeId ? String(body.revieweeId) : '';
+    let application: Awaited<ReturnType<typeof this.prisma.application.findUnique>> = null;
+
+    // When a review is tied to a finished job, only the hiring employer may rate,
+    // the job must be completed, and each completed job can be rated only once.
+    if (applicationId) {
+      application = await this.prisma.application.findUnique({ where: { id: applicationId } });
+      if (!application) throw new NotFoundException('Ariza topilmadi');
+      if (application.employerId !== req.user.userId && !isStaff(req.user.role)) {
+        throw new ForbiddenException('Ishchini faqat uni yollagan buyurtmachi baholaydi');
+      }
+      if (application.status !== 'completed') {
+        throw new BadRequestException('Faqat yakunlangan ishni baholash mumkin');
+      }
+      if (application.reviewed) {
+        throw new BadRequestException('Bu ish allaqachon baholangan');
+      }
+      revieweeId = application.workerId;
+    }
+
+    if (!revieweeId) throw new BadRequestException('revieweeId majburiy');
+    if (revieweeId === req.user.userId) {
+      throw new BadRequestException('O\'zingizni baholay olmaysiz');
+    }
+
+    const reviewee = await this.prisma.user.findUnique({ where: { id: revieweeId } });
+    if (!reviewee) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+    const reviewer = await this.prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { fullName: true },
+    });
+
     const id = (body.id as string) || randomUUID();
-    return this.prisma.review.create({ data: { id, ...body } as any });
+    const created = await this.prisma.review.create({
+      data: {
+        id,
+        reviewerId: req.user.userId,
+        revieweeId,
+        reviewerName: reviewer?.fullName || null,
+        rating,
+        comment,
+        contractId: body.contractId ? String(body.contractId) : null,
+        applicationId,
+      },
+    });
+
+    // Fold the new star rating into the worker's running average.
+    const folded = foldRating(reviewee.rating, reviewee.reviewCount, rating);
+    await this.prisma.user.update({
+      where: { id: revieweeId },
+      data: { rating: folded.rating, reviewCount: folded.reviewCount },
+    });
+
+    if (application) {
+      await this.prisma.application.update({
+        where: { id: application.id },
+        data: { reviewed: true },
+      });
+    }
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: revieweeId,
+        title: 'Yangi baho',
+        message: `Buyurtmachi sizning ishingizni ${rating} yulduz bilan baholadi`,
+        type: 'application',
+        link: '/worker/applications',
+        read: false,
+      },
+    }).catch(() => undefined);
+
+    return created;
   }
 }
 
@@ -1225,8 +1643,9 @@ export class SettingsController {
     return this.prisma.globalSettings.findUnique({ where: { id: 'global_config' } });
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles('super_admin')
+  @RequiresSubscription()
   @Patch('global')
   async updateGlobal(@Body() body: Record<string, unknown>) {
     return this.prisma.globalSettings.upsert({

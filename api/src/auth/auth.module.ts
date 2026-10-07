@@ -21,8 +21,10 @@ function resolveJwtSecret(): string {
     PassportModule,
     JwtModule.register({
       secret: resolveJwtSecret(),
-      // Long-lived session so users stay logged in across reloads (override via JWT_EXPIRES_IN)
-      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '30d') as any },
+      // Long-lived session so users stay logged in across restarts without re-entering
+      // OTP/password. The app slides this forward via POST /auth/refresh on each launch
+      // and resume (override via JWT_EXPIRES_IN).
+      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '180d') as any },
     }),
   ],
   controllers: [AuthController],

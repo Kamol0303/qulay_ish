@@ -17,7 +17,7 @@ export default function RoleBadge({ role, size = 'md', showIcon = true }: RoleBa
       borderColor: 'border-blue-300',
     },
     employer: {
-      label: 'Ish beruvchi',
+      label: 'Buyurtmachi',
       icon: Briefcase,
       bgColor: 'bg-green-100',
       textColor: 'text-green-800',

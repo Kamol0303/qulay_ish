@@ -11,6 +11,8 @@ import StatisticsPage from './pages/StatisticsPage';
 import CoursesPage from './pages/CoursesPage';
 import EmployerDashboard from './pages/employer/Dashboard';
 import WorkerServices from './pages/employer/WorkerServices';
+import NearbyWorkers from './pages/employer/NearbyWorkers';
+import NearbyJobs from './pages/worker/NearbyJobs';
 import WorkerDashboard from './pages/worker/Dashboard';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminContracts from './pages/admin/Contracts';
@@ -43,6 +45,7 @@ import WorkerContracts from './pages/worker/Contracts';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ChatAssistant from './components/ChatAssistant';
 import OfflineBanner from './components/OfflineBanner';
@@ -122,6 +125,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
           </RoleProtectedRoute>
         }
       />
+      <Route path="/worker/nearby-jobs" element={<RoleProtectedRoute allowedRoles={['worker']}><NearbyJobs /></RoleProtectedRoute>} />
       <Route path="/worker/contracts" element={<RoleProtectedRoute allowedRoles={['worker']}><WorkerContracts /></RoleProtectedRoute>} />
       <Route path="/worker/service-posts" element={<RoleProtectedRoute allowedRoles={['worker']}><MyServicePosts /></RoleProtectedRoute>} />
       <Route path="/worker/create-service" element={<RoleProtectedRoute allowedRoles={['worker']}><CreateServicePost /></RoleProtectedRoute>} />
@@ -163,6 +167,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       <Route path="/employer/jobs/:jobId" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerJobDetails /></RoleProtectedRoute>} />
       <Route path="/employer/create-job" element={<RoleProtectedRoute allowedRoles={['employer']}><CreateJob /></RoleProtectedRoute>} />
       <Route path="/employer/worker-services" element={<RoleProtectedRoute allowedRoles={['employer']}><WorkerServices /></RoleProtectedRoute>} />
+      <Route path="/employer/nearby-workers" element={<RoleProtectedRoute allowedRoles={['employer']}><NearbyWorkers /></RoleProtectedRoute>} />
 
       <Route path="/admin/dashboard" element={<RoleProtectedRoute allowedRoles={['admin', 'super_admin']}><AdminDashboard /></RoleProtectedRoute>} />
       <Route path="/admin/users" element={<RoleProtectedRoute allowedRoles={['admin', 'super_admin']}><UsersManagement /></RoleProtectedRoute>} />
@@ -231,9 +236,11 @@ export default function App() {
     <ThemeProvider>
       <Router>
         <AuthProvider>
-          <ErrorBoundary>
-            <AppShell />
-          </ErrorBoundary>
+          <SubscriptionProvider>
+            <ErrorBoundary>
+              <AppShell />
+            </ErrorBoundary>
+          </SubscriptionProvider>
         </AuthProvider>
       </Router>
     </ThemeProvider>

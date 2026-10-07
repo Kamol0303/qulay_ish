@@ -21,8 +21,8 @@ echo ""
 echo "=== 3) api/.env ==="
 ENV_FILE="api/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
-  cp api/.env.example api/.env
-  echo "api/.env .env.example dan yaratildi — DEVSMS_TOKEN ni to'ldiring"
+  ./scripts/write-local-envs.sh
+  echo "api/.env yaratildi — DEVSMS_TOKEN ni to'ldiring"
 fi
 
 # Eski / noto'g'ri kalitlarni tozalash

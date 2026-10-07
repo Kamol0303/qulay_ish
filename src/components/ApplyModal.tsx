@@ -58,6 +58,15 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         setLoading(false);
         return;
       }
+      if (profile.availability === 'busy') {
+        setError(
+          t('jobs.busy_cannot_apply', {
+            defaultValue: 'Siz hozir boshqa ish bilan bandsiz. Avval joriy ishni yakunlang.',
+          }),
+        );
+        setLoading(false);
+        return;
+      }
       if (!isIdentityVerified(profile)) {
         setLoading(false);
         onClose();
@@ -66,7 +75,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
       }
 
       if (!job.employerId) {
-        setError('Ish beruvchi topilmadi. E\'lonni qayta oching.');
+        setError('Buyurtmachi topilmadi. E\'lonni qayta oching.');
         setLoading(false);
         return;
       }
