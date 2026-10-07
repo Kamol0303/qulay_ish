@@ -114,7 +114,7 @@
     "create_job": "Post a Job",
     "sidebar": {
       "dashboard": "Dashboard",
-      "nearby_jobs": "Jobs Nearby",
+      "nearby_jobs": "Nearby Jobs",
       "all_jobs": "All Jobs",
       "my_services": "My Services",
       "my_applications": "My Applications",
@@ -127,7 +127,6 @@
       "applicants": "Applicants",
       "worker_base": "Worker Base",
       "nearby_workers": "Nearby Workers",
-      "nearby_jobs": "Nearby Jobs",
       "services": "Services",
       "org_profile": "Profile",
       "overview": "Overview",
@@ -209,7 +208,8 @@
     "employer": "Employer",
     "similar_jobs": "Similar Jobs",
     "job": "Job",
-    "deleted_job": "Deleted job"
+    "deleted_job": "Deleted job",
+    "busy_cannot_apply": "You are currently busy with another job. Finish the current one first."
   },
   "workers": {
     "title": "Specialists Catalog",
@@ -232,7 +232,8 @@
     "verified": "Verified",
     "view_profile": "View Profile",
     "skills": "Skills",
-    "completed_jobs": "Completed Jobs"
+    "completed_jobs": "Completed Jobs",
+    "busy": "Busy"
   },
   "employer": {
     "dashboard": {
@@ -334,7 +335,10 @@
       "upgrade_premium": "Upgrade to Premium",
       "premium_desc": "Boost your ads to TOP and attract more candidates.",
       "promoted_badge": "TOP",
-      "urgent_badge": "URGENT"
+      "urgent_badge": "URGENT",
+      "completed": "Completed",
+      "finish_job": "Finish job",
+      "complete_confirm": "Did you finish the job? The customer will be notified."
     }
   },
   "admin": {
@@ -728,7 +732,11 @@
     "error_too_many": "Too many attempts. Please try again later.",
     "error_sms": "Problem sending SMS.",
     "error_code": "Invalid verification code.",
-    "recaptcha_expired": "ReCAPTCHA expired. Please try again."
+    "recaptcha_expired": "ReCAPTCHA expired. Please try again.",
+    "profession": "Your specialty",
+    "profession_placeholder": "Select",
+    "education_level": "Education level",
+    "education_placeholder": "Select"
   },
   "errors": {
     "unexpected": "An unexpected error occurred.",
@@ -999,5 +1007,25 @@
     "submit": "Submit Dispute",
     "success_title": "Dispute submitted",
     "success_desc": "Admins will review the situation soon."
+  },
+  "education_levels": {
+    "secondary": "Secondary education",
+    "vocational": "Vocational (college/lyceum)",
+    "bachelor": "Bachelor",
+    "master": "Master",
+    "phd": "PhD",
+    "other": "Other"
+  },
+  "reviews": {
+    "title": "Rate the worker",
+    "quality": "Work quality",
+    "comment": "Comment (optional)",
+    "comment_placeholder": "Your feedback about the worker...",
+    "submit": "Submit rating",
+    "thanks": "Thank you!",
+    "saved": "Your rating was saved",
+    "pick_rating": "Please pick a star rating",
+    "rate_worker": "Rate worker",
+    "rated": "Rated"
   }
 }

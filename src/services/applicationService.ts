@@ -133,4 +133,15 @@ export const applicationService = {
   async reject(applicationId: string): Promise<boolean> {
     return this.update(applicationId, { status: 'rejected' });
   },
+
+  /** Worker marks an accepted job finished (frees them + notifies the employer). */
+  async complete(applicationId: string): Promise<boolean> {
+    try {
+      await api.applications.complete(applicationId);
+      return true;
+    } catch (error) {
+      debugLogger.error('Error completing application:', error);
+      throw error instanceof Error ? error : new Error('Ishni yakunlab bo\'lmadi');
+    }
+  },
 };

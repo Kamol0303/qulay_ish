@@ -32,6 +32,11 @@ function WorkerCardItem({ w }: { w: EmployerWorker }) {
               {name}
             </Link>
             {w.isVerified && <BadgeCheck className="h-4 w-4 text-emerald-600 shrink-0" />}
+            {w.availability === 'busy' && (
+              <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                {t('workers.busy', { defaultValue: 'Band' })}
+              </span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground truncate">
             {[w.region, w.district].filter(Boolean).join(', ') || '—'}

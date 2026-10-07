@@ -71,6 +71,10 @@ export interface Profile {
   /** Core risk / development indicators */
   coreIndicators?: WorkerCoreIndicators;
   skills?: string[];
+  /** Worker's main specialty/profession (category id) */
+  profession?: string;
+  /** Worker's education level: secondary | vocational | bachelor | master | phd | other */
+  educationLevel?: string;
   photoUrl?: string;
   coverUrl?: string;
   telegram?: string;
@@ -150,7 +154,10 @@ export interface Application {
   jobTitle?: string;
   message?: string;
   coverLetter?: string;
-  status?: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  status?: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'completed';
+  acceptedAt?: any;
+  completedAt?: any;
+  reviewed?: boolean;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -296,6 +303,7 @@ export interface Review {
   rating: number;
   comment?: string;
   contractId?: string;
+  applicationId?: string;
   createdAt?: any;
 }
 

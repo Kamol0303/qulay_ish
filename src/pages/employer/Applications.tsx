@@ -1,6 +1,7 @@
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
+import ReviewModal from '../../components/ReviewModal';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
 import { applicationService } from '../../services/applicationService';
@@ -8,7 +9,7 @@ import { jobService } from '../../services/jobService';
 import { Application, Profile, Job } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Briefcase, MessageSquare, CheckCircle, XCircle, Clock, MapPin, Phone, Star } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,8 @@ export default function EmployerApplications() {
   const [applications, setApplications] = useState<(Application & { worker?: Profile; job?: Job })[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [reviewApp, setReviewApp] = useState<(Application & { worker?: Profile; job?: Job }) | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     if (!profile?.uid) return;
@@ -45,6 +48,24 @@ export default function EmployerApplications() {
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, [profile]);
+
+  // Open the rating modal when arriving from a "job finished" notification link.
+  useEffect(() => {
+    const reviewId = searchParams.get('review');
+    if (!reviewId || reviewApp) return;
+    const match = applications.find((a) => a.id === reviewId);
+    if (match && match.status === 'completed' && !match.reviewed) {
+      setReviewApp(match);
+    }
+  }, [searchParams, applications, reviewApp]);
+
+  const closeReview = () => {
+    setReviewApp(null);
+    if (searchParams.get('review')) {
+      searchParams.delete('review');
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
 
   const handleStatusUpdate = async (appId: string, newStatus: string, workerId: string, jobTitle: string) => {
     try {
@@ -81,6 +102,7 @@ export default function EmployerApplications() {
       case 'all': return t('common.all');
       case 'pending': return t('employer.dashboard.pending');
       case 'accepted': return t('employer.dashboard.accept');
+      case 'completed': return t('worker.dashboard.completed', { defaultValue: 'Yakunlangan' });
       case 'rejected': return t('employer.dashboard.rejected');
       default: return status;
     }
@@ -96,7 +118,7 @@ export default function EmployerApplications() {
           </div>
           
           <div className="flex bg-secondary/50 p-1 rounded-2xl border border-border">
-            {['all', 'pending', 'accepted', 'rejected'].map((status) => (
+            {['all', 'pending', 'accepted', 'completed', 'rejected'].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
@@ -201,6 +223,22 @@ export default function EmployerApplications() {
                             <CheckCircle size={18} />
                             {t('employer.dashboard.create_contract')}
                           </Link>
+                        ) : app.status === 'completed' ? (
+                          app.reviewed ? (
+                            <div className="py-3 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl font-bold flex items-center justify-center gap-2">
+                              <Star size={18} fill="currentColor" />
+                              {t('reviews.rated', { defaultValue: 'Baholangan' })}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setReviewApp(app)}
+                              className="w-full py-3 bg-amber-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                            >
+                              <Star size={18} />
+                              {t('reviews.rate_worker', { defaultValue: 'Ishchini baholash' })}
+                            </button>
+                          )
                         ) : (
                           <div className="py-3 bg-red-50 text-red-700 border border-red-100 rounded-xl font-bold flex items-center justify-center gap-2">
                             <XCircle size={18} />
@@ -232,6 +270,19 @@ export default function EmployerApplications() {
           </div>
         )}
       </div>
+
+      <ReviewModal
+        isOpen={Boolean(reviewApp)}
+        onClose={closeReview}
+        applicationId={reviewApp?.id || ''}
+        workerName={reviewApp?.worker?.fullName || reviewApp?.workerName}
+        jobTitle={reviewApp?.job?.title || reviewApp?.jobTitle}
+        onSubmitted={() => {
+          setApplications((prev) =>
+            prev.map((a) => (a.id === reviewApp?.id ? { ...a, reviewed: true } : a)),
+          );
+        }}
+      />
     </DashboardLayout>
   );
 }

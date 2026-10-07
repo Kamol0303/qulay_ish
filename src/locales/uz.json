@@ -119,7 +119,7 @@
     "terms": "Foydalanish shartlari",
     "sidebar": {
       "dashboard": "Boshqaruv paneli",
-      "nearby_jobs": "Yaqindagi ishlar",
+      "nearby_jobs": "Yaqin atrofdagi ishlar",
       "all_jobs": "Barcha ishlar",
       "my_services": "Xizmatlarim",
       "my_applications": "Arizalarim",
@@ -132,7 +132,6 @@
       "applicants": "Nomzodlar",
       "worker_base": "Ishchilar bazasi",
       "nearby_workers": "Yaqin atrofdagi ishchilar",
-      "nearby_jobs": "Yaqin atrofdagi ishlar",
       "services": "Xizmatlar",
       "org_profile": "Profil",
       "overview": "Umumiy koʻrinish",
@@ -207,10 +206,10 @@
     "already_applied": "Siz allaqachon ushbu ishga ariza topshirmagansiz",
     "posted": "Joylandi",
     "employer": "Buyurtmachi",
-    "job_details": "Ish tafsilotlari",
     "similar_jobs": "Oʻxshash ishlar",
     "job": "Ish",
-    "deleted_job": "Oʼchirilgan ish"
+    "deleted_job": "Oʼchirilgan ish",
+    "busy_cannot_apply": "Siz hozir boshqa ish bilan bandsiz. Avval joriy ishni yakunlang."
   },
   "workers": {
     "title": "Mutaxassislar katalogi",
@@ -233,7 +232,8 @@
     "verified": "Tasdiqlangan",
     "view_profile": "Profilni koʻrish",
     "skills": "Koʻnikmalar",
-    "completed_jobs": "Bajarilgan ishlar"
+    "completed_jobs": "Bajarilgan ishlar",
+    "busy": "Band"
   },
   "employer": {
     "dashboard": {
@@ -281,10 +281,6 @@
       "applications_management_desc": "Kelib tushgan barcha arizalarni koʻrib chiqing va munosib nomzodlarni tanlang.",
       "create_contract": "Shartnoma tuzish",
       "no_applications_desc": "Hozircha hech qanday ariza kelib tushmagan.",
-      "post_job": "Yangi eʼlon berish",
-      "post_job_desc": "Yangi ish oʻrni yarating va munosib nomzodlarni toping.",
-      "job_created": "Ish muvaffaqiyatli yaratildi!",
-      "redirecting": "Yoʻnaltirilmoqda...",
       "basic_info": "Asosiy maʼlumotlar",
       "job_title": "Ish nomi",
       "job_title_placeholder": "Masalan: Uy tozalash",
@@ -339,7 +335,10 @@
       "upgrade_premium": "Premiumga oʻtish",
       "premium_desc": "Eʼlonlaringizni TOPga chiqaring va koʻproq nomzodlarni jalb qiling.",
       "promoted_badge": "TOP",
-      "urgent_badge": "SHOSHILINCH"
+      "urgent_badge": "SHOSHILINCH",
+      "completed": "Yakunlangan",
+      "finish_job": "Ishni yakunlash",
+      "complete_confirm": "Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi."
     }
   },
   "admin": {
@@ -426,13 +425,13 @@
       "subtitle": "Foydalanuvchilarning shaxsini tasdiqlash soʻrovlari.",
       "no_requests": "Tasdiqlash soʻrovlari topilmadi",
       "no_requests_desc": "Hozircha koʻrib chiqilishi kerak boʻlgan soʻrovlar yoʻq.",
-    "selfie": "Selfie",
-    "id_photo": "Shaxsni tasdiqlovchi hujjat",
-    "no_id_photo": "Hujjat rasmi yuklanmagan",
-    "no_selfie": "Selfie yuklanmagan",
-    "reject_reason": "Rad etish sababi",
-    "reject_reason_placeholder": "Rad etish sababini kiriting...",
-    "rejected_tab": "Rad etilgan"
+      "selfie": "Selfie",
+      "id_photo": "Shaxsni tasdiqlovchi hujjat",
+      "no_id_photo": "Hujjat rasmi yuklanmagan",
+      "no_selfie": "Selfie yuklanmagan",
+      "reject_reason": "Rad etish sababi",
+      "reject_reason_placeholder": "Rad etish sababini kiriting...",
+      "rejected_tab": "Rad etilgan"
     },
     "disputes": {
       "title": "Nizolar boshqaruvi",
@@ -441,10 +440,10 @@
       "contract_id": "Shartnoma ID",
       "no_disputes": "Nizolar topilmadi",
       "no_disputes_desc": "Hozircha hech qanday nizo mavjud emas.",
-    "resolve": "Hal qilish",
-    "view_contract": "Shartnomani koʻrish",
-    "confirm_resolve": "Nizoni hal qilishni tasdiqlaysizmi?",
-    "confirm_reject": "Nizoni rad etishni tasdiqlaysizmi?"
+      "resolve": "Hal qilish",
+      "view_contract": "Shartnomani koʻrish",
+      "confirm_resolve": "Nizoni hal qilishni tasdiqlaysizmi?",
+      "confirm_reject": "Nizoni rad etishni tasdiqlaysizmi?"
     },
     "contracts": {
       "title": "Shartnomalar auditi",
@@ -454,10 +453,10 @@
       "admin_approval": "Admin tasdigʻi",
       "no_contracts": "Shartnomalar topilmadi",
       "no_contracts_desc": "Hozircha hech qanday shartnoma mavjud emas.",
-    "review": "Koʻrib chiqish",
-    "reject_contract": "Rad etish",
-    "confirm_approve": "Shartnomani tasdiqlashni xohlaysizmi?",
-    "confirm_reject": "Shartnomani rad etishni xohlaysizmi?"
+      "review": "Koʻrib chiqish",
+      "reject_contract": "Rad etish",
+      "confirm_approve": "Shartnomani tasdiqlashni xohlaysizmi?",
+      "confirm_reject": "Shartnomani rad etishni xohlaysizmi?"
     },
     "applications": {
       "title": "Arizalarni boshqarish",
@@ -733,7 +732,11 @@
     "error_too_many": "Juda koʻp urinishlar. Birozdan soʻng qayta urinib koʻring.",
     "error_sms": "SMS yuborishda muammo yuz berdi.",
     "error_code": "Tasdiqlash kodi notoʻgʻri.",
-    "recaptcha_expired": "ReCAPTCHA muddati tugadi. Iltimos, qaytadan urinib koʻring."
+    "recaptcha_expired": "ReCAPTCHA muddati tugadi. Iltimos, qaytadan urinib koʻring.",
+    "profession": "Mutaxassisligingiz",
+    "profession_placeholder": "Tanlang",
+    "education_level": "Ta'lim darajasi",
+    "education_placeholder": "Tanlang"
   },
   "errors": {
     "unexpected": "Kutilmagan xatolik yuz berdi.",
@@ -1004,5 +1007,25 @@
     "lighting_note": "Selfida yuzingiz va hujjatingiz aniq koʻrinishini hamda yorugʻlik yetarli ekanligini taʼminlang.",
     "submitting": "Yuborilmoqda...",
     "submit_btn": "Tasdiqlash uchun yuborish"
+  },
+  "education_levels": {
+    "secondary": "O'rta ta'lim",
+    "vocational": "O'rta maxsus (kollej/litsey)",
+    "bachelor": "Bakalavr",
+    "master": "Magistr",
+    "phd": "PhD / Fan nomzodi",
+    "other": "Boshqa"
+  },
+  "reviews": {
+    "title": "Ishchini baholang",
+    "quality": "Ish sifati",
+    "comment": "Izoh (ixtiyoriy)",
+    "comment_placeholder": "Ishchi haqida fikringiz...",
+    "submit": "Bahoni yuborish",
+    "thanks": "Rahmat!",
+    "saved": "Bahoyingiz saqlandi",
+    "pick_rating": "Iltimos, yulduz tanlang",
+    "rate_worker": "Ishchini baholash",
+    "rated": "Baholangan"
   }
 }

@@ -92,6 +92,8 @@ export const authService = {
     lastName?: string;
     role?: 'worker' | 'employer';
     password?: string;
+    profession?: string;
+    educationLevel?: string;
   }): Promise<AuthResult> {
     try {
       const phone = normalizePhoneNumber(params.phone);
@@ -103,6 +105,8 @@ export const authService = {
         lastName: params.lastName,
         role: params.role,
         password: params.password,
+        profession: params.profession,
+        educationLevel: params.educationLevel,
       });
       return { success: true };
     } catch (e) {

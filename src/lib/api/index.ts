@@ -118,6 +118,8 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
       ? (u.coreIndicators as WorkerCoreIndicators)
       : undefined,
     skills: Array.isArray(u.skills) ? (u.skills as string[]) : [],
+    profession: u.profession as string | undefined,
+    educationLevel: u.educationLevel as string | undefined,
     photoUrl: u.photoUrl as string | undefined,
     coverUrl: u.coverUrl as string | undefined,
     telegram: u.telegram as string | undefined,
@@ -256,6 +258,8 @@ export const api = {
       lastName?: string;
       role?: Profile['role'];
       password?: string;
+      profession?: string;
+      educationLevel?: string;
     }) {
       return apiRequest<{ success: true }>('/auth/send-otp', {
         method: 'POST',
@@ -598,6 +602,9 @@ export const api = {
     },
     update(id: string, data: Partial<Application>) {
       return apiRequest<Application>(`/applications/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    complete(id: string) {
+      return apiRequest<Application>(`/applications/${id}/complete`, { method: 'POST' });
     },
   },
 

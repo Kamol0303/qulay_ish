@@ -7,7 +7,7 @@ import { applicationService } from '../../services/applicationService';
 import { jobService } from '../../services/jobService';
 import { Application, Job, Profile } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Briefcase, Clock, MapPin, CheckCircle, XCircle, MessageSquare, ChevronRight } from 'lucide-react';
+import { Briefcase, Clock, MapPin, CheckCircle, XCircle, MessageSquare, ChevronRight, Flag, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
@@ -19,6 +19,8 @@ export default function WorkerApplications() {
   const { profile, isDemo } = useAuth();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<(Application & { job?: Job; employer?: Profile })[]>([]);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const getDateLocale = () => {
     switch (i18n.language) {
       case 'ru': return ru;
@@ -52,6 +54,24 @@ export default function WorkerApplications() {
     return () => clearInterval(interval);
   }, [profile]);
 
+  const handleComplete = async (appId: string) => {
+    if (!window.confirm(t('worker.dashboard.complete_confirm', { defaultValue: 'Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi.' }))) {
+      return;
+    }
+    setActionError(null);
+    setCompletingId(appId);
+    try {
+      await applicationService.complete(appId);
+      setApplications((prev) =>
+        prev.map((app) => (app.id === appId ? { ...app, status: 'completed' } : app)),
+      );
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('common.error_occurred'));
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -59,6 +79,12 @@ export default function WorkerApplications() {
           <h2 className="text-3xl font-bold text-foreground tracking-tight">{t('worker.dashboard.my_applications')}</h2>
           <p className="text-muted-foreground mt-2">{t('worker.dashboard.my_applications_desc')}</p>
         </div>
+
+        {actionError && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 font-medium">
+            {actionError}
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-4">
@@ -110,27 +136,44 @@ export default function WorkerApplications() {
                         <div className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 ${
                           app.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
                           app.status === 'accepted' ? 'bg-green-50 text-green-600 border border-green-100' :
+                          app.status === 'completed' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
                           'bg-red-50 text-red-600 border border-red-100'
                         }`}>
                           {app.status === 'pending' ? <Clock size={14} /> : 
                            app.status === 'accepted' ? <CheckCircle size={14} /> : 
+                           app.status === 'completed' ? <Star size={14} /> :
                            <XCircle size={14} />}
                           {app.status === 'pending' ? t('worker.dashboard.pending') : 
                            app.status === 'accepted' ? t('worker.dashboard.accepted') : 
+                           app.status === 'completed' ? t('worker.dashboard.completed', { defaultValue: 'Yakunlangan' }) :
                            t('worker.dashboard.rejected')}
                         </div>
 
+                        {app.status === 'accepted' && (
+                          <button
+                            type="button"
+                            onClick={() => handleComplete(app.id)}
+                            disabled={completingId === app.id}
+                            className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                          >
+                            <Flag size={18} />
+                            {completingId === app.id
+                              ? t('common.loading', { defaultValue: 'Yuborilmoqda...' })
+                              : t('worker.dashboard.finish_job', { defaultValue: 'Ishni yakunlash' })}
+                          </button>
+                        )}
+
                         <div className="flex gap-2 w-full">
                           <Link
-                            to={app.status === 'accepted' ? `/chat?with=${app.employerId}` : '#'}
+                            to={(app.status === 'accepted' || app.status === 'completed') ? `/chat?with=${app.employerId}` : '#'}
                             className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                              app.status === 'accepted'
+                              app.status === 'accepted' || app.status === 'completed'
                                 ? 'bg-secondary text-foreground hover:bg-accent'
                                 : 'bg-gray-50 text-muted-foreground border border-border cursor-not-allowed'
                             }`}
                           >
                             <MessageSquare size={18} />
-                            {app.status === 'accepted' ? t('nav.chat') : t('worker.dashboard.pending')}
+                            {app.status === 'accepted' || app.status === 'completed' ? t('nav.chat') : t('worker.dashboard.pending')}
                           </Link>
                           <Link
                             to={`/jobs`}

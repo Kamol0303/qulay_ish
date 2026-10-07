@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle, Loader, Mail, User, ArrowLeft, Eye, EyeOff } 
 import { authService } from '../lib/authService';
 import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
+import { CATEGORIES, EDUCATION_LEVELS } from '../constants/categories';
 import {
   validatePhoneNumber,
   validateFullName,
@@ -32,6 +33,8 @@ type AuthState = {
   password: string;
   confirmPassword: string;
   selectedRole: 'worker' | 'employer';
+  profession: string;
+  educationLevel: string;
   loading: boolean;
   error: string;
   success: string;
@@ -56,6 +59,8 @@ const initialState: AuthState = {
   password: '',
   confirmPassword: '',
   selectedRole: 'worker',
+  profession: '',
+  educationLevel: '',
   loading: false,
   error: '',
   success: '',
@@ -226,6 +231,12 @@ export default function AuthPage() {
         lastName: state.lastName.trim() || undefined,
         role: state.selectedRole,
         password: state.password,
+        profession:
+          state.selectedRole === 'worker' && state.profession ? state.profession : undefined,
+        educationLevel:
+          state.selectedRole === 'worker' && state.educationLevel
+            ? state.educationLevel
+            : undefined,
       });
       if (!result.success) {
         setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
@@ -250,6 +261,8 @@ export default function AuthPage() {
     state.firstName,
     state.lastName,
     state.selectedRole,
+    state.profession,
+    state.educationLevel,
     setPartialState,
     t,
   ]);
@@ -805,6 +818,55 @@ export default function AuthPage() {
                     </button>
                   </div>
                 </div>
+
+                {state.selectedRole === 'worker' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="auth-profession" className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('auth.profession', { defaultValue: 'Mutaxassisligingiz' })}
+                      </label>
+                      <select
+                        id="auth-profession"
+                        value={state.profession}
+                        onChange={(e) => {
+                          clearMessages();
+                          setPartialState({ profession: e.target.value });
+                        }}
+                        className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                        disabled={state.loading}
+                      >
+                        <option value="">{t('auth.profession_placeholder', { defaultValue: 'Tanlang' })}</option>
+                        {CATEGORIES.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {t(`categories.${c.id}`, { defaultValue: c.name })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="auth-education" className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('auth.education_level', { defaultValue: "Ta'lim darajasi" })}
+                      </label>
+                      <select
+                        id="auth-education"
+                        value={state.educationLevel}
+                        onChange={(e) => {
+                          clearMessages();
+                          setPartialState({ educationLevel: e.target.value });
+                        }}
+                        className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                        disabled={state.loading}
+                      >
+                        <option value="">{t('auth.education_placeholder', { defaultValue: 'Tanlang' })}</option>
+                        {EDUCATION_LEVELS.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {t(`education_levels.${e.id}`, { defaultValue: e.name })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="submit"
