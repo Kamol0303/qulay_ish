@@ -234,6 +234,17 @@ export const api = {
       if (!user) throw new Error('Invalid profile response');
       return user;
     },
+    /**
+     * Slide the session forward without re-authenticating (no OTP/SMS). Stores the
+     * fresh token so the user stays logged in across app restarts. Returns the
+     * mapped profile, or null if the server didn't return a new token.
+     */
+    async refresh() {
+      const res = await apiRequest<AuthResponse>('/auth/refresh', { method: 'POST' });
+      if (res.accessToken) setAccessToken(res.accessToken);
+      const user = res.user ? mapUser(res.user as unknown as Record<string, unknown>) : null;
+      return user;
+    },
     logout() {
       clearAccessToken();
     },
