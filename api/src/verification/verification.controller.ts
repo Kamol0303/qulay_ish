@@ -286,7 +286,7 @@ export class VerificationRequestsController {
           id: randomUUID(),
           userId,
           title: 'Tasdiqlash muvaffaqiyatli',
-          message: 'Sizning hisobingiz mexrliqollar.uz tomonidan tasdiqlandi!',
+          message: "Sizning hisobingiz Mehrli qo'llar tomonidan tasdiqlandi!",
           type: 'system',
           link: '/my-profile',
           read: false,

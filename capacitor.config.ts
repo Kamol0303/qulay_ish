@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'uz.mexrliqollar.app',
-  appName: "Mexrli Qo'llar.uz",
+  appName: "Mehrli qo'llar",
   webDir: 'dist',
   server: {
     // Live API host is still ishliayol.uz until mexrliqollar.uz DNS is ready.

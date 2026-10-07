@@ -1,4 +1,4 @@
-# Mexrli Qo'llar.uz
+# Mehrli qo'llar
 
 Ish platformasi: **Vite/React + NestJS + PostgreSQL + Capacitor**.  
 Sayt, APK va iOS — bitta API: `https://ishliayol.uz/api`.

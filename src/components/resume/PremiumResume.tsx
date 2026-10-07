@@ -369,7 +369,7 @@ export function PremiumResume({
                 <div>
                   <p className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-800">
                     <BadgeCheck className="h-4 w-4" />
-                    {model.isVerified ? 'mexrliqollar.uzda tasdiqlangan' : 'mexrliqollar.uz profili'}
+                    {model.isVerified ? "Mehrli qo'llarda tasdiqlangan" : "Mehrli qo'llar profili"}
                   </p>
                   <p className="mt-1 text-xs text-emerald-700/80">Profil ID: {model.profileId}</p>
                   {model.verificationDate && (

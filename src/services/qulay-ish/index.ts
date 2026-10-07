@@ -1,5 +1,5 @@
 /**
- * mexrliqollar.uz Services
+ * Mehrli qo'llar Services
  * AI-ready services for job recommendations, salary estimation, and safety detection
  */
 
