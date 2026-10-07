@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import DashboardLayout from '../../components/DashboardLayout';
 import { api, type EmployerWorker } from '../../lib/api';
 import { getCurrentPosition, isGeolocationAvailable } from '../../lib/geolocation';
@@ -10,11 +11,10 @@ import { Link } from 'react-router-dom';
 const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
 const PAGE_SIZE = 12;
 
-function skillLabel(id: string): string {
-  return SKILLS.find((s) => s.id === id)?.name || id;
-}
-
 function WorkerCardItem({ w }: { w: EmployerWorker }) {
+  const { t } = useTranslation();
+  const skillLabel = (id: string): string =>
+    t(`skills.${id}`, { defaultValue: SKILLS.find((s) => s.id === id)?.name || id });
   const name = `${w.firstName ?? ''} ${w.lastName ?? ''}`.trim() || w.fullName || 'Ishchi';
   return (
     <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
@@ -68,6 +68,7 @@ function WorkerCardItem({ w }: { w: EmployerWorker }) {
 }
 
 export default function NearbyWorkers() {
+  const { t } = useTranslation();
   const [radiusKm, setRadiusKm] = useState<number>(30);
   const [skill, setSkill] = useState('');
   const [region, setRegion] = useState('');
@@ -186,7 +187,7 @@ export default function NearbyWorkers() {
               >
                 <option value="">Barchasi</option>
                 {SKILLS.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{t(`skills.${s.id}`, { defaultValue: s.name })}</option>
                 ))}
               </select>
             </div>
