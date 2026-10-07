@@ -60,7 +60,7 @@ export function SkillsSelector({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {value.length === 0 && (
-          <p className="text-sm text-muted-foreground">Hali ko\'nikma qo\'shilmagan</p>
+          <p className="text-sm text-muted-foreground">Hali ko'nikma qo'shilmagan</p>
         )}
         {value.map((skill) => (
           <span

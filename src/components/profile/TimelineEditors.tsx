@@ -35,7 +35,7 @@ export function EducationEditor({
             }
             className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground"
           >
-            <Plus className="h-4 w-4" /> Qo\'shish
+            <Plus className="h-4 w-4" /> Qo'shish
           </button>
         ) : undefined
       }
@@ -143,7 +143,7 @@ export function ExperienceEditor({
             }
             className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground"
           >
-            <Plus className="h-4 w-4" /> Qo\'shish
+            <Plus className="h-4 w-4" /> Qo'shish
           </button>
         ) : undefined
       }

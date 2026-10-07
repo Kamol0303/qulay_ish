@@ -222,7 +222,7 @@ export function WorkerProfileView({
             <ProfileCard title="Shaxsiy ma'lumot">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-sm sm:col-span-2">
-                  <span className="mb-1 block text-muted-foreground">To\'liq ism</span>
+                  <span className="mb-1 block text-muted-foreground">To'liq ism</span>
                   <input
                     disabled={!editable}
                     value={draft.fullName}

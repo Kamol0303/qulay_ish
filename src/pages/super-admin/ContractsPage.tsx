@@ -280,7 +280,7 @@ export default function SuperAdminContractsPage() {
             </div>
             <div>
               <h1 className="text-3xl font-black text-gray-900 tracking-tight">Shartnomalar auditi</h1>
-              <p className="text-gray-500 text-sm font-medium">Ishchi va ish beruvchi o\'rtasidagi shartnomalarni tekshiring</p>
+              <p className="text-gray-500 text-sm font-medium">Ishchi va ish beruvchi o'rtasidagi shartnomalarni tekshiring</p>
             </div>
           </div>
           <div className="text-right">

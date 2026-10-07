@@ -194,7 +194,7 @@ export function PersonalInfoCard({
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
         <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <p>
-          Bu ma\'lumotlar rezyume PDF, ish beruvchi paneli, qidiruv va ommaviy profilga
+          Bu ma'lumotlar rezyume PDF, ish beruvchi paneli, qidiruv va ommaviy profilga
           kiritilmaydi.
         </p>
       </div>
@@ -293,12 +293,13 @@ export function PersonalInfoCard({
             <FieldLabel label="Farzandlar soni" required />
             <input
               type="number"
+              inputMode="numeric"
               min={1}
               max={30}
               disabled={!editable}
               value={info.childrenCount ?? ''}
               onChange={(e) => patch({ childrenCount: Number(e.target.value) })}
-              className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+              className="w-full min-h-[44px] rounded-xl border border-border px-3 py-2 text-sm"
             />
             {fieldErrors.childrenCount && <p className="mt-1 text-xs text-rose-600">{fieldErrors.childrenCount}</p>}
           </label>
@@ -391,10 +392,12 @@ export function PersonalInfoCard({
           <FieldLabel label="Telefon raqami" required />
           <input
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             disabled={!editable}
             value={info.phone || ''}
             onChange={(e) => patch({ phone: formatPhoneNumber(e.target.value) })}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            className="w-full min-h-[44px] rounded-xl border border-border px-3 py-2 text-sm"
             placeholder="+998 90 123 45 67"
           />
           {fieldErrors.phone && <p className="mt-1 text-xs text-rose-600">{fieldErrors.phone}</p>}
@@ -404,10 +407,12 @@ export function PersonalInfoCard({
           <FieldLabel label="Qo'shimcha telefon" />
           <input
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             disabled={!editable}
             value={info.additionalPhone || ''}
             onChange={(e) => patch({ additionalPhone: formatPhoneNumber(e.target.value) })}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            className="w-full min-h-[44px] rounded-xl border border-border px-3 py-2 text-sm"
             placeholder="+998 ..."
           />
           {fieldErrors.additionalPhone && <p className="mt-1 text-xs text-rose-600">{fieldErrors.additionalPhone}</p>}
@@ -417,10 +422,12 @@ export function PersonalInfoCard({
           <FieldLabel label="Elektron pochta" required />
           <input
             type="email"
+            inputMode="email"
+            autoComplete="email"
             disabled={!editable}
             value={info.email || ''}
             onChange={(e) => patch({ email: e.target.value })}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            className="w-full min-h-[44px] rounded-xl border border-border px-3 py-2 text-sm"
             maxLength={160}
           />
           {fieldErrors.email && <p className="mt-1 text-xs text-rose-600">{fieldErrors.email}</p>}
@@ -475,7 +482,7 @@ export function PersonalInfoCard({
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
         >
           <Save className="h-4 w-4" />
           {saving ? 'Saqlanmoqda...' : 'Shaxsiy ma\'lumotlarni saqlash'}
