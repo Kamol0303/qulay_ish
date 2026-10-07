@@ -13,9 +13,8 @@ import {
   PAYMENT_OTP_MAX_ATTEMPTS,
   PAYMENT_OTP_RATE_LIMIT_MS,
   PAYMENT_OTP_TTL_MS,
-  PRICE_DEFAULT,
-  PRICE_MAX,
-  PRICE_MIN,
+  pickRoundPrice,
+  snapPrice,
   SUBSCRIPTION_FREE_DAYS,
   SUBSCRIPTION_GRACE_DAYS,
   SUBSCRIPTION_PERIOD_DAYS,
@@ -27,11 +26,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function addDays(base: Date, days: number): Date {
   return new Date(base.getTime() + days * DAY_MS);
-}
-
-function clampPrice(value: number): number {
-  if (!Number.isFinite(value)) return PRICE_DEFAULT;
-  return Math.min(PRICE_MAX, Math.max(PRICE_MIN, Math.round(value)));
 }
 
 export type SubscriptionSnapshot = {
@@ -56,10 +50,16 @@ export class SubscriptionService {
     private readonly devSms: DevSmsService,
   ) {}
 
-  /** Non-secret price (som), clamped. Default seeded from SUBSCRIPTION_PRICE env. */
+  /**
+   * Seed price (som). If SUBSCRIPTION_PRICE is set in .env it is used (clamped and
+   * snapped to a round step); otherwise a random round price in 240000–300000 is
+   * generated so each fresh install gets its own value ending in 000.
+   */
   private envPrice(): number {
     const raw = Number(process.env.SUBSCRIPTION_PRICE);
-    return Number.isFinite(raw) && raw > 0 ? clampPrice(raw) : PRICE_DEFAULT;
+    return Number.isFinite(raw) && raw > 0
+      ? snapPrice(raw)
+      : pickRoundPrice((steps) => randomInt(0, steps + 1));
   }
 
   /** Lazily create the singleton row with a fresh free trial. */
@@ -131,7 +131,7 @@ export class SubscriptionService {
   }
 
   async setPrice(priceSom: number): Promise<SubscriptionSnapshot> {
-    const clamped = clampPrice(priceSom);
+    const clamped = snapPrice(priceSom);
     await this.ensureRow();
     await this.prisma.platformSubscription.update({
       where: { id: 'platform' },
