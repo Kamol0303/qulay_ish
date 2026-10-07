@@ -200,7 +200,12 @@ export class AuthService {
   }
 
   sanitizeUser(user: User) {
-    const { passwordHash, ...rest } = user;
+    // Core/risk indicators are Super Admin-only — never return them to the account
+    // owner (worker/employer) in auth/login/me payloads.
+    const { passwordHash, coreIndicators, ...rest } = user as User & {
+      coreIndicators?: unknown;
+    };
+    void coreIndicators;
     return rest;
   }
 

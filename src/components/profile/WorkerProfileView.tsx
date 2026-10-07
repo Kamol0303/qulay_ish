@@ -26,8 +26,6 @@ import { SkillsSelector } from './SkillsSelector';
 import { EducationEditor, ExperienceEditor } from './TimelineEditors';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
 import { PersonalInfoCard } from './PersonalInfoCard';
-import { CoreIndicatorsCard } from './CoreIndicatorsCard';
-
 const WORKER_TABS_BASE = [
   { id: 'overview' as const, label: 'Umumiy' },
   { id: 'experience' as const, label: 'Tajriba' },
@@ -322,11 +320,6 @@ export function WorkerProfileView({
                 onChange={(skills) => patch({ skills })}
               />
             </ProfileCard>
-            <CoreIndicatorsCard
-              userId={draft.uid}
-              value={draft.coreIndicators}
-              editable={false}
-            />
           </div>
         )}
         {tab === 'portfolio' && (
@@ -505,11 +498,6 @@ export function WorkerProfileView({
               seedFullName={draft.fullName}
               seedPhone={draft.phoneNumber}
               seedEmail={draft.email}
-            />
-            <CoreIndicatorsCard
-              userId={draft.uid}
-              value={draft.coreIndicators}
-              editable={false}
             />
           </div>
         )}

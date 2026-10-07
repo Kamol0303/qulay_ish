@@ -24,12 +24,20 @@ function canAccessPersonalInfo(reqUser: AuthUser, targetUserId: string, targetRo
 /** Strip identity / private verification docs and confidential personalInfo from public payloads */
 function toPublicUser(
   user: Record<string, unknown>,
-  opts?: { includePrivateDocs?: boolean; includePersonalInfo?: boolean },
+  opts?: {
+    includePrivateDocs?: boolean;
+    includePersonalInfo?: boolean;
+    includeCoreIndicators?: boolean;
+  },
 ) {
   const {
     passwordHash: _p,
     companyDocuments,
     personalInfo,
+    coreIndicators,
+    // Precise worker location never leaves the server in a public payload.
+    latitude: _lat,
+    longitude: _lng,
     ...rest
   } = user;
   const out: Record<string, unknown> = { ...rest };
@@ -38,6 +46,10 @@ function toPublicUser(
   }
   if (opts?.includePersonalInfo) {
     out.personalInfo = personalInfo ?? null;
+  }
+  // Core/risk indicators are Super Admin-only — never in worker/employer/public payloads.
+  if (opts?.includeCoreIndicators) {
+    out.coreIndicators = coreIndicators ?? null;
   }
   return out;
 }
@@ -121,8 +133,9 @@ export class UsersController {
     return { personalInfo: updated.personalInfo ?? null };
   }
 
-  /** Core indicators — readable on profile; writable by super_admin only */
-  @UseGuards(JwtAuthGuard)
+  /** Core/risk indicators — Super Admin only (worker & employer never see them) */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
   @Get(':id/core-indicators')
   async getCoreIndicators(@Param('id') id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -176,8 +189,8 @@ export class UsersController {
   @Get(':id')
   async get(@Param('id') id: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id } });
-    // Public profiles never expose company docs or confidential personalInfo.
-    // coreIndicators are intentionally included for profile visibility.
+    // Public profiles never expose company docs, confidential personalInfo,
+    // core/risk indicators, or precise location.
     return toPublicUser(user as unknown as Record<string, unknown>);
   }
 
@@ -250,6 +263,7 @@ export class UsersController {
     return toPublicUser(updated as unknown as Record<string, unknown>, {
       includePrivateDocs: includePrivate,
       includePersonalInfo: includePersonal,
+      includeCoreIndicators: req.user.role === 'super_admin',
     });
   }
 }
