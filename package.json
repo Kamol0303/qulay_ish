@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "start": "bash run.sh",
+    "all": "bash run.sh all",
+    "android": "bash run.sh android",
+    "aab": "bash run.sh aab",
     "dev": "bash scripts/dev.sh",
     "dev:web": "SKIP_API=1 vite --port=3000 --host=0.0.0.0",
     "dev:web-only": "SKIP_API=1 vite --port=3000 --host=0.0.0.0",
