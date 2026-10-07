@@ -17,7 +17,7 @@ interface Message {
 const PREDEFINED_RESPONSES: Record<AILanguage, Record<string, string>> = {
   uz: {
     jobs_search: `**Ish qidirish:**\n\n1. "Ishlar" bo'limiga o'ting\n2. Qidiruv maydonida kalit so'zlarni kiriting\n3. Filtrlardan foydalaning:\n   - Tuman bo'yicha\n   - Toifa bo'yicha\n   - Narx oralig'i bo'yicha\n4. Mos keladigan ishga "Ariza topshirish" tugmasini bosing\n\n**Maslahat:** Profilingizni to'ldiring!`,
-    post_job: `**Ish e'lon qilish:**\n\n1. Ish beruvchi paneliga kiring\n2. "Yangi e'lon berish" tugmasini bosing\n3. Ma'lumotlarni to'ldiring\n4. "Yuborish" tugmasini bosing\n\n**Eslatma:** E'loningiz 30 kun davomida faol bo'ladi!`,
+    post_job: `**Ish e'lon qilish:**\n\n1. Buyurtmachi paneliga kiring\n2. "Yangi e'lon berish" tugmasini bosing\n3. Ma'lumotlarni to'ldiring\n4. "Yuborish" tugmasini bosing\n\n**Eslatma:** E'loningiz 30 kun davomida faol bo'ladi!`,
     contract: `**Shartnoma tuzish:**\n\n1. Nomzod bilan kelishib oling\n2. "Shartnoma tuzish" tugmasini bosing\n3. Shartlarni kiriting\n4. Ikkala tomon imzolashi kerak\n\n**Muhim:** Shartnoma qonuniy hujjat!`,
     dispute: `**Nizo yuzaga kelsa:**\n\n1. Shartnoma sahifasiga o'ting\n2. "Nizo ochish" tugmasini bosing\n3. Muammoni yozing\n4. Admin 24-48 soat ichida ko'rib chiqadi`,
     profile: `**Profilni to'ldirish:**\n\n1. "Profil" bo'limiga o'ting\n2. Ma'lumotlarni qo'shing\n3. Rasm yuklang\n4. "Saqlash" tugmasini bosing`,

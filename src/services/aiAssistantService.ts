@@ -251,7 +251,7 @@ const MOCK_RESPONSES: Record<AILanguage, {
     job_worker: "Ish topish uchun **Ishlar** bo'limiga o'ting va filtrlardan foydalaning: tuman, toifa, narx. Mos ishga **Ariza topshirish** tugmasini bosing.",
     job_employer: "Ish e'lon qilish uchun panelingizda **Yangi e'lon berish** tugmasini bosing. Ish nomi, tavsif, narx va hududni to'ldiring.",
     profile: "Profilni yangilash uchun **Profilim** bo'limiga o'ting va **Tahrirlash** tugmasini bosing. Ko'nikmalar, tajriba va joylashuvni qo'shing.",
-    application_worker: "Arizalaringizni **Mening arizalarim** bo'limida ko'rishingiz mumkin. Ish beruvchi javob berganda bildirishnoma olasiz.",
+    application_worker: "Arizalaringizni **Mening arizalarim** bo'limida ko'rishingiz mumkin. Buyurtmachi javob berganda bildirishnoma olasiz.",
     application_employer: "Barcha arizalarni **Arizalar** bo'limida ko'rishingiz mumkin. Har bir arizani ko'rib chiqing va nomzodlarni qabul qiling yoki rad eting.",
     contract: "Shartnomalar ariza qabul qilingandan so'ng tuziladi. Ish boshlashdan oldin ikkala tomon imzolashi kerak. Shartnomalarni panelingizda boshqarishingiz mumkin.",
     default: "Mehrli qo'llar platformasida yordam berish uchun shu yerdaman. Ishlar, arizalar, profil, shartnomalar haqida savol bering."

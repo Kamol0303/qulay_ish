@@ -515,7 +515,7 @@ export function WorkerProfileView({
                     disabled={!editable}
                     onChange={(e) => patch({ lookingForWork: e.target.checked })}
                   />
-                  Profil ochiq — ish beruvchilar koʻrishi mumkin
+                  Profil ochiq — buyurtmachilar koʻrishi mumkin
                 </label>
                 <Link to="/verification" className="inline-flex text-primary hover:underline">
                   Shaxsni tasdiqlash →

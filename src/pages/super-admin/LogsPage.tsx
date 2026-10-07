@@ -40,7 +40,7 @@ const detailLabels: Record<string, string> = {
   applicationId: 'Ariza ID',
   contractId: 'Shartnoma ID',
   workerId: 'Ishchi ID',
-  employerId: 'Ish beruvchi ID',
+  employerId: 'Buyurtmachi ID',
   amount: 'Summa',
   reason: 'Sabab',
   status: 'Holat',

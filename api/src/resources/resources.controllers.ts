@@ -203,7 +203,7 @@ export class UsersController {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     if (user.role !== 'worker' && user.role !== 'employer') {
-      throw new BadRequestException('Lokatsiya faqat ishchi yoki ish beruvchi uchun');
+      throw new BadRequestException('Lokatsiya faqat ishchi yoki buyurtmachi uchun');
     }
     const enabled = body.enabled !== false;
     if (enabled) {
@@ -803,7 +803,7 @@ export class ContractsController {
 
     const isEmployer = app.employerId === req.user.userId;
     const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
-    if (!isEmployer && !isAdmin) throw new ForbiddenException('Faqat ish beruvchi shartnoma yarata oladi');
+    if (!isEmployer && !isAdmin) throw new ForbiddenException('Faqat buyurtmachi shartnoma yarata oladi');
 
     return this.create(
       {
@@ -841,7 +841,7 @@ export class ContractsController {
       String(data.employerId) !== req.user.userId &&
       !isStaff(req.user.role)
     ) {
-      throw new ForbiddenException('Faqat ish beruvchi shartnoma yarata oladi');
+      throw new ForbiddenException('Faqat buyurtmachi shartnoma yarata oladi');
     }
 
     // Enrich names/title when missing
@@ -853,7 +853,7 @@ export class ContractsController {
         : Promise.resolve(null),
     ]);
     if (!worker) throw new BadRequestException('Ishchi topilmadi');
-    if (!employer) throw new BadRequestException('Ish beruvchi topilmadi');
+    if (!employer) throw new BadRequestException('Buyurtmachi topilmadi');
 
     // Avoid FK 500 when jobId is stale/missing — keep title/amount from body/app
     const safeJobId = job ? job.id : null;
@@ -926,7 +926,7 @@ export class ContractsController {
           id: randomUUID(),
           userId: admin.id,
           title: 'Yangi shartnoma',
-          message: `${created.employerName || 'Ish beruvchi'} — "${jobTitle}" shartnomasi tekshiruvga yuborildi`,
+          message: `${created.employerName || 'Buyurtmachi'} — "${jobTitle}" shartnomasi tekshiruvga yuborildi`,
           type: 'contract',
           link: '/super-admin/contracts',
           read: false,

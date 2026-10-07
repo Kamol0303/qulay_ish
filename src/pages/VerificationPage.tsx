@@ -222,7 +222,7 @@ export default function VerificationPage() {
             <h2 className="text-3xl font-bold tracking-tight">{t('verification.title')}</h2>
             <p className="mt-1 text-muted-foreground">
               {profile?.role === 'employer'
-                ? 'Kompaniya / ish beruvchi shaxsni tasdiqlash'
+                ? 'Kompaniya / buyurtmachi shaxsni tasdiqlash'
                 : t('verification.subtitle')}
             </p>
           </div>
@@ -308,7 +308,7 @@ export default function VerificationPage() {
               <div>
                 <h3 className="text-xl font-bold">Pasport ma&apos;lumotlari (majburiy)</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {PASSPORT_FILL_PROMPT}. Bu ma&apos;lumotlar ish beruvchilarga ko&apos;rinmaydi.
+                  {PASSPORT_FILL_PROMPT}. Bu ma&apos;lumotlar buyurtmachilarga ko&apos;rinmaydi.
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

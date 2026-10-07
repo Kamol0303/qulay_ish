@@ -66,7 +66,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
       }
 
       if (!job.employerId) {
-        setError('Ish beruvchi topilmadi. E\'lonni qayta oching.');
+        setError('Buyurtmachi topilmadi. E\'lonni qayta oching.');
         setLoading(false);
         return;
       }

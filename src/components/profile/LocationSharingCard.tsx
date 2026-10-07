@@ -31,10 +31,10 @@ export function LocationSharingCard({
       }
     : {
         description:
-          'Ixtiyoriy. Yoqilsa, yaqin atrofdagi ish beruvchilar sizni masofa boʻyicha topa oladi.',
+          'Ixtiyoriy. Yoqilsa, yaqin atrofdagi buyurtmachilar sizni masofa boʻyicha topa oladi.',
         privacy:
-          'Ish beruvchilarga aniq joylashuvingiz emas, faqat taxminiy masofa (masalan \u201c~12 km\u201d) koʻrsatiladi. Istalgan vaqtda oʻchirishingiz mumkin.',
-        enabledMsg: 'Lokatsiya yoqildi. Yaqin atrofdagi ish beruvchilar sizni topa oladi.',
+          'Buyurtmachilarga aniq joylashuvingiz emas, faqat taxminiy masofa (masalan \u201c~12 km\u201d) koʻrsatiladi. Istalgan vaqtda oʻchirishingiz mumkin.',
+        enabledMsg: 'Lokatsiya yoqildi. Yaqin atrofdagi buyurtmachilar sizni topa oladi.',
       };
   const [sharing, setSharing] = useState(Boolean(enabled));
   const [lastUpdated, setLastUpdated] = useState<string | Date | undefined>(updatedAt);

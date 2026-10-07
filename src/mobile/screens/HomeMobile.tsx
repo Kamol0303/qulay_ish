@@ -37,7 +37,7 @@ export default function HomeMobile() {
         <section className="rounded-3xl bg-gradient-to-br from-primary to-blue-700 text-primary-foreground p-6 shadow-lg">
           <p className="text-sm font-semibold opacity-90">Mehrli qo'llar</p>
           <h1 className="text-2xl font-black mt-1 leading-tight">Samarqandda ish toping</h1>
-          <p className="text-sm mt-2 opacity-90">Ishchi va ish beruvchilar uchun yagona platforma.</p>
+          <p className="text-sm mt-2 opacity-90">Ishchi va buyurtmachilar uchun yagona platforma.</p>
           <div className="flex gap-2 mt-5">
             <Link
               to="/jobs"

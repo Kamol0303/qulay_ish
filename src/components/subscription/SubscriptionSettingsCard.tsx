@@ -54,7 +54,7 @@ export default function SubscriptionSettingsCard() {
           Obuna va to'lov
         </h2>
         <p className="text-xs text-gray-500 mt-1">
-          Ishchi va ish beruvchilar uchun bepul. Faqat Super Admin paneli uchun oylik to'lov.
+          Ishchi va buyurtmachilar uchun bepul. Faqat Super Admin paneli uchun oylik to'lov.
         </p>
       </div>
 

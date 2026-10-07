@@ -382,7 +382,7 @@ export default function VerificationManagement() {
               <ShieldCheck className="text-primary" /> Verification Center
             </h2>
             <p className="text-muted-foreground mt-2">
-              Super Admin — ishchi va ish beruvchi hujjatlari faqat shu yerda ochiladi
+              Super Admin — ishchi va buyurtmachi hujjatlari faqat shu yerda ochiladi
             </p>
           </div>
           <button
@@ -423,7 +423,7 @@ export default function VerificationManagement() {
           >
             <option value="all">Barcha tur</option>
             <option value="worker">Ishchi</option>
-            <option value="employer">Ish beruvchi</option>
+            <option value="employer">Buyurtmachi</option>
           </select>
           <input
             className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none"

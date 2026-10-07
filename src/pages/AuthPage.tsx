@@ -801,7 +801,7 @@ export default function AuthPage() {
                           : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                       }`}
                     >
-                      <Mail size={18} /> Ish beruvchi
+                      <Mail size={18} /> Buyurtmachi
                     </button>
                   </div>
                 </div>

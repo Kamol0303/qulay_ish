@@ -96,7 +96,7 @@ export default function AdminApplications() {
                         {app.worker?.fullName || app.workerName || 'Nomzod'}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        Ish beruvchi: {app.employer?.fullName || app.employer?.companyName || app.employerId}
+                        Buyurtmachi: {app.employer?.fullName || app.employer?.companyName || app.employerId}
                       </div>
                       <div className="rounded-xl bg-secondary/40 p-3 text-sm italic text-muted-foreground">
                         “{app.coverLetter || app.message || '—'}”

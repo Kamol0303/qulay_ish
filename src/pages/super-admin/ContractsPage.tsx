@@ -77,7 +77,7 @@ export default function SuperAdminContractsPage() {
         },
         ish_beruvchi: {
           id: c.employerId,
-          name: employer?.fullName || c.employerName || 'Ish beruvchi',
+          name: employer?.fullName || c.employerName || 'Buyurtmachi',
           email: employer?.email || '',
           phone: employer?.phoneNumber,
         },
@@ -280,7 +280,7 @@ export default function SuperAdminContractsPage() {
             </div>
             <div>
               <h1 className="text-3xl font-black text-gray-900 tracking-tight">Shartnomalar auditi</h1>
-              <p className="text-gray-500 text-sm font-medium">Ishchi va ish beruvchi o'rtasidagi shartnomalarni tekshiring</p>
+              <p className="text-gray-500 text-sm font-medium">Ishchi va buyurtmachi o'rtasidagi shartnomalarni tekshiring</p>
             </div>
           </div>
           <div className="text-right">
@@ -376,7 +376,7 @@ export default function SuperAdminContractsPage() {
                     </div>
 
                     <div className="bg-white rounded-2xl p-4">
-                      <p className="text-xs font-black text-gray-500 uppercase mb-2">ISH BERUVCHI</p>
+                      <p className="text-xs font-black text-gray-500 uppercase mb-2">BUYURTMACHI</p>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                           <User size={16} className="text-green-600" />
@@ -421,7 +421,7 @@ export default function SuperAdminContractsPage() {
                           </p>
                         </div>
                         <div className={`p-3 rounded-xl ${contract.signatures.employer ? 'bg-green-50' : 'bg-gray-50'}`}>
-                          <p className="text-xs font-bold text-gray-600 mb-1">Ish beruvchi</p>
+                          <p className="text-xs font-bold text-gray-600 mb-1">Buyurtmachi</p>
                           <p className={`text-xs font-bold ${contract.signatures.employer ? 'text-green-600' : 'text-gray-400'}`}>
                             {contract.signatures.employer ? '✓ Imzolandi' : '- Imzosiz'}
                           </p>

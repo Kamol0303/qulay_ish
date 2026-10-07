@@ -84,7 +84,7 @@ export default function SubscriptionBlock() {
           <h2 className="text-2xl font-black text-gray-900">Obuna muddati tugagan</h2>
           <p className="mt-2 text-sm text-gray-600">
             Bu sahifadan foydalanishni davom ettirish uchun oylik to'lovni amalga oshiring.
-            Ishchi va ish beruvchilar uchun platforma har doim bepul.
+            Ishchi va buyurtmachilar uchun platforma har doim bepul.
           </p>
         </div>
 
