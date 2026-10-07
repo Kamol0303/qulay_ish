@@ -113,7 +113,14 @@ export class OtpService {
         : undefined;
 
     let existingMeta:
-      | { passwordHash?: string; purpose?: string; firstName?: string; lastName?: string }
+      | {
+          passwordHash?: string;
+          purpose?: string;
+          firstName?: string;
+          lastName?: string;
+          profession?: string;
+          educationLevel?: string;
+        }
       | undefined;
     let registerName: { firstName: string; lastName: string; fullName: string } | undefined;
 
@@ -137,6 +144,13 @@ export class OtpService {
         passwordHash: await bcrypt.hash(dto.password, 10),
         firstName: registerName.firstName,
         lastName: registerName.lastName,
+        // Workers may share their specialty + education level at sign-up
+        ...(safeRole === UserRole.worker && dto.profession?.trim()
+          ? { profession: dto.profession.trim().slice(0, 80) }
+          : {}),
+        ...(safeRole === UserRole.worker && dto.educationLevel
+          ? { educationLevel: dto.educationLevel }
+          : {}),
       };
     } else if (purpose === 'reset') {
       const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
@@ -290,7 +304,13 @@ export class OtpService {
       const email = `${phone.replace(/\D/g, '')}@mexrliqollar.uz`;
       const meta = (session.metadata && typeof session.metadata === 'object'
         ? session.metadata
-        : {}) as { passwordHash?: string; firstName?: string; lastName?: string };
+        : {}) as {
+        passwordHash?: string;
+        firstName?: string;
+        lastName?: string;
+        profession?: string;
+        educationLevel?: string;
+      };
       if (!meta.passwordHash) {
         throw new BadRequestException(
           'Parol topilmadi. Ro\'yxatdan o\'tishni qaytadan boshlang va OTP oling.',
@@ -315,6 +335,12 @@ export class OtpService {
           region: 'Samarqand viloyati',
           isVerified: false,
           verificationStatus: 'none',
+          ...(role === UserRole.worker && meta.profession
+            ? { profession: meta.profession, skills: [meta.profession] }
+            : {}),
+          ...(role === UserRole.worker && meta.educationLevel
+            ? { educationLevel: meta.educationLevel }
+            : {}),
         },
       });
     }

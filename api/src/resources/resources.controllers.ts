@@ -9,6 +9,8 @@ import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
 import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util';
 import { normalizeNameInput } from '../common/name.util';
 import { isValidLatLng, boundingBox, haversineKm, approxDistanceLabel } from '../common/geo.util';
+import { clampStars, foldRating } from '../common/rating.util';
+import { DevSmsService } from '../auth/devsms.service';
 import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
 
@@ -266,7 +268,7 @@ export class UsersController {
 
     const allowed = [
       'fullName', 'firstName', 'lastName', 'email', 'phoneNumber', 'region', 'district', 'neighborhood',
-      'bio', 'skills', 'photoUrl', 'coverUrl', 'telegram', 'languages',
+      'bio', 'skills', 'profession', 'educationLevel', 'photoUrl', 'coverUrl', 'telegram', 'languages',
       'availability', 'lookingForWork', 'professionalSummary', 'preferredContact',
       'experienceLevel', 'education', 'experience', 'certificates', 'portfolio',
       'resumeTemplate', 'companyName', 'businessType', 'industry',
@@ -499,7 +501,21 @@ export class JobsController {
 
 @Controller('applications')
 export class ApplicationsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly devSms: DevSmsService,
+  ) {}
+
+  /** A worker is "busy" while they still have an accepted (not completed) job. */
+  private async findActiveAssignment(workerId: string, exceptId?: string) {
+    return this.prisma.application.findFirst({
+      where: {
+        workerId,
+        status: 'accepted',
+        ...(exceptId ? { NOT: { id: exceptId } } : {}),
+      },
+    });
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -562,6 +578,14 @@ export class ApplicationsController {
     });
     if (existing) {
       throw new BadRequestException('Siz allaqachon bu ishga ariza yuborgansiz');
+    }
+
+    // A worker who is already busy with an accepted job cannot take another one.
+    const busyWith = await this.findActiveAssignment(workerId);
+    if (busyWith) {
+      throw new BadRequestException(
+        'Siz hozir boshqa ish bilan bandsiz. Avval joriy ishni yakunlang.',
+      );
     }
 
     const coverLetter = String(body.coverLetter || '');
@@ -656,14 +680,41 @@ export class ApplicationsController {
     if (!isEmployer && !isAdmin) throw new ForbiddenException();
 
     const status = body.status as string | undefined;
+
+    // Completion has its own endpoint (worker-driven) — don't allow it via this PATCH.
+    if (status === 'completed') {
+      throw new BadRequestException(
+        'Ishni yakunlash uchun /applications/:id/complete dan foydalaning',
+      );
+    }
+
+    // Accepting hires the worker: make sure they aren't already busy elsewhere.
+    if (status === 'accepted' && existing.status !== 'accepted') {
+      const busyWith = await this.findActiveAssignment(existing.workerId, existing.id);
+      if (busyWith) {
+        throw new BadRequestException(
+          'Bu ishchi hozir boshqa ish bilan band. Avval joriy ishni yakunlashi kerak.',
+        );
+      }
+    }
+
     const updated = await this.prisma.application.update({
       where: { id },
       data: {
         ...(status ? { status: status as any } : {}),
+        ...(status === 'accepted' ? { acceptedAt: new Date() } : {}),
         ...(body.message !== undefined ? { message: body.message as string } : {}),
         ...(body.coverLetter !== undefined ? { coverLetter: body.coverLetter as string } : {}),
       },
     });
+
+    // Mark the worker busy on accept so they stop appearing as available.
+    if (status === 'accepted' && existing.status !== 'accepted') {
+      await this.prisma.user.update({
+        where: { id: existing.workerId },
+        data: { availability: 'busy' },
+      }).catch(() => undefined);
+    }
 
     if (status === 'accepted' || status === 'rejected') {
       await this.prisma.notification.create({
@@ -681,6 +732,95 @@ export class ApplicationsController {
         },
       });
     }
+
+    return updated;
+  }
+
+  /**
+   * Worker marks their accepted job as finished. This frees the worker (available
+   * again), bumps completedJobs, texts the employer that the job is done, and
+   * prompts the employer in-app to rate the worker.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/complete')
+  async complete(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    const app = await this.prisma.application.findUnique({ where: { id } });
+    if (!app) throw new NotFoundException('Ariza topilmadi');
+
+    const isOwnerWorker = app.workerId === req.user.userId;
+    if (!isOwnerWorker && !isStaff(req.user.role)) {
+      throw new ForbiddenException('Ishni faqat uni bajargan ishchi yakunlaydi');
+    }
+    if (app.status === 'completed') {
+      throw new BadRequestException('Bu ish allaqachon yakunlangan');
+    }
+    if (app.status !== 'accepted') {
+      throw new BadRequestException('Faqat qabul qilingan ishni yakunlash mumkin');
+    }
+
+    const updated = await this.prisma.application.update({
+      where: { id },
+      data: { status: 'completed', completedAt: new Date() },
+    });
+
+    // Free the worker and credit the finished job.
+    await this.prisma.user.update({
+      where: { id: app.workerId },
+      data: { availability: 'available', completedJobs: { increment: 1 } },
+    }).catch(() => undefined);
+
+    const jobTitle = app.jobTitle || 'ish';
+    const workerName = app.workerName || 'Ishchi';
+
+    // In-app prompt for the employer to rate the worker.
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: app.employerId,
+        title: 'Ish yakunlandi',
+        message: `${workerName} "${jobTitle}" ishini yakunladi. Iltimos, ishchini baholang.`,
+        type: 'application',
+        link: `/employer/applicants?review=${app.id}`,
+        read: false,
+      },
+    }).catch(() => undefined);
+
+    // Confirmation for the worker.
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: app.workerId,
+        title: 'Ish yakunlandi',
+        message: `Siz "${jobTitle}" ishini yakunladingiz. Buyurtmachi sizni baholaydi.`,
+        type: 'application',
+        link: '/worker/applications',
+        read: false,
+      },
+    }).catch(() => undefined);
+
+    // Best-effort SMS to the employer (never blocks completion).
+    const employer = await this.prisma.user.findUnique({
+      where: { id: app.employerId },
+      select: { phoneNumber: true },
+    });
+    if (employer?.phoneNumber) {
+      void this.devSms
+        .sendNotificationSms(
+          employer.phoneNumber,
+          `Mehrli qollar: ${workerName} "${jobTitle}" ishini yakunladi. Ilovaga kirib ishchini baholang.`,
+        )
+        .catch(() => undefined);
+    }
+
+    await this.prisma.systemLog.create({
+      data: {
+        id: randomUUID(),
+        action: 'COMPLETE_JOB',
+        userId: req.user.userId,
+        details: { applicationId: app.id, workerId: app.workerId, employerId: app.employerId },
+        type: 'info',
+      },
+    }).catch(() => undefined);
 
     return updated;
   }
@@ -1236,9 +1376,88 @@ export class ReviewsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
+    const rating = clampStars(body.rating);
+    if (rating < 1) {
+      throw new BadRequestException('Baho 1 dan 5 gacha yulduz bo\'lishi kerak');
+    }
+    const comment = body.comment != null ? String(body.comment).trim().slice(0, 1000) : null;
+    const applicationId = body.applicationId ? String(body.applicationId) : null;
+
+    let revieweeId = body.revieweeId ? String(body.revieweeId) : '';
+    let application: Awaited<ReturnType<typeof this.prisma.application.findUnique>> = null;
+
+    // When a review is tied to a finished job, only the hiring employer may rate,
+    // the job must be completed, and each completed job can be rated only once.
+    if (applicationId) {
+      application = await this.prisma.application.findUnique({ where: { id: applicationId } });
+      if (!application) throw new NotFoundException('Ariza topilmadi');
+      if (application.employerId !== req.user.userId && !isStaff(req.user.role)) {
+        throw new ForbiddenException('Ishchini faqat uni yollagan buyurtmachi baholaydi');
+      }
+      if (application.status !== 'completed') {
+        throw new BadRequestException('Faqat yakunlangan ishni baholash mumkin');
+      }
+      if (application.reviewed) {
+        throw new BadRequestException('Bu ish allaqachon baholangan');
+      }
+      revieweeId = application.workerId;
+    }
+
+    if (!revieweeId) throw new BadRequestException('revieweeId majburiy');
+    if (revieweeId === req.user.userId) {
+      throw new BadRequestException('O\'zingizni baholay olmaysiz');
+    }
+
+    const reviewee = await this.prisma.user.findUnique({ where: { id: revieweeId } });
+    if (!reviewee) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+    const reviewer = await this.prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { fullName: true },
+    });
+
     const id = (body.id as string) || randomUUID();
-    return this.prisma.review.create({ data: { id, ...body } as any });
+    const created = await this.prisma.review.create({
+      data: {
+        id,
+        reviewerId: req.user.userId,
+        revieweeId,
+        reviewerName: reviewer?.fullName || null,
+        rating,
+        comment,
+        contractId: body.contractId ? String(body.contractId) : null,
+        applicationId,
+      },
+    });
+
+    // Fold the new star rating into the worker's running average.
+    const folded = foldRating(reviewee.rating, reviewee.reviewCount, rating);
+    await this.prisma.user.update({
+      where: { id: revieweeId },
+      data: { rating: folded.rating, reviewCount: folded.reviewCount },
+    });
+
+    if (application) {
+      await this.prisma.application.update({
+        where: { id: application.id },
+        data: { reviewed: true },
+      });
+    }
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: revieweeId,
+        title: 'Yangi baho',
+        message: `Buyurtmachi sizning ishingizni ${rating} yulduz bilan baholadi`,
+        type: 'application',
+        link: '/worker/applications',
+        read: false,
+      },
+    }).catch(() => undefined);
+
+    return created;
   }
 }
 

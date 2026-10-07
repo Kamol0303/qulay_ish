@@ -35,6 +35,7 @@ enum ApplicationStatus {
   accepted
   rejected
   withdrawn
+  completed
 }
 
 enum ContractStatus {
@@ -95,6 +96,10 @@ model User {
   neighborhood       String?
   bio                String?
   skills             String[]           @default([])
+  /** Worker's main specialty/profession (captured at registration) */
+  profession         String?
+  /** Worker's education level (captured at registration): secondary | vocational | bachelor | master | phd | other */
+  educationLevel     String?            @map("education_level")
   photoUrl           String?            @map("photo_url")
   coverUrl           String?            @map("cover_url")
   telegram           String?
@@ -215,6 +220,9 @@ model Application {
   message     String?
   coverLetter String?           @map("cover_letter")
   status      ApplicationStatus @default(pending)
+  acceptedAt  DateTime?         @map("accepted_at")
+  completedAt DateTime?         @map("completed_at")
+  reviewed    Boolean           @default(false)
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
 
@@ -380,12 +388,14 @@ model Review {
   rating       Int
   comment      String?
   contractId   String?  @map("contract_id")
+  applicationId String? @map("application_id")
   createdAt    DateTime @default(now()) @map("created_at")
 
   reviewer User @relation("ReviewsWritten", fields: [reviewerId], references: [id], onDelete: Cascade)
   reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
 
   @@index([revieweeId])
+  @@index([applicationId])
   @@map("reviews")
 }
 

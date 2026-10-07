@@ -256,4 +256,64 @@ export class DevSmsService implements OnModuleInit {
 
     throw lastError ?? new DevSmsError('SEND_FAILED', "SMS yuborib bo'lmadi");
   }
+
+  /**
+   * Best-effort free-text notification SMS (e.g. "worker finished the job").
+   * Never throws — a failed SMS must not block the in-app flow. Returns true
+   * when the provider accepted the message, false otherwise. In dev mode (no
+   * token) the message is only logged.
+   */
+  async sendNotificationSms(phone: string, message: string): Promise<boolean> {
+    ensureApiEnvLoaded();
+    const token = this.getToken();
+    const cleanPhone = this.toDevSmsPhone(phone);
+    const text = message.trim().slice(0, 500);
+    if (!cleanPhone || !text) return false;
+
+    if (!token) {
+      if (this.isDevMode()) {
+        this.logger.warn(`[DEV SMS] ${phone} → ${text}`);
+        return true;
+      }
+      this.logger.error('DEVSMS_TOKEN yo\'q — bildirishnoma SMS yuborilmadi');
+      return false;
+    }
+
+    const url = `${this.getBaseUrl()}/send_sms.php`;
+    for (const serviceName of this.getServiceNames()) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            phone: cleanPhone,
+            type: 'sms',
+            service_name: serviceName,
+            message: text,
+            text,
+          }),
+        });
+        const data = (await res.json().catch(() => null)) as DevSmsResponse | null;
+        if (res.ok && data?.success) {
+          this.logger.log(`Bildirishnoma SMS yuborildi: ${cleanPhone}`);
+          return true;
+        }
+        this.logger.warn(
+          `Bildirishnoma SMS rad etildi (service="${serviceName}", ${res.status}): ${
+            data?.error || data?.message || 'noma\'lum'
+          }`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Bildirishnoma SMS xatosi (service="${serviceName}"): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+    return false;
+  }
 }
