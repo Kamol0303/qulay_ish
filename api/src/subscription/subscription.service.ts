@@ -13,7 +13,7 @@ import {
   PAYMENT_OTP_MAX_ATTEMPTS,
   PAYMENT_OTP_RATE_LIMIT_MS,
   PAYMENT_OTP_TTL_MS,
-  pickRoundPrice,
+  monthlyPrice,
   snapPrice,
   SUBSCRIPTION_FREE_DAYS,
   SUBSCRIPTION_GRACE_DAYS,
@@ -51,15 +51,17 @@ export class SubscriptionService {
   ) {}
 
   /**
-   * Seed price (som). If SUBSCRIPTION_PRICE is set in .env it is used (clamped and
-   * snapped to a round step); otherwise a random round price in 240000–300000 is
-   * generated so each fresh install gets its own value ending in 000.
+   * Resolve the price (som) to display. Priority:
+   *   1. SUBSCRIPTION_PRICE in .env (fixed, snapped to a round step);
+   *   2. an explicit Super Admin override stored on the row;
+   *   3. otherwise an auto "price of the month" that changes every month,
+   *      always a round value in 250000–450000.
    */
-  private envPrice(): number {
+  private resolvePrice(priceOverride: number | null): number {
     const raw = Number(process.env.SUBSCRIPTION_PRICE);
-    return Number.isFinite(raw) && raw > 0
-      ? snapPrice(raw)
-      : pickRoundPrice((steps) => randomInt(0, steps + 1));
+    if (Number.isFinite(raw) && raw > 0) return snapPrice(raw);
+    if (priceOverride != null) return snapPrice(priceOverride);
+    return monthlyPrice();
   }
 
   /** Lazily create the singleton row with a fresh free trial. */
@@ -74,13 +76,22 @@ export class SubscriptionService {
         id: 'platform',
         status: 'active',
         freeUntil: addDays(now, SUBSCRIPTION_FREE_DAYS),
-        priceSom: this.envPrice(),
+        priceSom: this.resolvePrice(null),
       },
     });
   }
 
   async getSnapshot(): Promise<SubscriptionSnapshot> {
     const row = await this.ensureRow();
+
+    // Keep the stored price in sync with the resolved (possibly monthly) value.
+    const priceSom = this.resolvePrice(row.priceOverride);
+    if (row.priceSom !== priceSom) {
+      await this.prisma.platformSubscription
+        .update({ where: { id: 'platform' }, data: { priceSom } })
+        .catch(() => undefined);
+    }
+
     const now = Date.now();
     const effectiveUntil = row.paidUntil ?? row.freeUntil ?? null;
     const effMs = effectiveUntil ? effectiveUntil.getTime() : 0;
@@ -117,7 +128,7 @@ export class SubscriptionService {
       paidUntil: row.paidUntil,
       effectiveUntil,
       lastPaymentAt: row.lastPaymentAt,
-      priceSom: row.priceSom,
+      priceSom,
       daysRemaining,
       graceDaysRemaining,
       inWarningWindow,
@@ -130,12 +141,16 @@ export class SubscriptionService {
     return snap.blocked;
   }
 
+  /**
+   * Super Admin sets a fixed price. This records an explicit override so the
+   * price stops auto-varying monthly until the override is cleared.
+   */
   async setPrice(priceSom: number): Promise<SubscriptionSnapshot> {
     const clamped = snapPrice(priceSom);
     await this.ensureRow();
     await this.prisma.platformSubscription.update({
       where: { id: 'platform' },
-      data: { priceSom: clamped },
+      data: { priceSom: clamped, priceOverride: clamped },
     });
     return this.getSnapshot();
   }

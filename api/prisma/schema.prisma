@@ -552,7 +552,9 @@ model PlatformSubscription {
   freeUntil     DateTime? @map("free_until")
   paidUntil     DateTime? @map("paid_until")
   lastPaymentAt DateTime? @map("last_payment_at")
-  priceSom      Int       @default(240000) @map("price_som")
+  priceSom      Int       @default(250000) @map("price_som")
+  /** Explicit admin override; when null the price auto-varies each month. */
+  priceOverride Int?      @map("price_override")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

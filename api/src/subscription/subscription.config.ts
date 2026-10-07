@@ -8,11 +8,11 @@ export const SUBSCRIPTION_WARNING_DAYS = 7;
 export const SUBSCRIPTION_PERIOD_DAYS = 30;
 
 /** Admin-configurable price bounds (som). */
-export const PRICE_MIN = 240_000;
-export const PRICE_MAX = 300_000;
-/** Prices are always a round multiple of this step (…240000, 250000, …, 300000). */
+export const PRICE_MIN = 250_000;
+export const PRICE_MAX = 450_000;
+/** Prices are always a round multiple of this step (…250000, 260000, …, 450000). */
 export const PRICE_STEP = 10_000;
-export const PRICE_DEFAULT = 240_000;
+export const PRICE_DEFAULT = 250_000;
 
 /** Clamp into [PRICE_MIN, PRICE_MAX] and snap to the nearest round step (ends in 000). */
 export function snapPrice(value: number): number {
@@ -28,6 +28,25 @@ export function snapPrice(value: number): number {
 export function pickRoundPrice(randomStep: (steps: number) => number): number {
   const steps = Math.floor((PRICE_MAX - PRICE_MIN) / PRICE_STEP);
   const idx = Math.min(steps, Math.max(0, Math.floor(randomStep(steps))));
+  return PRICE_MIN + idx * PRICE_STEP;
+}
+
+/**
+ * Deterministic "price of the month" — stable within a given calendar month but
+ * different from one month to the next. Always a round multiple of PRICE_STEP in
+ * [PRICE_MIN, PRICE_MAX]. Used when no explicit price is configured so the shown
+ * subscription price keeps changing each month on its own.
+ */
+export function monthlyPrice(date: Date = new Date()): number {
+  const steps = Math.floor((PRICE_MAX - PRICE_MIN) / PRICE_STEP);
+  const key = `${date.getUTCFullYear()}-${date.getUTCMonth() + 1}`;
+  // FNV-1a 32-bit hash of the year-month → stable pseudo-random step index.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  const idx = (h >>> 0) % (steps + 1);
   return PRICE_MIN + idx * PRICE_STEP;
 }
 
