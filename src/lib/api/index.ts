@@ -1,4 +1,4 @@
-import { apiRequest, setAccessToken, clearAccessToken, toQuery } from './client';
+import { apiRequest, setAccessToken, clearAccessToken, toQuery, API_BASE, getAccessToken } from './client';
 import { ensureArray } from './errors';
 import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost, WorkerPersonalInfo, WorkerCoreIndicators } from '../../types';
 
@@ -289,6 +289,55 @@ export const api = {
       return apiRequest<{ locationSharingEnabled: boolean }>(`/users/${id}/location`, {
         method: 'DELETE',
       });
+    },
+  },
+
+  admin: {
+    /** Streams a server-generated .xlsx of users and triggers a browser download. */
+    async exportUsersXlsx(params?: {
+      role?: string;
+      region?: string;
+      district?: string;
+      verificationStatus?: string;
+      search?: string;
+      ids?: string[];
+    }) {
+      const query = stringifyParams({
+        role: params?.role,
+        region: params?.region,
+        district: params?.district,
+        verificationStatus: params?.verificationStatus,
+        search: params?.search,
+        ids: params?.ids?.length ? params.ids.join(',') : undefined,
+      });
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/admin/export/users.xlsx${toQuery(query)}`, {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        let message = `Export ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body?.message) message = Array.isArray(body.message) ? body.message.join(', ') : String(body.message);
+        } catch {
+          /* non-JSON error body */
+        }
+        throw new Error(message);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="?([^"]+)"?/i);
+      const filename = match?.[1] || `users-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      return { filename };
     },
   },
 

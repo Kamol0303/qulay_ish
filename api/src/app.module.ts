@@ -7,6 +7,7 @@ import { ResourcesModule } from './resources/resources.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { VerificationModule } from './verification/verification.module';
 import { EmployerModule } from './employer/employer.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { EmployerModule } from './employer/employer.module';
     UploadsModule,
     VerificationModule,
     EmployerModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

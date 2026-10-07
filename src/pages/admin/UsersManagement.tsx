@@ -6,7 +6,7 @@ import { Profile } from '../../types';
 import {
   Users, Search, UserX, CheckCircle, Mail, Phone,
   Clock, AlertTriangle, Eye, ShieldCheck, ShieldOff,
-  X, Trash2, MapPin, Calendar, Loader
+  X, Trash2, MapPin, Calendar, Loader, Download
 } from 'lucide-react';
 import { format, type Locale } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
@@ -300,8 +300,29 @@ export default function UsersManagement() {
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [confirm, setConfirm] = useState<{ message: string; action: () => Promise<void> } | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const showToast = (msg: string, type: 'success' | 'error') => setToast({ msg, type });
+
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await api.admin.exportUsersXlsx({
+        role: roleFilter !== 'all' ? roleFilter : undefined,
+        verificationStatus:
+          verificationFilter === 'verified'
+            ? 'verified'
+            : undefined,
+        search: search.trim() || undefined,
+      });
+      showToast('Excel fayl yuklandi', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Eksport xatosi', 'error');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   // Keep a ref to current users so applyUserPatch can read it without stale closure
   const usersRef = React.useRef<Profile[]>([]);
@@ -429,9 +450,21 @@ export default function UsersManagement() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t('admin.users.title')}</h1>
-          <p className="text-gray-600 text-sm mt-1">{t('admin.users.subtitle')}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t('admin.users.title')}</h1>
+            <p className="text-gray-600 text-sm mt-1">{t('admin.users.subtitle')}</p>
+          </div>
+          {canEditPersonalInfo && (
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {exporting ? <Loader size={16} className="animate-spin" /> : <Download size={16} />}
+              Excel eksport
+            </button>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-4">
