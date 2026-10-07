@@ -21,6 +21,10 @@
 #   ./run.sh build           # web build + api build + apk + aab + ios(sync)  [bor platformalar]
 #   ./run.sh all             # build + macOS boʻlsa ios:archive ham
 #
+#   ./run.sh deploy          # SERVER: Docker bilan DB + API + web (bitta buyruq)
+#   ./run.sh deploy:logs     # Docker loglar
+#   ./run.sh deploy:down     # Docker to'xtatish
+#
 # Natijalar: ./artifacts/ papkasida (APK/AAB/IPA).
 #
 set -uo pipefail
@@ -92,6 +96,19 @@ case "$CMD" in
 
   ios|ios:sync)  ios_sync ;;
   ios:archive)   ios_archive ;;
+
+  deploy)
+    if [[ ! -f "$ROOT/.env" ]]; then
+      bold "⚠  .env topilmadi. Avval serverda:  cp .env.server.example .env  va qiymatlarni to'ldiring."
+      exit 1
+    fi
+    hr "Docker: DB + API + web (build & up)"
+    docker compose up -d --build
+    echo ""
+    bold "Tayyor. Sayt: http://<server-ip>:${WEB_PORT:-80}  (API: /api)"
+    ;;
+  deploy:logs)  docker compose logs -f ;;
+  deploy:down)  docker compose down ;;
 
   build|all)
     run_step "Frontend build (web)" web_build

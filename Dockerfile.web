@@ -1,0 +1,28 @@
+# Mehrli qoʻllar — Frontend (Vite build) served by nginx, /api proxied to the API
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+# Build-time config (web talks to the API through the same origin: /api)
+ARG VITE_API_URL=/api
+ARG VITE_SUPER_ADMIN_PHONE=
+ARG VITE_SUPER_ADMIN_PASSWORD=
+ARG VITE_SUPER_ADMIN_EMAIL=
+ARG VITE_USE_EMULATOR=false
+ARG VITE_AI_MOCK_MODE=false
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_SUPER_ADMIN_PHONE=$VITE_SUPER_ADMIN_PHONE \
+    VITE_SUPER_ADMIN_PASSWORD=$VITE_SUPER_ADMIN_PASSWORD \
+    VITE_SUPER_ADMIN_EMAIL=$VITE_SUPER_ADMIN_EMAIL \
+    VITE_USE_EMULATOR=$VITE_USE_EMULATOR \
+    VITE_AI_MOCK_MODE=$VITE_AI_MOCK_MODE
+RUN npm run build
+
+FROM nginx:1.27-alpine
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80

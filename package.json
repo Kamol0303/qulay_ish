@@ -6,6 +6,7 @@
   "scripts": {
     "start": "bash run.sh",
     "all": "bash run.sh all",
+    "deploy": "bash run.sh deploy",
     "android": "bash run.sh android",
     "aab": "bash run.sh aab",
     "dev": "bash scripts/dev.sh",
