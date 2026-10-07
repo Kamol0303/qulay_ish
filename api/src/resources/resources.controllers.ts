@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
 import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util';
 import { normalizeNameInput } from '../common/name.util';
-import { isValidLatLng } from '../common/geo.util';
+import { isValidLatLng, boundingBox, haversineKm, approxDistanceLabel } from '../common/geo.util';
 import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
 
@@ -202,8 +202,8 @@ export class UsersController {
     }
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
-    if (user.role !== 'worker') {
-      throw new BadRequestException('Lokatsiya faqat ishchi uchun');
+    if (user.role !== 'worker' && user.role !== 'employer') {
+      throw new BadRequestException('Lokatsiya faqat ishchi yoki ish beruvchi uchun');
     }
     const enabled = body.enabled !== false;
     if (enabled) {
@@ -342,6 +342,84 @@ export class JobsController {
     if (query.status) where.status = query.status;
     if (query.region) where.region = query.region;
     return this.prisma.job.findMany({ where: where as any, orderBy: { createdAt: 'desc' } });
+  }
+
+  /**
+   * Open jobs near a worker's current location. The job's location is taken from
+   * its employer's opted-in shared coordinates (location_sharing_enabled). We do a
+   * bounding-box prefilter in SQL and the exact Haversine distance in JS. Workers
+   * receive only an approximate distance — never the employer's exact coordinates.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('nearby')
+  async nearby(
+    @Query('lat') latRaw?: string,
+    @Query('lng') lngRaw?: string,
+    @Query('radius_km') radiusRaw?: string,
+    @Query('category') category?: string,
+    @Query('region') region?: string,
+    @Query('page') pageRaw?: string,
+    @Query('pageSize') pageSizeRaw?: string,
+  ) {
+    const lat = Number(latRaw);
+    const lng = Number(lngRaw);
+    if (!isValidLatLng(lat, lng)) {
+      throw new BadRequestException('lat/lng noto\'g\'ri yoki yetishmayapti');
+    }
+    const radiusKm = Math.min(300, Math.max(1, Math.floor(Number(radiusRaw) || 30)));
+    const take = Math.min(100, Math.max(1, Math.floor(Number(pageSizeRaw) || 20)));
+    const currentPage = Math.max(1, Math.floor(Number(pageRaw) || 1));
+
+    const box = boundingBox(lat, lng, radiusKm);
+    const where: Record<string, unknown> = {
+      status: { in: ['active', 'open'] },
+      employer: {
+        is: {
+          locationSharingEnabled: true,
+          latitude: { gte: box.minLat, lte: box.maxLat },
+          longitude: { gte: box.minLng, lte: box.maxLng },
+        },
+      },
+    };
+    if (category) where.category = category;
+    if (region) where.region = region;
+
+    const rows = await this.prisma.job.findMany({
+      where: where as any,
+      include: { employer: { select: { latitude: true, longitude: true } } },
+      take: 2000,
+    });
+
+    const withDistance = (rows as any[])
+      .filter((j) => j.employer?.latitude != null && j.employer?.longitude != null)
+      .map((j) => ({
+        job: j,
+        distanceKm: haversineKm(lat, lng, j.employer.latitude, j.employer.longitude),
+      }))
+      .filter((x) => x.distanceKm <= radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+
+    const total = withDistance.length;
+    const start = (currentPage - 1) * take;
+    const pageItems = withDistance.slice(start, start + take);
+
+    const data = pageItems.map(({ job, distanceKm }) => {
+      const { employer: _employer, ...jobFields } = job;
+      return {
+        ...jobFields,
+        distanceKm: Math.round(distanceKm * 10) / 10,
+        distanceLabel: approxDistanceLabel(distanceKm),
+      };
+    });
+
+    return {
+      data,
+      total,
+      page: currentPage,
+      pageSize: take,
+      totalPages: Math.ceil(total / take),
+      radiusKm,
+    };
   }
 
   @Get(':id')
