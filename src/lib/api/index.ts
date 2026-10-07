@@ -26,6 +26,25 @@ export interface EmployerWorker {
   distanceLabel?: string;
 }
 
+export interface AiMatchWorker {
+  uid: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string;
+  photoUrl: string | null;
+  phoneNumber: string | null;
+  region: string;
+  district: string | null;
+  skills: string[];
+  experienceLevel: string | null;
+  isVerified: boolean;
+  rating: number;
+  matchScore: number;
+  matchedSkills: string[];
+  distanceKm?: number;
+  distanceLabel?: string;
+}
+
 export type SubscriptionStatusValue = 'active' | 'grace' | 'expired';
 
 export interface SubscriptionStatusResponse {
@@ -308,6 +327,52 @@ export const api = {
       return apiRequest<{ locationSharingEnabled: boolean }>(`/users/${id}/location`, {
         method: 'DELETE',
       });
+    },
+  },
+
+  ai: {
+    status() {
+      return apiRequest<{ live: boolean; provider: string }>('/ai/status');
+    },
+    vacancy(body: {
+      title?: string;
+      category?: string;
+      description?: string;
+      requirements?: string[];
+      region?: string;
+      salary?: number | string;
+      language?: string;
+    }) {
+      return apiRequest<{ text: string; provider: string }>('/ai/employer/vacancy', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+    match(body: {
+      profession?: string;
+      skills?: string[];
+      region?: string;
+      lat?: number;
+      lng?: number;
+      radiusKm?: number;
+      limit?: number;
+    }) {
+      return apiRequest<{ data: AiMatchWorker[]; total: number; aiProvider: string }>(
+        '/ai/employer/match',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+    },
+    resume(body?: { userId?: string; language?: string }) {
+      return apiRequest<{ text: string; provider: string }>('/ai/worker/resume', {
+        method: 'POST',
+        body: JSON.stringify(body ?? {}),
+      });
+    },
+    riskSummary(userId: string, language?: string) {
+      return apiRequest<{ text: string; provider: string; advisory: boolean }>(
+        `/ai/admin/risk-summary/${userId}`,
+        { method: 'POST', body: JSON.stringify({ language }) },
+      );
     },
   },
 

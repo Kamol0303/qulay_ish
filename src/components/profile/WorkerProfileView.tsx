@@ -27,6 +27,7 @@ import { EducationEditor, ExperienceEditor } from './TimelineEditors';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
 import { PersonalInfoCard } from './PersonalInfoCard';
 import { LocationSharingCard } from './LocationSharingCard';
+import { ResumeAiCard } from './ResumeAiCard';
 const WORKER_TABS_BASE = [
   { id: 'overview' as const, label: 'Umumiy' },
   { id: 'experience' as const, label: 'Tajriba' },
@@ -528,6 +529,7 @@ export function WorkerProfileView({
                 updatedAt={draft.locationUpdatedAt}
               />
             )}
+            {editable && <ResumeAiCard userId={draft.uid} />}
           </div>
         )}
       </motion.div>

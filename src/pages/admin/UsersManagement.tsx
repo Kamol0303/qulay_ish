@@ -20,6 +20,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { PersonalInfoCard } from '../../components/profile/PersonalInfoCard';
 import { CoreIndicatorsCard } from '../../components/profile/CoreIndicatorsCard';
+import { RiskSummaryAiCard } from '../../components/profile/RiskSummaryAiCard';
 
 // Safe date parser
 function safeDate(val: any): Date | null {
@@ -226,6 +227,7 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
                 value={user.coreIndicators}
                 editable
               />
+              <RiskSummaryAiCard userId={user.uid} />
             </div>
           )}
         </div>

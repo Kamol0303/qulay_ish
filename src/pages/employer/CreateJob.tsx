@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { REGIONS, DISTRICTS } from '../../constants/locations';
 import { CATEGORIES } from '../../constants/categories';
-import { Briefcase, MapPin, DollarSign, Calendar, FileText, Plus, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Briefcase, MapPin, DollarSign, Calendar, FileText, Plus, X, CheckCircle, AlertCircle, Sparkles, Loader } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../hooks/useAuth';
+import { api } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
 import { jobService } from '../../services/jobService';
@@ -20,7 +21,29 @@ export default function CreateJob() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const verified = isIdentityVerified(profile);
+
+  const handleAiVacancy = async () => {
+    setAiLoading(true);
+    setError(null);
+    try {
+      const res = await api.ai.vacancy({
+        title: formData.title,
+        category: formData.category,
+        description: formData.description,
+        requirements: formData.requirements,
+        region: formData.region || 'Samarqand viloyati',
+        salary: formData.price,
+        language: 'uz',
+      });
+      setFormData((prev) => ({ ...prev, description: res.text }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error_occurred'));
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -188,7 +211,18 @@ export default function CreateJob() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{t('jobs.description')}</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">{t('jobs.description')}</label>
+                      <button
+                        type="button"
+                        onClick={handleAiVacancy}
+                        disabled={aiLoading}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-100 disabled:opacity-50"
+                      >
+                        {aiLoading ? <Loader size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                        AI yordam
+                      </button>
+                    </div>
                     <textarea
                       required
                       rows={4}
