@@ -26,6 +26,25 @@ export interface EmployerWorker {
   distanceLabel?: string;
 }
 
+export type SubscriptionStatusValue = 'active' | 'grace' | 'expired';
+
+export interface SubscriptionStatusResponse {
+  status: SubscriptionStatusValue;
+  freeUntil: string | null;
+  paidUntil: string | null;
+  effectiveUntil: string | null;
+  lastPaymentAt: string | null;
+  priceSom: number;
+  daysRemaining: number;
+  graceDaysRemaining: number;
+  inWarningWindow: boolean;
+  blocked: boolean;
+  priceRange: { min: number; max: number };
+  warningDays: number;
+  graceDays: number;
+  blockedPaths: string[];
+}
+
 export interface EmployerWorkersResponse {
   data: EmployerWorker[];
   total: number;
@@ -288,6 +307,36 @@ export const api = {
     clearLocation(id: string) {
       return apiRequest<{ locationSharingEnabled: boolean }>(`/users/${id}/location`, {
         method: 'DELETE',
+      });
+    },
+  },
+
+  subscription: {
+    status() {
+      return apiRequest<SubscriptionStatusResponse>('/admin/subscription/status');
+    },
+    setPrice(priceSom: number) {
+      return apiRequest<SubscriptionStatusResponse>('/admin/subscription/price', {
+        method: 'POST',
+        body: JSON.stringify({ priceSom }),
+      });
+    },
+    pay() {
+      return apiRequest<{ cardNumber: string; amount: number }>('/admin/subscription/pay', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+    },
+    requestOtp() {
+      return apiRequest<{ sent: true; maskedPhone: string; expiresInMs: number }>(
+        '/admin/subscription/paid',
+        { method: 'POST', body: JSON.stringify({}) },
+      );
+    },
+    verifyOtp(code: string) {
+      return apiRequest<SubscriptionStatusResponse>('/admin/subscription/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ code }),
       });
     },
   },

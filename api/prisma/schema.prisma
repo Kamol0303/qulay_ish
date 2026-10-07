@@ -530,3 +530,41 @@ model RefreshToken {
   @@index([userId])
   @@map("refresh_tokens")
 }
+
+/**
+ * Platform-level subscription (Super Admin only). Workers/employers are always
+ * free and never affected. Secrets (card number, owner OTP phone) live in .env;
+ * only non-secret state is stored here.
+ */
+model PlatformSubscription {
+  id            String    @id @default("platform")
+  status        String    @default("active") // active | grace | expired
+  freeUntil     DateTime? @map("free_until")
+  paidUntil     DateTime? @map("paid_until")
+  lastPaymentAt DateTime? @map("last_payment_at")
+  priceSom      Int       @default(240000) @map("price_som")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("platform_subscription")
+}
+
+/**
+ * One-time 6-digit OTP for confirming a subscription payment. Only the bcrypt
+ * hash is stored. Short TTL, single use, attempt-locked. Code is sent via SMS
+ * to the owner phone (OWNER_OTP_PHONE in .env) — never returned by the API.
+ */
+model PaymentOtp {
+  id          String   @id @default(cuid())
+  codeHash    String   @map("code_hash")
+  requestedBy String   @map("requested_by")
+  attempts    Int      @default(0)
+  consumed    Boolean  @default(false)
+  locked      Boolean  @default(false)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@index([requestedBy, createdAt])
+  @@map("payment_otps")
+}

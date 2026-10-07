@@ -44,6 +44,7 @@ import WorkerContracts from './pages/worker/Contracts';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ChatAssistant from './components/ChatAssistant';
 import OfflineBanner from './components/OfflineBanner';
@@ -233,9 +234,11 @@ export default function App() {
     <ThemeProvider>
       <Router>
         <AuthProvider>
-          <ErrorBoundary>
-            <AppShell />
-          </ErrorBoundary>
+          <SubscriptionProvider>
+            <ErrorBoundary>
+              <AppShell />
+            </ErrorBoundary>
+          </SubscriptionProvider>
         </AuthProvider>
       </Router>
     </ThemeProvider>

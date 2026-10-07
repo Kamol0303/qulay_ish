@@ -9,6 +9,8 @@ import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
 import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util';
 import { normalizeNameInput } from '../common/name.util';
 import { isValidLatLng } from '../common/geo.util';
+import { SubscriptionGuard } from '../subscription/subscription.guard';
+import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
 
 type AuthUser = { userId: string; role: string };
 
@@ -1320,8 +1322,9 @@ export class SettingsController {
     return this.prisma.globalSettings.findUnique({ where: { id: 'global_config' } });
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
   @Roles('super_admin')
+  @RequiresSubscription()
   @Patch('global')
   async updateGlobal(@Body() body: Record<string, unknown>) {
     return this.prisma.globalSettings.upsert({

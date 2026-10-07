@@ -10,6 +10,9 @@ import { cn, normalizeLanguageCode } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useIsMobileUi } from '../hooks/useIsMobileUi';
+import { useSubscription } from '../context/SubscriptionContext';
+import SubscriptionBanner from './subscription/SubscriptionBanner';
+import SubscriptionBlock from './subscription/SubscriptionBlock';
 
 export default function DashboardLayout({ children, title }: { children: React.ReactNode, title?: string }) {
   const { profile, loading } = useAuth();
@@ -18,6 +21,17 @@ export default function DashboardLayout({ children, title }: { children: React.R
   const [unreadCount, setUnreadCount] = React.useState(0);
   const location = useLocation();
   const mobileUi = useIsMobileUi();
+  const { isPathBlocked } = useSubscription();
+  const isSuperAdmin = profile?.role === 'super_admin';
+  const blocked = isSuperAdmin && isPathBlocked(location.pathname);
+  const subscriptionContent = isSuperAdmin ? (
+    <>
+      <SubscriptionBanner />
+      {blocked ? <SubscriptionBlock /> : children}
+    </>
+  ) : (
+    children
+  );
 
   React.useEffect(() => {
     if (!profile?.uid) return;
@@ -78,7 +92,7 @@ export default function DashboardLayout({ children, title }: { children: React.R
             {title && <h1 className="text-lg font-black truncate">{title}</h1>}
           </div>
         )}
-        <div className="px-4 py-3 pb-6">{children}</div>
+        <div className="px-4 py-3 pb-6">{subscriptionContent}</div>
       </div>
     );
   }
@@ -181,7 +195,7 @@ export default function DashboardLayout({ children, title }: { children: React.R
 
         <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-background/50">
           {/* Plain container — motion remount/opacity flicker breaks chat input focus */}
-          {children}
+          {subscriptionContent}
         </div>
       </main>
     </div>

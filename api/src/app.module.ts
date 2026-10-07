@@ -8,6 +8,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { VerificationModule } from './verification/verification.module';
 import { EmployerModule } from './employer/employer.module';
 import { AdminModule } from './admin/admin.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AdminModule } from './admin/admin.module';
     VerificationModule,
     EmployerModule,
     AdminModule,
+    SubscriptionModule,
   ],
 })
 export class AppModule {}
