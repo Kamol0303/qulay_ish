@@ -24,6 +24,7 @@ import {
   UZ_PHONE_E164,
 } from './otp.constants';
 import { normalizeNameInput, splitFullName } from '../common/name.util';
+import { isValidDistrictId } from '../common/samarqand-districts';
 
 @Injectable()
 export class OtpService {
@@ -120,6 +121,7 @@ export class OtpService {
           lastName?: string;
           profession?: string;
           educationLevel?: string;
+          district?: string;
         }
       | undefined;
     let registerName: { firstName: string; lastName: string; fullName: string } | undefined;
@@ -140,10 +142,15 @@ export class OtpService {
       if (!dto.password || dto.password.length < 8) {
         throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
       }
+      if (!isValidDistrictId(dto.district)) {
+        throw new BadRequestException('Tuman/shaharni roʻyxatdan tanlang');
+      }
       existingMeta = {
         passwordHash: await bcrypt.hash(dto.password, 10),
         firstName: registerName.firstName,
         lastName: registerName.lastName,
+        // Both workers and buyurtmachilar pin their Samarqand district at sign-up
+        district: dto.district,
         // Workers may share their specialty + education level at sign-up
         ...(safeRole === UserRole.worker && dto.profession?.trim()
           ? { profession: dto.profession.trim().slice(0, 80) }
@@ -304,12 +311,13 @@ export class OtpService {
       const email = `${phone.replace(/\D/g, '')}@mexrliqollar.uz`;
       const meta = (session.metadata && typeof session.metadata === 'object'
         ? session.metadata
-        : {}) as {
+        : {      }) as {
         passwordHash?: string;
         firstName?: string;
         lastName?: string;
         profession?: string;
         educationLevel?: string;
+        district?: string;
       };
       if (!meta.passwordHash) {
         throw new BadRequestException(
@@ -333,6 +341,7 @@ export class OtpService {
           role,
           passwordHash: meta.passwordHash,
           region: 'Samarqand viloyati',
+          ...(isValidDistrictId(meta.district) ? { district: meta.district } : {}),
           isVerified: false,
           verificationStatus: 'none',
           ...(role === UserRole.worker && meta.profession
@@ -417,6 +426,7 @@ export class OtpService {
     role: 'worker' | 'employer' | UserRole;
     phone?: string;
     phoneNumber?: string;
+    district?: string;
   }) {
     if (!data.password || data.password.length < 8) {
       throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
@@ -461,6 +471,7 @@ export class OtpService {
         lastName: lastName || null,
         role,
         region: 'Samarqand viloyati',
+        ...(isValidDistrictId(data.district) ? { district: data.district } : {}),
       },
     });
     return this.auth.signToken(user);

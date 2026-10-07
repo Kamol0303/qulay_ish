@@ -1,4 +1,5 @@
 import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { SAMARQAND_DISTRICT_IDS } from '../../common/samarqand-districts';
 
 export class SendOtpDto {
   @IsString()
@@ -51,4 +52,15 @@ export class SendOtpDto {
   @IsOptional()
   @IsIn(['secondary', 'vocational', 'bachelor', 'master', 'phd', 'other'])
   educationLevel?: string;
+
+  /**
+   * Samarqand district/city the account belongs to. Required for public
+   * registration (worker AND buyurtmachi) — it fixes exactly where the user is
+   * so we can match nearby workers and jobs.
+   */
+  @ValidateIf((o: SendOtpDto) => o.purpose === 'register')
+  @IsIn(SAMARQAND_DISTRICT_IDS as string[], {
+    message: 'Tuman/shaharni roʻyxatdan tanlang',
+  })
+  district?: string;
 }

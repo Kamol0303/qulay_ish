@@ -10,6 +10,8 @@ import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util'
 import { normalizeNameInput } from '../common/name.util';
 import { isValidLatLng, boundingBox, haversineKm, approxDistanceLabel } from '../common/geo.util';
 import { clampStars, foldRating } from '../common/rating.util';
+import { districtProximityKey } from '../common/district.util';
+import { isValidDistrictId } from '../common/samarqand-districts';
 import { DevSmsService } from '../auth/devsms.service';
 import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
@@ -343,6 +345,28 @@ export class JobsController {
     if (query.employerId) where.employerId = query.employerId;
     if (query.status) where.status = query.status;
     if (query.region) where.region = query.region;
+
+    // When a worker's district is known, recommend the nearest jobs first. A
+    // job's location is taken from its employer's fixed registration district.
+    if (isValidDistrictId(query.nearDistrict)) {
+      const rows = await this.prisma.job.findMany({
+        where: where as any,
+        include: { employer: { select: { district: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      });
+      return (rows as any[])
+        .map((j) => ({
+          job: j,
+          key: districtProximityKey(query.nearDistrict, j.employer?.district ?? j.district),
+        }))
+        .sort((a, b) => a.key - b.key)
+        .map(({ job }) => {
+          const { employer: _employer, ...jobFields } = job;
+          return jobFields;
+        });
+    }
+
     return this.prisma.job.findMany({ where: where as any, orderBy: { createdAt: 'desc' } });
   }
 

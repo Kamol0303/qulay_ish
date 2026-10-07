@@ -15,6 +15,8 @@ import {
   haversineKm,
   isValidLatLng,
 } from '../common/geo.util';
+import { districtProximityKey } from '../common/district.util';
+import { isValidDistrictId } from '../common/samarqand-districts';
 
 type WorkerRow = {
   id: string;
@@ -98,6 +100,7 @@ export class EmployerController {
     @Query('skill') skill?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('nearDistrict') nearDistrict?: string,
   ) {
     const take = clampInt(pageSize, 20, 1, 100);
     const currentPage = clampInt(page, 1, 1, 100000);
@@ -114,6 +117,33 @@ export class EmployerController {
         { lastName: { contains: trimmedSearch, mode: 'insensitive' } },
         { fullName: { contains: trimmedSearch, mode: 'insensitive' } },
       ];
+    }
+
+    // When the buyurtmachi has a known district, recommend the nearest workers
+    // first (same district → neighbouring districts → farther away).
+    if (isValidDistrictId(nearDistrict)) {
+      const rows = (await this.prisma.user.findMany({
+        where: where as any,
+        select: WORKER_SELECT,
+        take: 2000,
+      })) as WorkerRow[];
+      const sorted = rows
+        .map((r) => ({ r, key: districtProximityKey(nearDistrict, r.district) }))
+        .sort(
+          (a, b) =>
+            a.key - b.key ||
+            Number(b.r.isVerified) - Number(a.r.isVerified) ||
+            b.r.rating - a.r.rating,
+        );
+      const total = sorted.length;
+      const pageItems = sorted.slice(skip, skip + take);
+      return {
+        data: pageItems.map((x) => toEmployerWorker(x.r)),
+        total,
+        page: currentPage,
+        pageSize: take,
+        totalPages: Math.ceil(total / take),
+      };
     }
 
     const [rows, total] = await Promise.all([
