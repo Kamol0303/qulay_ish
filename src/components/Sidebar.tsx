@@ -55,6 +55,7 @@ export default function Sidebar() {
       { icon: Users, label: t('nav.sidebar.applicants'), path: '/employer/applicants', end: false },
       { icon: CheckCircle, label: t('nav.sidebar.contracts'), path: '/employer/contracts', end: false },
       { icon: Users, label: t('nav.sidebar.worker_base'), path: '/workers', end: true },
+      { icon: MapPin, label: t('nav.sidebar.nearby_workers'), path: '/employer/nearby-workers', end: true },
       { icon: ShieldCheck, label: t('nav.sidebar.identity_verification'), path: '/verification', end: true },
       { icon: MessageSquare, label: t('nav.sidebar.messages'), path: '/chat', end: true },
       { icon: User, label: t('nav.sidebar.org_profile'), path: '/my-profile', end: true },

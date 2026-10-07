@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Patch, Put, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Patch, Put, Delete, Param, Body, Query, UseGuards, Req, ForbiddenException, NotFoundException } from '@nestjs/common';
 // Put: confidential personal-info updates (worker self / super_admin)
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
 import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util';
 import { normalizeNameInput } from '../common/name.util';
+import { isValidLatLng } from '../common/geo.util';
 
 type AuthUser = { userId: string; role: string };
 
@@ -184,6 +185,66 @@ export class UsersController {
     }).catch(() => undefined);
 
     return { coreIndicators: updated.coreIndicators ?? null };
+  }
+
+  /** Worker opts in / updates their shared location (self or super_admin). */
+  @UseGuards(JwtAuthGuard)
+  @Put(':id/location')
+  async updateLocation(
+    @Param('id') id: string,
+    @Body() body: { latitude?: number; longitude?: number; enabled?: boolean },
+    @Req() req: { user: AuthUser },
+  ) {
+    if (req.user.userId !== id && req.user.role !== 'super_admin') {
+      throw new ForbiddenException('Lokatsiyani faqat egasi yoki Super Admin yangilaydi');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (user.role !== 'worker') {
+      throw new BadRequestException('Lokatsiya faqat ishchi uchun');
+    }
+    const enabled = body.enabled !== false;
+    if (enabled) {
+      if (!isValidLatLng(body.latitude, body.longitude)) {
+        throw new BadRequestException('Koordinatalar noto\'g\'ri');
+      }
+    }
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: enabled
+        ? {
+            latitude: body.latitude,
+            longitude: body.longitude,
+            locationUpdatedAt: new Date(),
+            locationSharingEnabled: true,
+          }
+        : { locationSharingEnabled: false },
+    });
+    return {
+      locationSharingEnabled: updated.locationSharingEnabled,
+      locationUpdatedAt: updated.locationUpdatedAt,
+    };
+  }
+
+  /** Worker turns off sharing and wipes stored coordinates (self or super_admin). */
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/location')
+  async clearLocation(@Param('id') id: string, @Req() req: { user: AuthUser }) {
+    if (req.user.userId !== id && req.user.role !== 'super_admin') {
+      throw new ForbiddenException('Lokatsiyani faqat egasi yoki Super Admin o\'chiradi');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        latitude: null,
+        longitude: null,
+        locationUpdatedAt: null,
+        locationSharingEnabled: false,
+      },
+    });
+    return { locationSharingEnabled: false };
   }
 
   @Get(':id')

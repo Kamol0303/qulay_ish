@@ -55,6 +55,10 @@ export interface Profile {
   firstName?: string;
   lastName?: string;
   email: string;
+  latitude?: number;
+  longitude?: number;
+  locationUpdatedAt?: string | Date;
+  locationSharingEnabled?: boolean;
   phoneNumber?: string;
   passwordHash?: string;
   role: 'worker' | 'employer' | 'admin' | 'super_admin';

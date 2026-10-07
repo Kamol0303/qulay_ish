@@ -26,6 +26,7 @@ import { SkillsSelector } from './SkillsSelector';
 import { EducationEditor, ExperienceEditor } from './TimelineEditors';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
 import { PersonalInfoCard } from './PersonalInfoCard';
+import { LocationSharingCard } from './LocationSharingCard';
 const WORKER_TABS_BASE = [
   { id: 'overview' as const, label: 'Umumiy' },
   { id: 'experience' as const, label: 'Tajriba' },
@@ -502,23 +503,32 @@ export function WorkerProfileView({
           </div>
         )}
         {tab === 'settings' && (
-          <ProfileCard title="Profil sozlamalari">
-            <div className="space-y-3 text-sm">
-              <p className="text-muted-foreground">Til, bildirishnomalar va maxfiylik keyingi bosqichda kengaytiriladi.</p>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={draft.lookingForWork !== false}
-                  disabled={!editable}
-                  onChange={(e) => patch({ lookingForWork: e.target.checked })}
-                />
-                Profil ochiq — ish beruvchilar ko\'rishi mumkin
-              </label>
-              <Link to="/verification" className="inline-flex text-primary hover:underline">
-                Shaxsni tasdiqlash →
-              </Link>
-            </div>
-          </ProfileCard>
+          <div className="space-y-5">
+            <ProfileCard title="Profil sozlamalari">
+              <div className="space-y-3 text-sm">
+                <p className="text-muted-foreground">Til, bildirishnomalar va maxfiylik keyingi bosqichda kengaytiriladi.</p>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={draft.lookingForWork !== false}
+                    disabled={!editable}
+                    onChange={(e) => patch({ lookingForWork: e.target.checked })}
+                  />
+                  Profil ochiq — ish beruvchilar koʻrishi mumkin
+                </label>
+                <Link to="/verification" className="inline-flex text-primary hover:underline">
+                  Shaxsni tasdiqlash →
+                </Link>
+              </div>
+            </ProfileCard>
+            {editable && (
+              <LocationSharingCard
+                userId={draft.uid}
+                enabled={draft.locationSharingEnabled}
+                updatedAt={draft.locationUpdatedAt}
+              />
+            )}
+          </div>
         )}
       </motion.div>
     </div>

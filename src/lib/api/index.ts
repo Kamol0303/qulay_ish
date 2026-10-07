@@ -7,6 +7,44 @@ export interface AuthResponse {
   user: Profile & { id?: string };
 }
 
+export interface EmployerWorker {
+  uid: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string;
+  photoUrl: string | null;
+  phoneNumber: string | null;
+  region: string;
+  district: string | null;
+  skills: string[];
+  availability: string | null;
+  experienceLevel: string | null;
+  isVerified: boolean;
+  rating: number;
+  lookingForWork: boolean;
+  distanceKm?: number;
+  distanceLabel?: string;
+}
+
+export interface EmployerWorkersResponse {
+  data: EmployerWorker[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  radiusKm?: number;
+}
+
+function stringifyParams(
+  params?: Record<string, string | number | undefined> | null,
+): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(params ?? {})) {
+    out[k] = v === undefined ? undefined : String(v);
+  }
+  return out;
+}
+
 function asJsonArray<T>(value: unknown): T[] {
   if (!Array.isArray(value)) return [];
   return value as T[];
@@ -74,6 +112,10 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
     createdAt: u.createdAt as string | Date | undefined,
     updatedAt: u.updatedAt as string | Date | undefined,
     lastActive: u.lastActive as string | Date | undefined,
+    latitude: typeof u.latitude === 'number' ? u.latitude : undefined,
+    longitude: typeof u.longitude === 'number' ? u.longitude : undefined,
+    locationUpdatedAt: u.locationUpdatedAt as string | Date | undefined,
+    locationSharingEnabled: Boolean(u.locationSharingEnabled),
   };
 }
 
@@ -236,6 +278,41 @@ export const api = {
           body: JSON.stringify({ coreIndicators }),
         },
       );
+    },
+    updateLocation(id: string, body: { latitude?: number; longitude?: number; enabled?: boolean }) {
+      return apiRequest<{ locationSharingEnabled: boolean; locationUpdatedAt: string | null }>(
+        `/users/${id}/location`,
+        { method: 'PUT', body: JSON.stringify(body) },
+      );
+    },
+    clearLocation(id: string) {
+      return apiRequest<{ locationSharingEnabled: boolean }>(`/users/${id}/location`, {
+        method: 'DELETE',
+      });
+    },
+  },
+
+  employer: {
+    workers(params?: {
+      search?: string;
+      region?: string;
+      district?: string;
+      skill?: string;
+      page?: number;
+      pageSize?: number;
+    }) {
+      return apiRequest<EmployerWorkersResponse>(`/employer/workers${toQuery(stringifyParams(params))}`);
+    },
+    workersNearby(params: {
+      lat: number;
+      lng: number;
+      radius_km?: number;
+      skill?: string;
+      region?: string;
+      page?: number;
+      pageSize?: number;
+    }) {
+      return apiRequest<EmployerWorkersResponse>(`/employer/workers/nearby${toQuery(stringifyParams(params))}`);
     },
   },
 

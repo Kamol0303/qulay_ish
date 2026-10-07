@@ -119,6 +119,11 @@ model User {
   personalInfo       Json?              @map("personal_info")
   /** Core development / risk indicators — viewable on profile; editable by super_admin */
   coreIndicators     Json?              @map("core_indicators")
+  /** Opt-in geolocation (worker only). Exact coords never returned to employers. */
+  latitude               Float?    @map("latitude")
+  longitude              Float?    @map("longitude")
+  locationUpdatedAt      DateTime? @map("location_updated_at")
+  locationSharingEnabled Boolean   @default(false) @map("location_sharing_enabled")
   companyName        String?            @map("company_name")
   businessType       String?            @map("business_type")
   industry           String?
