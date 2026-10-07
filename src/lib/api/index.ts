@@ -73,6 +73,15 @@ export interface EmployerWorkersResponse {
   radiusKm?: number;
 }
 
+export interface JobsNearbyResponse {
+  data: Job[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  radiusKm?: number;
+}
+
 function stringifyParams(
   params?: Record<string, string | number | undefined> | null,
 ): Record<string, string | undefined> {
@@ -541,6 +550,19 @@ export const api = {
   jobs: {
     list(params?: Record<string, string>) {
       return apiRequest<unknown>(`/jobs${toQuery(params ?? {})}`).then(mapJobs);
+    },
+    nearby(params: {
+      lat: number;
+      lng: number;
+      radius_km?: number;
+      category?: string;
+      region?: string;
+      page?: number;
+      pageSize?: number;
+    }) {
+      return apiRequest<JobsNearbyResponse>(`/jobs/nearby${toQuery(stringifyParams(params))}`).then(
+        (res) => ({ ...res, data: mapJobs(res.data) }),
+      );
     },
     get(id: string) {
       return apiRequest<Job>(`/jobs/${id}`);

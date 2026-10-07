@@ -13,11 +13,29 @@ export function LocationSharingCard({
   userId,
   enabled,
   updatedAt,
+  role = 'worker',
 }: {
   userId: string;
   enabled?: boolean;
   updatedAt?: string | Date;
+  role?: 'worker' | 'employer';
 }) {
+  const isEmployer = role === 'employer';
+  const copy = isEmployer
+    ? {
+        description:
+          'Ixtiyoriy. Yoqilsa, yaqin atrofdagi ishchilar sizning ish e\u2019lonlaringizni masofa boʻyicha topa oladi.',
+        privacy:
+          'Ishchilarga aniq joylashuvingiz emas, faqat taxminiy masofa (masalan \u201c~12 km\u201d) koʻrsatiladi. Istalgan vaqtda oʻchirishingiz mumkin.',
+        enabledMsg: 'Lokatsiya yoqildi. Yaqin atrofdagi ishchilar sizning e\u2019lonlaringizni topa oladi.',
+      }
+    : {
+        description:
+          'Ixtiyoriy. Yoqilsa, yaqin atrofdagi ish beruvchilar sizni masofa boʻyicha topa oladi.',
+        privacy:
+          'Ish beruvchilarga aniq joylashuvingiz emas, faqat taxminiy masofa (masalan \u201c~12 km\u201d) koʻrsatiladi. Istalgan vaqtda oʻchirishingiz mumkin.',
+        enabledMsg: 'Lokatsiya yoqildi. Yaqin atrofdagi ish beruvchilar sizni topa oladi.',
+      };
   const [sharing, setSharing] = useState(Boolean(enabled));
   const [lastUpdated, setLastUpdated] = useState<string | Date | undefined>(updatedAt);
   const [busy, setBusy] = useState(false);
@@ -40,7 +58,7 @@ export function LocationSharingCard({
       });
       setSharing(res.locationSharingEnabled);
       setLastUpdated(res.locationUpdatedAt ?? new Date().toISOString());
-      setSuccess('Lokatsiya yoqildi. Yaqin atrofdagi ish beruvchilar sizni topa oladi.');
+      setSuccess(copy.enabledMsg);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Lokatsiyani yoqishda xatolik');
     } finally {
@@ -88,14 +106,11 @@ export function LocationSharingCard({
   return (
     <ProfileCard
       title="Lokatsiya ulashish"
-      description="Ixtiyoriy. Yoqilsa, yaqin atrofdagi ish beruvchilar sizni masofa boʻyicha topa oladi."
+      description={copy.description}
     >
       <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-        <p>
-          Ish beruvchilarga aniq joylashuvingiz emas, faqat taxminiy masofa (masalan “~12 km”)
-          koʻrsatiladi. Istalgan vaqtda oʻchirishingiz mumkin.
-        </p>
+        <p>{copy.privacy}</p>
       </div>
 
       <div className="mt-4 flex items-center gap-2 text-sm">

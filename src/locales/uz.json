@@ -132,6 +132,7 @@
       "applicants": "Nomzodlar",
       "worker_base": "Ishchilar bazasi",
       "nearby_workers": "Yaqin atrofdagi ishchilar",
+      "nearby_jobs": "Yaqin atrofdagi ishlar",
       "services": "Xizmatlar",
       "org_profile": "Profil",
       "overview": "Umumiy koʻrinish",
@@ -586,6 +587,17 @@
     "florist": "Florist",
     "assistant": "Yordamchi",
     "other": "Boshqa"
+  },
+  "nearby_jobs": {
+    "title": "Yaqin atrofdagi ishlar",
+    "use_location": "Yaqinimdagi ishlar",
+    "radius": "Radius",
+    "hint": "Oʻzingizga yaqin ishlarni koʻrish uchun “Yaqinimdagi ishlar” tugmasini bosing.",
+    "empty": "Yaqin atrofda ochiq eʼlon topilmadi. Radiusni kattalashtiring.",
+    "result_note": "~{{radius}} km radiusdagi ochiq eʼlonlar (taxminiy masofa).",
+    "search_error": "Qidiruvda xatolik",
+    "no_geo": "Qurilma lokatsiyani qoʻllab-quvvatlamaydi.",
+    "no_location": "Lokatsiya olinmadi"
   },
   "districts": {
     "samarkand_city": "Samarqand shahar",

@@ -42,6 +42,7 @@ export default function Sidebar() {
       { icon: Heart, label: 'Tavsiya etilgan', path: '/qulay-ish', end: true },
       { icon: Heart, label: t('nav.sidebar.saved_jobs'), path: '/saved-jobs', end: true },
       { icon: Briefcase, label: t('nav.sidebar.all_jobs'), path: '/jobs', end: true },
+      { icon: MapPin, label: t('nav.sidebar.nearby_jobs'), path: '/worker/nearby-jobs', end: true },
       { icon: BookOpen, label: t('nav.sidebar.courses'), path: '/courses', end: true },
       { icon: ShieldCheck, label: t('nav.sidebar.identity_verification'), path: '/verification', end: true },
       { icon: MessageSquare, label: t('nav.sidebar.messages'), path: '/chat', end: true },

@@ -137,6 +137,8 @@ export interface Job {
   images?: string[];
   createdAt?: any;
   updatedAt?: any;
+  distanceKm?: number;
+  distanceLabel?: string;
 }
 
 export interface Application {

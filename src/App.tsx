@@ -12,6 +12,7 @@ import CoursesPage from './pages/CoursesPage';
 import EmployerDashboard from './pages/employer/Dashboard';
 import WorkerServices from './pages/employer/WorkerServices';
 import NearbyWorkers from './pages/employer/NearbyWorkers';
+import NearbyJobs from './pages/worker/NearbyJobs';
 import WorkerDashboard from './pages/worker/Dashboard';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminContracts from './pages/admin/Contracts';
@@ -124,6 +125,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
           </RoleProtectedRoute>
         }
       />
+      <Route path="/worker/nearby-jobs" element={<RoleProtectedRoute allowedRoles={['worker']}><NearbyJobs /></RoleProtectedRoute>} />
       <Route path="/worker/contracts" element={<RoleProtectedRoute allowedRoles={['worker']}><WorkerContracts /></RoleProtectedRoute>} />
       <Route path="/worker/service-posts" element={<RoleProtectedRoute allowedRoles={['worker']}><MyServicePosts /></RoleProtectedRoute>} />
       <Route path="/worker/create-service" element={<RoleProtectedRoute allowedRoles={['worker']}><CreateServicePost /></RoleProtectedRoute>} />

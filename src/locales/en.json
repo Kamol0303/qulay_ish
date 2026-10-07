@@ -127,6 +127,7 @@
       "applicants": "Applicants",
       "worker_base": "Worker Base",
       "nearby_workers": "Nearby Workers",
+      "nearby_jobs": "Nearby Jobs",
       "services": "Services",
       "org_profile": "Profile",
       "overview": "Overview",
@@ -581,6 +582,17 @@
     "florist": "Florist",
     "assistant": "Assistant",
     "other": "Other"
+  },
+  "nearby_jobs": {
+    "title": "Nearby Jobs",
+    "use_location": "Jobs near me",
+    "radius": "Radius",
+    "hint": "Tap “Jobs near me” to see jobs close to you.",
+    "empty": "No open jobs found nearby. Try a larger radius.",
+    "result_note": "Open jobs within ~{{radius}} km (approximate distance).",
+    "search_error": "Search error",
+    "no_geo": "This device does not support location.",
+    "no_location": "Could not get location"
   },
   "districts": {
     "samarkand_city": "Samarkand City",
