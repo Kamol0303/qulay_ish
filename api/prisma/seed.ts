@@ -1,4 +1,5 @@
 import { PrismaClient, UserRole, VerificationStatus, JobStatus, ApplicationStatus, ContractStatus, DisputeStatus, NotificationType, ServicePostStatus, PaymentStatus, LogType } from '@prisma/client';
+import { splitFullName } from '../src/common/name.util';
 import {
   readExportFile,
   readSingleDocExport,
@@ -115,6 +116,8 @@ async function seedUsers() {
         phoneNumber,
         passwordHash: asString(d.passwordHash) || null,
         fullName: asString(d.fullName, 'User'),
+        firstName: splitFullName(asString(d.fullName, 'User')).firstName || null,
+        lastName: splitFullName(asString(d.fullName, 'User')).lastName || null,
         role: mapEnum(d.role, userRoles, UserRole.worker),
         region: normalizeRegion(d.region),
         district: asString(d.district) || null,
@@ -160,6 +163,8 @@ async function seedUsers() {
         email: asString(auth.email) || null,
         phoneNumber,
         fullName: asString(auth.displayName, 'User'),
+        firstName: splitFullName(asString(auth.displayName, 'User')).firstName || null,
+        lastName: splitFullName(asString(auth.displayName, 'User')).lastName || null,
         role: UserRole.worker,
         region: '',
         createdAt: toDateOrNow(auth.createdAt),

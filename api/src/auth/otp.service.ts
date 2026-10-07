@@ -23,6 +23,7 @@ import {
   OTP_RATE_LIMIT_MS,
   UZ_PHONE_E164,
 } from './otp.constants';
+import { normalizeNameInput, splitFullName } from '../common/name.util';
 
 @Injectable()
 export class OtpService {
@@ -111,20 +112,32 @@ export class OtpService {
           : UserRole.worker
         : undefined;
 
-    let existingMeta: { passwordHash?: string; purpose?: string } | undefined;
+    let existingMeta:
+      | { passwordHash?: string; purpose?: string; firstName?: string; lastName?: string }
+      | undefined;
+    let registerName: { firstName: string; lastName: string; fullName: string } | undefined;
 
     if (purpose === 'register') {
       const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
       if (existing) {
         throw new BadRequestException('Bu telefon raqami allaqachon ro\'yxatdan o\'tgan');
       }
-      if (!dto.fullName || dto.fullName.trim().length < 2) {
-        throw new BadRequestException('To\'liq ism majburiy');
+      registerName = normalizeNameInput({
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        fullName: dto.fullName,
+      });
+      if (!registerName.firstName || registerName.firstName.length < 2) {
+        throw new BadRequestException('Ism majburiy (kamida 2 ta belgi)');
       }
       if (!dto.password || dto.password.length < 8) {
         throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
       }
-      existingMeta = { passwordHash: await bcrypt.hash(dto.password, 10) };
+      existingMeta = {
+        passwordHash: await bcrypt.hash(dto.password, 10),
+        firstName: registerName.firstName,
+        lastName: registerName.lastName,
+      };
     } else if (purpose === 'reset') {
       const existing = await this.prisma.user.findFirst({ where: { phoneNumber: phone } });
       if (!existing) {
@@ -158,7 +171,7 @@ export class OtpService {
         phone,
         codeHash,
         purpose,
-        fullName: dto.fullName?.trim(),
+        fullName: registerName?.fullName ?? dto.fullName?.trim(),
         role: safeRole,
         channel: 'sms',
         attempts: 0,
@@ -277,7 +290,7 @@ export class OtpService {
       const email = `${phone.replace(/\D/g, '')}@mexrliqollar.uz`;
       const meta = (session.metadata && typeof session.metadata === 'object'
         ? session.metadata
-        : {}) as { passwordHash?: string };
+        : {}) as { passwordHash?: string; firstName?: string; lastName?: string };
       if (!meta.passwordHash) {
         throw new BadRequestException(
           'Parol topilmadi. Ro\'yxatdan o\'tishni qaytadan boshlang va OTP oling.',
@@ -286,10 +299,15 @@ export class OtpService {
       // Only worker/employer may be created via public OTP registration
       const role =
         session.role === UserRole.employer ? UserRole.employer : UserRole.worker;
+      const fallbackSplit = splitFullName(session.fullName);
+      const firstName = (meta.firstName || fallbackSplit.firstName || '').trim();
+      const lastName = (meta.lastName || fallbackSplit.lastName || '').trim();
       user = await this.prisma.user.create({
         data: {
           id: uid,
           fullName: (session.fullName || 'User').trim(),
+          firstName: firstName || null,
+          lastName: lastName || null,
           email,
           phoneNumber: phone,
           role,
@@ -378,7 +396,7 @@ export class OtpService {
       throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
     }
     const role = String(data.role) === 'employer' ? UserRole.employer : UserRole.worker;
-    const fullName = data.fullName.trim();
+    const { firstName, lastName, fullName } = normalizeNameInput({ fullName: data.fullName });
     if (fullName.length < 2) {
       throw new BadRequestException('Ism kamida 2 ta belgidan iborat bo\'lishi kerak');
     }
@@ -413,6 +431,8 @@ export class OtpService {
         phoneNumber,
         passwordHash: await bcrypt.hash(data.password, 10),
         fullName,
+        firstName: firstName || null,
+        lastName: lastName || null,
         role,
         region: 'Samarqand viloyati',
       },

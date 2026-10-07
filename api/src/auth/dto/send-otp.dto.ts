@@ -21,6 +21,15 @@ export class SendOtpDto {
   @MinLength(2)
   fullName?: string;
 
+  @IsOptional()
+  @IsString()
+  @MinLength(2, { message: 'Ism kamida 2 ta belgidan iborat bo\'lishi kerak' })
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
   /** Public registration may only choose worker or employer */
   @IsOptional()
   @IsIn(['worker', 'employer'], { message: 'Faqat worker yoki employer roli ruxsat etiladi' })

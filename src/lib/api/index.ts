@@ -17,6 +17,8 @@ function mapUser(u: Record<string, unknown> | null | undefined): Profile | null 
   return {
     uid: String(u.id ?? ''),
     fullName: String(u.fullName ?? ''),
+    firstName: (u.firstName as string | undefined) ?? undefined,
+    lastName: (u.lastName as string | undefined) ?? undefined,
     email: String(u.email ?? ''),
     phoneNumber: u.phoneNumber as string | undefined,
     role: u.role as Profile['role'],
@@ -150,6 +152,8 @@ export const api = {
       phone: string;
       purpose?: 'login' | 'register' | 'reset';
       fullName?: string;
+      firstName?: string;
+      lastName?: string;
       role?: Profile['role'];
       password?: string;
     }) {

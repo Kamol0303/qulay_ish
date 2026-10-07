@@ -88,6 +88,8 @@ export const authService = {
     phone: string;
     purpose?: 'login' | 'register' | 'reset';
     fullName?: string;
+    firstName?: string;
+    lastName?: string;
     role?: 'worker' | 'employer';
     password?: string;
   }): Promise<AuthResult> {
@@ -97,6 +99,8 @@ export const authService = {
         phone,
         purpose: params.purpose,
         fullName: params.fullName,
+        firstName: params.firstName,
+        lastName: params.lastName,
         role: params.role,
         password: params.password,
       });

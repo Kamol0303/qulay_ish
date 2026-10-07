@@ -87,6 +87,8 @@ model User {
   phoneNumber        String?            @unique @map("phone_number")
   passwordHash       String?            @map("password_hash")
   fullName           String             @map("full_name")
+  firstName          String?            @map("first_name")
+  lastName           String?            @map("last_name")
   role               UserRole           @default(worker)
   region             String             @default("")
   district           String?

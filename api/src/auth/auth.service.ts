@@ -171,6 +171,8 @@ export class AuthService {
           email,
           phoneNumber,
           fullName: 'Super Admin',
+          firstName: 'Super',
+          lastName: 'Admin',
           role: UserRole.super_admin,
           region: 'Samarqand viloyati',
           passwordHash: await bcrypt.hash(envPassword, 10),

@@ -7,6 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { randomUUID } from 'crypto';
 import { sanitizePersonalInfo } from '../personal-info/personal-info.util';
 import { sanitizeCoreIndicators } from '../core-indicators/core-indicators.util';
+import { normalizeNameInput } from '../common/name.util';
 
 type AuthUser = { userId: string; role: string };
 
@@ -188,7 +189,7 @@ export class UsersController {
     }
 
     const allowed = [
-      'fullName', 'email', 'phoneNumber', 'region', 'district', 'neighborhood',
+      'fullName', 'firstName', 'lastName', 'email', 'phoneNumber', 'region', 'district', 'neighborhood',
       'bio', 'skills', 'photoUrl', 'coverUrl', 'telegram', 'languages',
       'availability', 'lookingForWork', 'professionalSummary', 'preferredContact',
       'experienceLevel', 'education', 'experience', 'certificates', 'portfolio',
@@ -217,6 +218,25 @@ export class UsersController {
       for (const key of superOnly) {
         if (key in body) data[key] = body[key];
       }
+    }
+
+    // Keep firstName/lastName and fullName consistent regardless of which was sent.
+    if ('firstName' in data || 'lastName' in data || 'fullName' in data) {
+      const existing = await this.prisma.user.findUnique({
+        where: { id },
+        select: { firstName: true, lastName: true, fullName: true },
+      });
+      const name = normalizeNameInput({
+        firstName: 'firstName' in data ? (data.firstName as string) : existing?.firstName,
+        lastName: 'lastName' in data ? (data.lastName as string) : existing?.lastName,
+        fullName:
+          'firstName' in data || 'lastName' in data
+            ? undefined
+            : ('fullName' in data ? (data.fullName as string) : existing?.fullName),
+      });
+      data.firstName = name.firstName || null;
+      data.lastName = name.lastName || null;
+      if (name.fullName) data.fullName = name.fullName;
     }
 
     // personalInfo / coreIndicators must go through dedicated endpoints (stricter validation + RBAC)

@@ -27,6 +27,8 @@ type AuthState = {
   phone: string;
   otp: string;
   fullName: string;
+  firstName: string;
+  lastName: string;
   password: string;
   confirmPassword: string;
   selectedRole: 'worker' | 'employer';
@@ -36,6 +38,8 @@ type AuthState = {
   resendSeconds: number;
   fieldErrors: {
     fullName?: string;
+    firstName?: string;
+    lastName?: string;
     phone?: string;
     password?: string;
     confirmPassword?: string;
@@ -47,6 +51,8 @@ const initialState: AuthState = {
   phone: '',
   otp: '',
   fullName: '',
+  firstName: '',
+  lastName: '',
   password: '',
   confirmPassword: '',
   selectedRole: 'worker',
@@ -184,9 +190,15 @@ export default function AuthPage() {
     if (!phoneValidation.isValid) {
       fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
     }
-    const fullNameValidation = validateFullName(state.fullName);
-    if (!fullNameValidation.isValid) {
-      fieldErrors.fullName = fullNameValidation.error || '';
+    const firstNameValidation = validateFullName(state.firstName);
+    if (!firstNameValidation.isValid) {
+      fieldErrors.firstName = firstNameValidation.error || '';
+    }
+    if (state.lastName.trim()) {
+      const lastNameValidation = validateFullName(state.lastName);
+      if (!lastNameValidation.isValid) {
+        fieldErrors.lastName = lastNameValidation.error || '';
+      }
     }
     const passwordValidation = validatePassword(state.password);
     if (!passwordValidation.isValid) {
@@ -209,7 +221,9 @@ export default function AuthPage() {
       const result = await authService.sendOtp({
         phone: state.phone,
         purpose: 'register',
-        fullName: state.fullName.trim(),
+        fullName: `${state.firstName} ${state.lastName}`.trim().replace(/\s+/g, ' '),
+        firstName: state.firstName.trim(),
+        lastName: state.lastName.trim() || undefined,
         role: state.selectedRole,
         password: state.password,
       });
@@ -233,7 +247,8 @@ export default function AuthPage() {
     state.phone,
     state.password,
     state.confirmPassword,
-    state.fullName,
+    state.firstName,
+    state.lastName,
     state.selectedRole,
     setPartialState,
     t,
@@ -566,37 +581,70 @@ export default function AuthPage() {
             {/* REGISTER */}
             {mode === 'register' && step === 'form' && (
               <form onSubmit={handleRegister} className="space-y-5" noValidate>
-                <div>
-                  <label htmlFor="auth-fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Toʻliq ismingiz
-                  </label>
-                  <input
-                    id="auth-fullName"
-                    type="text"
-                    autoComplete="name"
-                    maxLength={100}
-                    value={state.fullName}
-                    onChange={(e) => {
-                      clearMessages();
-                      const fullName = e.target.value;
-                      const v = validateFullName(fullName);
-                      setPartialState({
-                        fullName,
-                        fieldErrors: {
-                          ...state.fieldErrors,
-                          fullName: fullName ? (v.isValid ? undefined : v.error) : undefined,
-                        },
-                      });
-                    }}
-                    placeholder="Ism Familiya"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                    disabled={state.loading}
-                    aria-invalid={Boolean(state.fieldErrors.fullName)}
-                    required
-                  />
-                  {state.fieldErrors.fullName && (
-                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.fullName}</p>
-                  )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="auth-firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Ism
+                    </label>
+                    <input
+                      id="auth-firstName"
+                      type="text"
+                      autoComplete="given-name"
+                      maxLength={60}
+                      value={state.firstName}
+                      onChange={(e) => {
+                        clearMessages();
+                        const firstName = e.target.value;
+                        const v = validateFullName(firstName);
+                        setPartialState({
+                          firstName,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            firstName: firstName ? (v.isValid ? undefined : v.error) : undefined,
+                          },
+                        });
+                      }}
+                      placeholder="Ism"
+                      className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      aria-invalid={Boolean(state.fieldErrors.firstName)}
+                      required
+                    />
+                    {state.fieldErrors.firstName && (
+                      <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.firstName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="auth-lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Familiya
+                    </label>
+                    <input
+                      id="auth-lastName"
+                      type="text"
+                      autoComplete="family-name"
+                      maxLength={60}
+                      value={state.lastName}
+                      onChange={(e) => {
+                        clearMessages();
+                        const lastName = e.target.value;
+                        const v = lastName.trim() ? validateFullName(lastName) : { isValid: true, error: undefined };
+                        setPartialState({
+                          lastName,
+                          fieldErrors: {
+                            ...state.fieldErrors,
+                            lastName: v.isValid ? undefined : v.error,
+                          },
+                        });
+                      }}
+                      placeholder="Familiya"
+                      className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                      disabled={state.loading}
+                      aria-invalid={Boolean(state.fieldErrors.lastName)}
+                    />
+                    {state.fieldErrors.lastName && (
+                      <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.lastName}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div>

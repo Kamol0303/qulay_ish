@@ -52,6 +52,8 @@ export {
 export interface Profile {
   uid: string;
   fullName: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   phoneNumber?: string;
   passwordHash?: string;
