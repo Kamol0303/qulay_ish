@@ -23,7 +23,7 @@ EOF
 cat > "$ROOT/api/.env" <<EOF
 DATABASE_URL=postgresql://qulay_ish:qulay_ish_dev@localhost:5432/qulay_ish
 JWT_SECRET=change-me-in-production-use-long-random
-JWT_EXPIRES_IN=7d
+JWT_EXPIRES_IN=180d
 API_PORT=4000
 CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://ishliayol.uz,https://www.ishliayol.uz,https://localhost,capacitor://localhost,capacitor://ishliayol.uz
 

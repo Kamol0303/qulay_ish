@@ -68,4 +68,15 @@ export class AuthController {
   async me(@Req() req: { user: { userId: string } }) {
     return this.auth.getProfile(req.user.userId);
   }
+
+  /**
+   * Sliding-session refresh. Requires a currently valid token and returns a new
+   * one with a fresh expiry. No password, no OTP, no SMS — used by the app to
+   * keep a user signed in across restarts without re-authenticating.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('refresh')
+  async refresh(@Req() req: { user: { userId: string } }) {
+    return this.auth.refreshToken(req.user.userId);
+  }
 }

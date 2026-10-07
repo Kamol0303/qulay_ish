@@ -214,4 +214,15 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User not found');
     return this.sanitizeUser(user);
   }
+
+  /**
+   * Re-issue a fresh access token for an already-authenticated user (sliding
+   * session). This never triggers SMS/OTP — it only extends the login so the
+   * mobile app can keep the user signed in without re-entering a password.
+   */
+  async refreshToken(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    return this.signToken(user);
+  }
 }
