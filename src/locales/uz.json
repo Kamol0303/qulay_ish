@@ -1,4 +1,34 @@
 {
+  "admin_users": {
+    "title": "Admin foydalanuvchilar",
+    "subtitle": "Admin uchun login va parol berib, yangi admin qoʻshing",
+    "add_title": "Yangi admin qoʻshish",
+    "list_title": "Adminlar roʻyxati",
+    "field_name": "Ism familiya",
+    "field_login": "Login (telefon raqami)",
+    "field_password": "Parol",
+    "field_role": "Rol",
+    "ph_name": "Masalan: Alisher Karimov",
+    "ph_password": "Kamida 8 ta belgi",
+    "role_admin": "Admin",
+    "role_super_admin": "Super admin",
+    "create_button": "Admin qoʻshish",
+    "reset_password": "Parolni oʻzgartirish",
+    "delete": "Oʻchirish",
+    "empty": "Hali adminlar yoʻq",
+    "created": "Admin muvaffaqiyatli qoʻshildi",
+    "password_reset": "Parol yangilandi",
+    "deleted": "Admin oʻchirildi",
+    "prompt_new_password": "{{name}} uchun yangi parol (kamida 8 ta belgi):",
+    "confirm_delete": "{{name}} adminini oʻchirmoqchimisiz?",
+    "err_phone": "Telefon raqami +998XXXXXXXXX formatida boʻlishi kerak",
+    "err_name": "Ism kamida 2 ta belgidan iborat boʻlishi kerak",
+    "err_password": "Parol kamida 8 ta belgidan iborat boʻlishi kerak",
+    "load_error": "Roʻyxatni yuklab boʻlmadi",
+    "create_error": "Adminni qoʻshib boʻlmadi",
+    "reset_error": "Parolni oʻzgartirib boʻlmadi",
+    "delete_error": "Adminni oʻchirib boʻlmadi"
+  },
   "common": {
     "search": "Qidirish",
     "filter": "Filtrlar",
@@ -151,6 +181,7 @@
       "contract_audit": "Shartnomalar auditi",
       "system_logs": "Tizim jurnallari",
       "system_settings": "Tizim sozlamalari",
+      "admin_users": "Admin foydalanuvchilar",
       "courses": "Bepul darsliklar",
       "saved_jobs": "Saqlangan ishlar"
     }

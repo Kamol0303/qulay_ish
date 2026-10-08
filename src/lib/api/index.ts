@@ -73,6 +73,19 @@ export interface EmployerWorkersResponse {
   radiusKm?: number;
 }
 
+export interface AdminStaffUser {
+  uid: string;
+  fullName: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phoneNumber: string | null;
+  role: 'admin' | 'super_admin';
+  isVerified: boolean;
+  isBlocked: boolean;
+  createdAt: string;
+}
+
 export interface JobsNearbyResponse {
   data: Job[];
   total: number;
@@ -778,6 +791,33 @@ export const api = {
     },
     updateGlobal(data: Record<string, unknown>) {
       return apiRequest('/settings/global', { method: 'PATCH', body: JSON.stringify(data) });
+    },
+  },
+
+  adminUsers: {
+    list() {
+      return apiRequest<AdminStaffUser[]>('/admin/users');
+    },
+    create(data: {
+      fullName: string;
+      phone: string;
+      password: string;
+      role?: 'admin' | 'super_admin';
+      email?: string;
+    }) {
+      return apiRequest<AdminStaffUser>('/admin/users', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    resetPassword(id: string, password: string) {
+      return apiRequest<{ success: true }>(`/admin/users/${id}/password`, {
+        method: 'PATCH',
+        body: JSON.stringify({ password }),
+      });
+    },
+    remove(id: string) {
+      return apiRequest<{ success: true }>(`/admin/users/${id}`, { method: 'DELETE' });
     },
   },
 

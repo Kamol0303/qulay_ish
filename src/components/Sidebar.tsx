@@ -80,6 +80,7 @@ export default function Sidebar() {
       { icon: AlertTriangle, label: t('nav.sidebar.disputes'), path: '/super-admin/disputes', end: false },
       { icon: CheckCircle, label: t('nav.sidebar.contract_audit'), path: '/super-admin/contracts', end: false },
       { icon: Activity, label: t('nav.sidebar.system_logs'), path: '/super-admin/logs', end: false },
+      { icon: ShieldCheck, label: t('nav.sidebar.admin_users'), path: '/super-admin/admins', end: false },
       { icon: Settings, label: t('nav.sidebar.system_settings'), path: '/super-admin/settings', end: true },
       { icon: MessageSquare, label: t('nav.sidebar.messages'), path: '/super-admin/messages', end: true },
       { icon: Bell, label: t('nav.sidebar.notifications'), path: '/super-admin/notifications', end: true },

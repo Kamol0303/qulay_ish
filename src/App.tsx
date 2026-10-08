@@ -25,6 +25,7 @@ import SuperAdminSystem from './pages/super-admin/System';
 import SuperAdminSettingsPage from './pages/super-admin/SettingsPage';
 import SuperAdminLogsPage from './pages/super-admin/LogsPage';
 import SuperAdminContractsPage from './pages/super-admin/ContractsPage';
+import SuperAdminAdminUsers from './pages/super-admin/AdminUsers';
 import SystemLogs from './pages/admin/SystemLogs';
 import SystemSettings from './pages/admin/SystemSettings';
 import UsersManagement from './pages/admin/UsersManagement';
@@ -185,6 +186,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       <Route path="/super-admin/contracts/:contractId" element={<RoleProtectedRoute allowedRoles={['super_admin']}><ContractPage /></RoleProtectedRoute>} />
       <Route path="/super-admin/logs" element={<RoleProtectedRoute allowedRoles={['super_admin']}><SuperAdminLogsPage /></RoleProtectedRoute>} />
       <Route path="/super-admin/settings" element={<RoleProtectedRoute allowedRoles={['super_admin']}><SuperAdminSettingsPage /></RoleProtectedRoute>} />
+      <Route path="/super-admin/admins" element={<RoleProtectedRoute allowedRoles={['super_admin']}><SuperAdminAdminUsers /></RoleProtectedRoute>} />
       <Route
         path="/super-admin/messages"
         element={
