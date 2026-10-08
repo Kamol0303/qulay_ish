@@ -54,7 +54,7 @@ export default function BottomTabBar() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-[70] border-t border-border bg-card/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-[70] border-t-2 border-[#c6a15b]/70 bg-card/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]"
       aria-label={t('mobile_nav.aria_label')}
     >
       <ul

@@ -15,11 +15,13 @@ export function SecureImage({
 }) {
   const [src, setSrc] = useState<string>();
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
     let objectUrl: string | undefined;
     setLoading(true);
+    setFailed(false);
     void (async () => {
       const resolved = await resolveSecureMediaUrl(url);
       if (!active) return;
@@ -41,7 +43,7 @@ export function SecureImage({
     );
   }
 
-  if (!src) {
+  if (!src || failed) {
     return (
       <div className={`flex items-center justify-center bg-muted text-muted-foreground ${className || ''}`}>
         <FileText className="h-6 w-6" />
@@ -65,6 +67,12 @@ export function SecureImage({
   }
 
   return (
-    <img src={src} alt={alt} className={className} onClick={onClick} />
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onClick={onClick}
+      onError={() => setFailed(true)}
+    />
   );
 }

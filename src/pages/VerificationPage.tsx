@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
   Camera,
-  CheckCircle,
   Clock,
   FileText,
   Loader2,
@@ -212,7 +211,7 @@ export default function VerificationPage() {
         {profile && <VerificationStatusCard profile={profile} showAction={false} />}
 
         {request && !showForm && (
-          <div className="space-y-6 rounded-[2.5rem] border border-border bg-card p-8 text-center shadow-sm">
+          <div className="uz-panel space-y-6 rounded-[2.5rem] bg-card p-8 text-center shadow-sm">
             {(request.status === 'pending' || request.status === 'under_review') && (
               <>
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-amber-600">
@@ -220,11 +219,6 @@ export default function VerificationPage() {
                 </div>
                 <h3 className="text-2xl font-bold">{t('verification.pending_title')}</h3>
                 <p className="mx-auto max-w-md text-muted-foreground">{t('verification.pending_desc')}</p>
-                <div className="mx-auto grid max-w-md grid-cols-2 gap-4 pt-4">
-                  <StatusSlot label={t('verification.id_submitted')} ok={Boolean(request.idPhotoUrl)} />
-                  <StatusSlot label={t('verification.selfie_submitted')} ok={Boolean(request.selfieUrl)} />
-                  <StatusSlot label={t('verification.passport_info')} ok={Boolean(request.passportData?.pinfl)} />
-                </div>
               </>
             )}
             {request.status === 'verified' && (
@@ -268,12 +262,13 @@ export default function VerificationPage() {
                 )}
               </>
             )}
+            <DocumentGallery request={request} />
           </div>
         )}
 
         {showForm && (
           <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="space-y-6 rounded-[2.5rem] border border-border bg-card p-8 shadow-sm">
+            <div className="uz-panel space-y-6 rounded-[2.5rem] bg-card p-8 shadow-sm">
               <div>
                 <h3 className="text-xl font-bold">{t('verification.passport_section')}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -310,7 +305,7 @@ export default function VerificationPage() {
               </div>
             </div>
 
-            <div className="space-y-8 rounded-[2.5rem] border border-border bg-card p-8 shadow-sm">
+            <div className="uz-panel space-y-8 rounded-[2.5rem] bg-card p-8 shadow-sm">
               <UploadSlot
                 title={t('verification.id_document')}
                 desc={t('verification.id_desc')}
@@ -383,22 +378,50 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
       />
     </label>
   );
 }
 
-function StatusSlot({ label, ok }: { label: string; ok: boolean }) {
+function DocumentGallery({ request }: { request: VerificationRequest }) {
+  const { t } = useTranslation();
+  const passport = request.passportData;
   return (
-    <div className="rounded-2xl border border-border bg-secondary/50 p-4">
-      <p className="text-xs font-bold uppercase text-muted-foreground">{label}</p>
-      {ok ? (
-        <CheckCircle className="mx-auto mt-2 h-5 w-5 text-green-500" />
-      ) : (
-        <Clock className="mx-auto mt-2 h-5 w-5 text-muted-foreground" />
+    <div className="space-y-4 pt-2 text-left">
+      {passport && (
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <Info label={t('verification.series')} value={passport.series} />
+          <Info label={t('verification.number')} value={passport.number} />
+          <Info label={t('verification.pinfl')} value={passport.pinfl} />
+          <Info label={t('verification.full_name')} value={passport.fullName} />
+        </dl>
       )}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <PreviewTile title={t('verification.id_document')} url={request.idPhotoUrl || request.documentUrl} />
+        <PreviewTile title={t('verification.selfie_verification')} url={request.selfieUrl} square />
+      </div>
     </div>
+  );
+}
+
+function Info({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="rounded-2xl bg-secondary/70 px-3 py-2">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-1 font-semibold text-foreground">{value || '—'}</dd>
+    </div>
+  );
+}
+
+function PreviewTile({ title, url, square }: { title: string; url?: string | null; square?: boolean }) {
+  return (
+    <figure className="space-y-2">
+      <figcaption className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{title}</figcaption>
+      <div className={`relative overflow-hidden rounded-2xl border border-border bg-secondary ${square ? 'aspect-square' : 'aspect-[4/3]'}`}>
+        <SecureImage url={url} alt={title} className="absolute inset-0 h-full w-full object-cover" />
+      </div>
+    </figure>
   );
 }
 
@@ -422,14 +445,28 @@ function UploadSlot({
   onClear?: () => void;
 }) {
   const { t } = useTranslation();
+  const [localPreview, setLocalPreview] = useState<string>();
+
+  useEffect(() => {
+    return () => {
+      if (localPreview) URL.revokeObjectURL(localPreview);
+    };
+  }, [localPreview]);
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-xl font-bold">{title}</h3>
-        {url && onClear && (
+        {(url || localPreview) && onClear && (
           <button
             type="button"
-            onClick={onClear}
+            onClick={() => {
+              setLocalPreview((current) => {
+                if (current) URL.revokeObjectURL(current);
+                return undefined;
+              });
+              onClear();
+            }}
             className="rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
           >
             {t('common.delete')}
@@ -439,23 +476,38 @@ function UploadSlot({
       <p className="text-sm text-muted-foreground">{desc}</p>
       <div className="relative">
         <div
-          className={`${square ? 'aspect-square max-w-sm' : 'aspect-[4/3]'} flex flex-col items-center justify-center gap-3 overflow-hidden rounded-3xl border-2 border-dashed border-border bg-secondary/50`}
+          className={`${square ? 'aspect-square max-w-sm' : 'aspect-[4/3]'} relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-3xl border-2 border-dashed border-[#c6a15b]/50 bg-secondary/50`}
         >
-          {loading ? (
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          {localPreview ? (
+            <img src={localPreview} alt={title} className="absolute inset-0 h-full w-full object-cover" />
           ) : url ? (
-            <SecureImage url={url} alt={title} className="h-full w-full object-cover" />
+            <SecureImage url={url} alt={title} className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             <>
               <div className="rounded-2xl bg-primary/10 p-4 text-primary">{icon}</div>
               <p className="text-sm font-bold text-muted-foreground">{t('verification.choose_file')}</p>
             </>
           )}
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/55">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp,.pdf"
-            className="absolute inset-0 cursor-pointer opacity-0"
-            onChange={(e) => onFile(e.target.files?.[0])}
+            className="absolute inset-0 z-10 cursor-pointer opacity-0"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file?.type.startsWith('image/')) {
+                const next = URL.createObjectURL(file);
+                setLocalPreview((current) => {
+                  if (current) URL.revokeObjectURL(current);
+                  return next;
+                });
+              }
+              onFile(file);
+            }}
           />
         </div>
       </div>

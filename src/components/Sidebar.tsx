@@ -91,10 +91,10 @@ export default function Sidebar() {
   const currentMenu = profile?.role ? menuItems[profile.role] : [];
 
   return (
-    <aside className="w-72 bg-slate-900 border-r border-slate-800 h-screen sticky top-0 flex flex-col z-50">
+    <aside className="w-72 bg-[#102833] border-r border-[#c6a15b]/30 h-screen sticky top-0 flex flex-col z-50">
       <div className="p-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <div className="w-10 h-10 bg-[#1a7c78] rounded-xl flex items-center justify-center shadow-lg shadow-[#1a7c78]/30 ring-2 ring-[#c6a15b]/70">
             <Briefcase className="text-white w-6 h-6" />
           </div>
           <h1 className="text-xl font-black text-white tracking-tight">{t('common.branding_short')}</h1>
@@ -111,8 +111,8 @@ export default function Sidebar() {
             className={({ isActive }) => cn(
               "flex items-center gap-3.5 px-5 py-4 rounded-2xl transition-all duration-300 group relative overflow-hidden",
               isActive
-                ? "bg-blue-500 text-white shadow-xl shadow-blue-500/20 font-bold"
-                : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                ? "bg-[#1a7c78] text-white shadow-xl shadow-[#1a7c78]/25 font-bold"
+                : "text-slate-300 hover:text-white hover:bg-white/5"
             )}
           >
             {({ isActive }) => (

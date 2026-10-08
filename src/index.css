@@ -1,8 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Sans", ui-monospace, SFMono-Regular, monospace;
 
   --color-background: hsl(var(--background));
@@ -32,48 +32,48 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 98%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 1rem;
+    --background: 40 43% 97%;
+    --foreground: 204 42% 12%;
+    --card: 40 50% 99%;
+    --card-foreground: 204 42% 12%;
+    --popover: 40 50% 99%;
+    --popover-foreground: 204 42% 12%;
+    --primary: 184 72% 27%;
+    --primary-foreground: 40 45% 98%;
+    --secondary: 38 42% 93%;
+    --secondary-foreground: 204 42% 14%;
+    --muted: 38 30% 94%;
+    --muted-foreground: 204 16% 38%;
+    --accent: 38 62% 48%;
+    --accent-foreground: 204 42% 12%;
+    --destructive: 4 72% 46%;
+    --destructive-foreground: 40 45% 98%;
+    --border: 36 28% 84%;
+    --input: 36 28% 84%;
+    --ring: 184 72% 27%;
+    --radius: 1.15rem;
   }
 
   .dark {
-    --background: 222 47% 9%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 222 47% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 17%;
-    --muted-foreground: 215 20.2% 70%;
-    --accent: 222 47% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 222 47% 20%;
-    --input: 222 47% 17%;
-    --ring: 217 91% 60%;
+    --background: 204 46% 8%;
+    --foreground: 40 35% 96%;
+    --card: 204 40% 11%;
+    --card-foreground: 40 35% 96%;
+    --popover: 204 40% 11%;
+    --popover-foreground: 40 35% 96%;
+    --primary: 176 48% 52%;
+    --primary-foreground: 204 46% 8%;
+    --secondary: 204 28% 16%;
+    --secondary-foreground: 40 35% 96%;
+    --muted: 204 28% 16%;
+    --muted-foreground: 36 18% 74%;
+    --accent: 40 62% 58%;
+    --accent-foreground: 204 46% 8%;
+    --destructive: 4 62% 52%;
+    --destructive-foreground: 40 35% 96%;
+    --border: 204 22% 22%;
+    --input: 204 28% 16%;
+    --ring: 176 48% 52%;
   }
 }
 
@@ -83,6 +83,19 @@
   }
   body {
     @apply bg-background text-foreground transition-colors duration-300;
+    background-image:
+      radial-gradient(circle at 8% 0%, hsl(184 72% 27% / 0.09), transparent 32%),
+      radial-gradient(circle at 100% 0%, hsl(38 62% 48% / 0.14), transparent 28%);
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .uz-panel {
+    background:
+      linear-gradient(180deg, hsl(var(--card)), hsl(var(--card))) padding-box,
+      linear-gradient(135deg, hsl(38 62% 52%), hsl(184 55% 36%)) border-box;
+    border: 1px solid transparent;
   }
 }
 

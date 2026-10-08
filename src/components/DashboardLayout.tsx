@@ -103,7 +103,7 @@ export default function DashboardLayout({ children, title }: { children: React.R
     <div className="flex min-h-screen bg-background transition-colors duration-500">
       <Sidebar />
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-24 bg-card/80 backdrop-blur-xl border-b border-border flex items-center justify-between px-10 sticky top-0 z-40 transition-all duration-500">
+        <header className="h-24 bg-card/80 backdrop-blur-xl border-b-2 border-[#c6a15b]/60 flex items-center justify-between px-10 sticky top-0 z-40 transition-all duration-500">
           <div className="flex items-center gap-6 flex-1 max-w-2xl">
             {!isMainDashboard && <BackButton />}
             <div className="relative w-full group">

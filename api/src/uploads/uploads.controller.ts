@@ -175,7 +175,19 @@ export class UploadsController {
     const full = join(PRIVATE_ROOT, userId, safeName);
     if (!existsSync(full)) throw new NotFoundException('Fayl topilmadi');
 
+    const mimeByExt: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+      '.pdf': 'application/pdf',
+    };
+    const mime = mimeByExt[extname(safeName).toLowerCase()] || 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
     res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     return createReadStream(full).pipe(res);
   }
 

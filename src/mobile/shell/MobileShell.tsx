@@ -33,7 +33,7 @@ export default function MobileShell({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {!hideTopBar && (
-        <header className="sticky top-0 z-[65] border-b border-border bg-card/95 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
+        <header className="sticky top-0 z-[65] border-b-2 border-[#c6a15b]/70 bg-card/95 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
           <div className="flex items-center justify-between min-h-[52px] px-4">
             <Link to="/" className="font-black tracking-tight text-primary text-lg">
               Mehrli qo'llar
