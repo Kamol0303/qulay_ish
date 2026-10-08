@@ -172,6 +172,10 @@ export default function WorkerDashboard() {
             <div className="bg-slate-900 rounded-[40px] p-8 border border-slate-800 shadow-2xl space-y-6">
               <h4 className="font-black text-white uppercase tracking-widest text-xs">{t('worker.dashboard.quick_actions')}</h4>
               <div className="grid grid-cols-2 gap-4">
+                <Link to="/my-work" className="col-span-2 p-5 bg-slate-800/50 rounded-2xl border border-slate-700/50 text-center hover:border-emerald-500 transition-all group">
+                  <CheckCircle className="w-6 h-6 mx-auto mb-2 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">{t('my_work.title')}</span>
+                </Link>
                 <Link to="/directory" className="p-5 bg-slate-800/50 rounded-2xl border border-slate-700/50 text-center hover:border-blue-500 transition-all group">
                   <Building2 className="w-6 h-6 mx-auto mb-2 text-blue-400 group-hover:scale-110 transition-transform" />
                   <span className="text-[10px] font-black text-white uppercase tracking-widest">{t('directory.employers_title')}</span>

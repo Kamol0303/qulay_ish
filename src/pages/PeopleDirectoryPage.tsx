@@ -124,6 +124,19 @@ function DirectoryContent() {
                   {targetRole === 'worker' ? <UserRound size={13} /> : <Building2 size={13} />}
                   {targetRole === 'worker' ? t('directory.worker') : t('directory.employer')}
                 </p>
+                {targetRole === 'worker' && (
+                  <span
+                    className={`ml-1 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                      person.availability === 'busy'
+                        ? 'bg-amber-500/10 text-amber-600'
+                        : 'bg-emerald-500/10 text-emerald-600'
+                    }`}
+                  >
+                    {person.availability === 'busy'
+                      ? t('directory.busy')
+                      : t('directory.available')}
+                  </span>
+                )}
               </div>
             </Link>
           ))}

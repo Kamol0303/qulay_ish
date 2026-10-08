@@ -192,6 +192,7 @@ model Job {
   price        Float?
   salaryType   String?    @map("salary_type")
   workType     String?    @map("work_type")
+  scheduledAt  DateTime?  @map("scheduled_at")
   status       JobStatus  @default(active)
   isPromoted   Boolean    @default(false) @map("is_promoted")
   requirements String[]   @default([])

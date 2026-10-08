@@ -15,6 +15,7 @@ import WorkerServices from './pages/employer/WorkerServices';
 import NearbyWorkers from './pages/employer/NearbyWorkers';
 import NearbyJobs from './pages/worker/NearbyJobs';
 import WorkerDashboard from './pages/worker/Dashboard';
+import MyWorkPage from './pages/worker/MyWorkPage';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminContracts from './pages/admin/Contracts';
 import AdminApplications from './pages/admin/Applications';
@@ -129,6 +130,14 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       <Route
         path="/worker/applications"
         element={<Navigate to="/directory" replace />}
+      />
+      <Route
+        path="/my-work"
+        element={
+          <RoleProtectedRoute allowedRoles={['worker']}>
+            <MyWorkPage />
+          </RoleProtectedRoute>
+        }
       />
       <Route path="/worker/nearby-jobs" element={<RoleProtectedRoute allowedRoles={['worker']}><NearbyJobs /></RoleProtectedRoute>} />
       <Route path="/worker/contracts" element={<RoleProtectedRoute allowedRoles={['worker']}><WorkerContracts /></RoleProtectedRoute>} />

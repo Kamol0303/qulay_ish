@@ -480,6 +480,13 @@ export class JobsController {
         );
       }
     }
+    const scheduledAt = parseOptionalDate(body.scheduledAt);
+    if (!isStaff(req.user.role) && !scheduledAt) {
+      throw new BadRequestException('Ish sanasi va vaqti majburiy');
+    }
+    if (scheduledAt && scheduledAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Ish sanasi kelajakdagi vaqt bo\'lishi kerak');
+    }
 
     return this.prisma.job.create({
       data: {
@@ -502,6 +509,7 @@ export class JobsController {
         price: body.price as number,
         salaryType: body.salaryType as string,
         workType: body.workType as string,
+        scheduledAt,
         status: (body.status as any) || 'active',
         isPromoted: isStaff(req.user.role) ? Boolean(body.isPromoted) : false,
         requirements: isStaff(req.user.role) ? (body.requirements as string[]) || [] : [],
@@ -533,6 +541,9 @@ export class JobsController {
     }
     if (isStaff(req.user.role) && 'isPromoted' in body) {
       data.isPromoted = Boolean(body.isPromoted);
+    }
+    if ('scheduledAt' in body) {
+      data.scheduledAt = parseOptionalDate(body.scheduledAt);
     }
     return this.prisma.job.update({ where: { id }, data: data as any });
   }
@@ -655,7 +666,7 @@ export class ApplicationsController {
         title: 'Yangi ariza',
         message: `${workerName} sizning "${jobTitle}" e'loningizga ariza yubordi`,
         type: 'application',
-        link: `/employer/applicants?highlight=${created.id}`,
+        link: `/employer/jobs/${jobId}`,
         read: false,
       },
     });
@@ -667,7 +678,7 @@ export class ApplicationsController {
         title: 'Ariza yuborildi',
         message: `"${jobTitle}" ishiga arizangiz muvaffaqiyatli yuborildi`,
         type: 'application',
-        link: '/worker/applications',
+        link: '/jobs',
         read: false,
       },
     });
@@ -729,11 +740,20 @@ export class ApplicationsController {
 
     // Accepting hires the worker: make sure they aren't already busy elsewhere.
     if (status === 'accepted' && existing.status !== 'accepted') {
+      if (existing.status !== 'pending') {
+        throw new BadRequestException('Faqat kutilayotgan nomzodni qabul qilish mumkin');
+      }
       const busyWith = await this.findActiveAssignment(existing.workerId, existing.id);
       if (busyWith) {
         throw new BadRequestException(
           'Bu ishchi hozir boshqa ish bilan band. Avval joriy ishni yakunlashi kerak.',
         );
+      }
+      const hiredForJob = await this.prisma.application.findFirst({
+        where: { jobId: existing.jobId, status: 'accepted', NOT: { id: existing.id } },
+      });
+      if (hiredForJob) {
+        throw new BadRequestException('Bu ish uchun boshqa ishchi allaqachon qabul qilingan');
       }
     }
 
@@ -751,22 +771,77 @@ export class ApplicationsController {
     if (status === 'accepted' && existing.status !== 'accepted') {
       await this.prisma.user.update({
         where: { id: existing.workerId },
-        data: { availability: 'busy' },
+        data: { availability: 'busy', lookingForWork: false },
       }).catch(() => undefined);
-    }
+      await this.prisma.job.update({
+        where: { id: existing.jobId },
+        data: { status: 'active' },
+      }).catch(() => undefined);
+      await this.prisma.application.updateMany({
+        where: { jobId: existing.jobId, status: 'pending', NOT: { id: existing.id } },
+        data: { status: 'rejected' },
+      }).catch(() => undefined);
 
-    if (status === 'accepted' || status === 'rejected') {
+      const [job, worker, employer] = await Promise.all([
+        this.prisma.job.findUnique({ where: { id: existing.jobId } }),
+        this.prisma.user.findUnique({
+          where: { id: existing.workerId },
+          select: { fullName: true, phoneNumber: true },
+        }),
+        this.prisma.user.findUnique({
+          where: { id: existing.employerId },
+          select: { fullName: true, phoneNumber: true },
+        }),
+      ]);
+      const jobTitle = existing.jobTitle || job?.title || 'ish';
+      const workerName = existing.workerName || worker?.fullName || 'Ishchi';
+      const schedule = formatJobSchedule(job?.scheduledAt);
+
       await this.prisma.notification.create({
         data: {
           id: randomUUID(),
           userId: existing.workerId,
-          title: status === 'accepted' ? 'Ariza qabul qilindi' : 'Ariza rad etildi',
-          message:
-            status === 'accepted'
-              ? `Sizning "${existing.jobTitle || 'ish'}" arizangiz qabul qilindi!`
-              : `Sizning "${existing.jobTitle || 'ish'}" arizangiz rad etildi`,
+          title: 'Ishga qabul qilindingiz',
+          message: `Siz "${jobTitle}" ishiga qabul qilindingiz. ${schedule} ishga borishingiz kerak.`,
           type: 'application',
-          link: '/worker/applications',
+          link: '/my-work',
+          read: false,
+        },
+      });
+
+      await this.prisma.notification.create({
+        data: {
+          id: randomUUID(),
+          userId: existing.employerId,
+          title: 'Ishchi qabul qilindi',
+          message: `${workerName} "${jobTitle}" ishini qabul qildi. ${schedule} ishchi kelishini kuting.`,
+          type: 'application',
+          link: `/employer/jobs/${existing.jobId}`,
+          read: false,
+        },
+      }).catch(() => undefined);
+
+      if (worker?.phoneNumber) {
+        void this.devSms.sendNotificationSms(
+          worker.phoneNumber,
+          `Mehrli qollar: Siz "${jobTitle}" ishiga qabul qilindingiz. ${schedule} ishga borishingiz kerak. Tafsilotlar ilovada.`,
+        );
+      }
+      if (employer?.phoneNumber) {
+        void this.devSms.sendNotificationSms(
+          employer.phoneNumber,
+          `Mehrli qollar: ${workerName} "${jobTitle}" ishini qabul qildi. ${schedule} ishchi kelishini kuting.`,
+        );
+      }
+    } else if (status === 'rejected') {
+      await this.prisma.notification.create({
+        data: {
+          id: randomUUID(),
+          userId: existing.workerId,
+          title: 'Nomzodlik rad etildi',
+          message: `Siz "${existing.jobTitle || 'ish'}" uchun tanlanmadingiz`,
+          type: 'application',
+          link: '/jobs',
           read: false,
         },
       });
@@ -805,7 +880,15 @@ export class ApplicationsController {
     // Free the worker and credit the finished job.
     await this.prisma.user.update({
       where: { id: app.workerId },
-      data: { availability: 'available', completedJobs: { increment: 1 } },
+      data: {
+        availability: 'available',
+        lookingForWork: true,
+        completedJobs: { increment: 1 },
+      },
+    }).catch(() => undefined);
+    await this.prisma.job.update({
+      where: { id: app.jobId },
+      data: { status: 'closed' },
     }).catch(() => undefined);
 
     const jobTitle = app.jobTitle || 'ish';
@@ -819,7 +902,7 @@ export class ApplicationsController {
         title: 'Ish yakunlandi',
         message: `${workerName} "${jobTitle}" ishini yakunladi. Iltimos, ishchini baholang.`,
         type: 'application',
-        link: `/employer/applicants?review=${app.id}`,
+        link: `/employer/jobs/${app.jobId}?review=${app.id}`,
         read: false,
       },
     }).catch(() => undefined);
@@ -832,7 +915,7 @@ export class ApplicationsController {
         title: 'Ish yakunlandi',
         message: `Siz "${jobTitle}" ishini yakunladingiz. Buyurtmachi sizni baholaydi.`,
         type: 'application',
-        link: '/worker/applications',
+        link: '/my-work',
         read: false,
       },
     }).catch(() => undefined);
@@ -846,7 +929,7 @@ export class ApplicationsController {
       void this.devSms
         .sendNotificationSms(
           employer.phoneNumber,
-          `Mehrli qollar: ${workerName} "${jobTitle}" ishini yakunladi. Ilovaga kirib ishchini baholang.`,
+          `Mehrli qollar: "${jobTitle}" ishi yakunlandi. Ilova orqali ${workerName}ning xizmat sifatini 5 yulduzda baholang.`,
         )
         .catch(() => undefined);
     }
@@ -882,6 +965,15 @@ function parseOptionalDate(value: unknown): Date | null | undefined {
     throw new BadRequestException(`Noto'g'ri sana: ${String(value)}`);
   }
   return d;
+}
+
+function formatJobSchedule(value: Date | null | undefined): string {
+  if (!value) return 'Kelishilgan vaqtda';
+  return new Intl.DateTimeFormat('uz-UZ', {
+    timeZone: 'Asia/Tashkent',
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(value);
 }
 
 function normalizeContractWrite(body: Record<string, unknown>, opts?: { partial?: boolean }) {
@@ -1491,7 +1583,7 @@ export class ReviewsController {
         title: 'Yangi baho',
         message: `Buyurtmachi sizning ishingizni ${rating} yulduz bilan baholadi`,
         type: 'application',
-        link: '/worker/applications',
+        link: '/my-work',
         read: false,
       },
     }).catch(() => undefined);

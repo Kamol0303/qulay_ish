@@ -85,21 +85,21 @@ export default function ReviewModal({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden"
+            className="relative bg-card w-full max-w-md rounded-[32px] border border-border shadow-2xl overflow-hidden"
           >
             <div className="p-8">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                  <h2 className="text-2xl font-black text-foreground tracking-tight">
                     {t('reviews.title', { defaultValue: 'Ishchini baholang' })}
                   </h2>
-                  <p className="text-gray-500 text-sm mt-1">
+                  <p className="text-muted-foreground text-sm mt-1">
                     {workerName || t('common.unknown_worker', { defaultValue: 'Ishchi' })}
                     {jobTitle ? ` — ${jobTitle}` : ''}
                   </p>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <X size={24} className="text-gray-400" />
+                <button onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">
+                  <X size={24} className="text-muted-foreground" />
                 </button>
               </div>
 
@@ -160,7 +160,7 @@ export default function ReviewModal({
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       maxLength={1000}
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm"
+                      className="w-full px-5 py-4 rounded-2xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm"
                       placeholder={t('reviews.comment_placeholder', {
                         defaultValue: 'Ishchi haqida fikringiz...',
                       })}

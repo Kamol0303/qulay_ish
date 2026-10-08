@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { CATEGORIES } from '../../constants/categories';
 import { isValidDistrictId } from '../../constants/districts';
-import { Briefcase, MapPin, DollarSign, CheckCircle, AlertCircle, Sparkles, Loader } from 'lucide-react';
+import { Briefcase, MapPin, DollarSign, CalendarClock, CheckCircle, AlertCircle, Sparkles, Loader } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
@@ -48,8 +48,13 @@ export default function CreateJob() {
     description: '',
     category: '',
     price: '',
+    scheduledAt: '',
     workType: 'one_time',
   });
+  const now = new Date();
+  const minimumSchedule = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +68,7 @@ export default function CreateJob() {
     }
     
     // Validation
-    if (!formData.title || !formData.description || !formData.category || !formData.price) {
+    if (!formData.title || !formData.description || !formData.category || !formData.price || !formData.scheduledAt) {
       setError(t('common.fill_all_fields'));
       return;
     }
@@ -84,6 +89,7 @@ export default function CreateJob() {
         description: formData.description,
         category: formData.category,
         price: Number(formData.price),
+        scheduledAt: new Date(formData.scheduledAt).toISOString(),
         region: profile.region || 'Samarqand viloyati',
         district: profile.district,
         workType: formData.workType,
@@ -238,6 +244,25 @@ export default function CreateJob() {
                   </div>
 
                   <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                        {t('employer.dashboard.scheduled_at')}
+                      </label>
+                      <div className="relative">
+                        <CalendarClock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                        <input
+                          type="datetime-local"
+                          required
+                          min={minimumSchedule}
+                          value={formData.scheduledAt}
+                          onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
+                          className="w-full px-4 py-3 pl-11 rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t('employer.dashboard.scheduled_at_hint')}
+                      </p>
+                    </div>
                     <div>
                       <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('employer.dashboard.offered_price')}</label>
                       <input

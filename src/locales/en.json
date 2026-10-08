@@ -19,7 +19,23 @@
     "empty": "No users found yet",
     "location_unknown": "District not provided",
     "worker": "Worker",
-    "employer": "Employer"
+    "employer": "Employer",
+    "busy": "Busy",
+    "available": "Available"
+  },
+  "my_work": {
+    "title": "My current work",
+    "subtitle": "Track accepted work and mark it complete when finished.",
+    "empty": "No accepted work yet",
+    "job": "Job",
+    "agreed_time": "Agreed time",
+    "in_progress": "In progress",
+    "completed": "Completed",
+    "complete_button": "Complete job",
+    "complete_confirm": "Have you fully completed this job? The employer will receive a rating request.",
+    "completing": "Completing...",
+    "complete_error": "Could not complete the job",
+    "load_error": "Could not load current work"
   },
   "admin_users": {
     "title": "Admin Users",
@@ -347,6 +363,8 @@
       "location_automatic": "Location is set automatically",
       "location_automatic_desc": "The job will use {{district}} and be recommended to nearby workers.",
       "profile_district_required": "Select your district or city in your profile",
+      "scheduled_at": "Job date and time",
+      "scheduled_at_hint": "The worker receives this time by SMS after acceptance.",
       "requirement_placeholder": "e.g., Experience required",
       "no_applications": "No applications yet",
       "price_placeholder": "e.g. 200000"

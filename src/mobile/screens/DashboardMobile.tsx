@@ -55,6 +55,7 @@ export function WorkerDashboardMobile() {
         )}
         <div className="space-y-2">
           <Quick to="/jobs" label="Ishlar ro‘yxati" />
+          <Quick to="/my-work" label="Joriy ishim" />
           <Quick to="/directory" label="Buyurtmachilar" />
           <Quick to="/verification" label="Tasdiqlash" />
           <Quick to="/saved-jobs" label="Saqlangan ishlar" />

@@ -19,7 +19,23 @@
     "empty": "Hozircha foydalanuvchilar topilmadi",
     "location_unknown": "Hudud ko‘rsatilmagan",
     "worker": "Ishchi",
-    "employer": "Buyurtmachi"
+    "employer": "Buyurtmachi",
+    "busy": "Band",
+    "available": "Bo‘sh"
+  },
+  "my_work": {
+    "title": "Joriy ishim",
+    "subtitle": "Qabul qilingan ishni kuzating va bajargach yakunlang.",
+    "empty": "Hozircha qabul qilingan ish yo‘q",
+    "job": "Ish",
+    "agreed_time": "Kelishilgan vaqt",
+    "in_progress": "Jarayonda",
+    "completed": "Yakunlangan",
+    "complete_button": "Ishni yakunlash",
+    "complete_confirm": "Ishni to‘liq yakunladingizmi? Buyurtmachiga baholash uchun xabar yuboriladi.",
+    "completing": "Yakunlanmoqda...",
+    "complete_error": "Ishni yakunlab bo‘lmadi",
+    "load_error": "Joriy ishni yuklab bo‘lmadi"
   },
   "admin_users": {
     "title": "Admin foydalanuvchilar",
@@ -347,6 +363,8 @@
       "location_automatic": "Joylashuv avtomatik olinadi",
       "location_automatic_desc": "Eʼlon {{district}} hududiga biriktiriladi va yaqin ishchilarga tavsiya qilinadi.",
       "profile_district_required": "Profilingizda tuman yoki shaharni tanlang",
+      "scheduled_at": "Ish sanasi va vaqti",
+      "scheduled_at_hint": "Ishchi qabul qilinganda shu vaqt SMS orqali yuboriladi.",
       "requirement_placeholder": "Masalan: Tajriba talab qilinadi",
       "no_applications": "Hozircha arizalar yoʻq",
       "price_placeholder": "Masalan: 200000"

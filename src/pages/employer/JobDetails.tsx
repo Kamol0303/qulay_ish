@@ -1,6 +1,6 @@
 import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
@@ -29,16 +29,19 @@ import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
 import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
+import ReviewModal from '../../components/ReviewModal';
 
 export default function EmployerJobDetails() {
   const { t, i18n } = useTranslation();
   const { jobId } = useParams();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [job, setJob] = useState<Job | null>(null);
   const [applications, setApplications] = useState<(Application & { worker?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showOptions, setShowOptions] = useState(false);
+  const [reviewRow, setReviewRow] = useState<(Application & { worker?: Profile }) | null>(null);
   const verified = isIdentityVerified(profile);
 
   useEffect(() => {
@@ -68,6 +71,18 @@ export default function EmployerJobDetails() {
 
     fetchJobAndApplicants();
   }, [jobId, profile, navigate]);
+
+  useEffect(() => {
+    const reviewId = searchParams.get('review');
+    if (!reviewId) return;
+    const row = applications.find(
+      (application) =>
+        application.id === reviewId &&
+        application.status === 'completed' &&
+        !application.reviewed,
+    );
+    if (row) setReviewRow(row);
+  }, [applications, searchParams]);
 
   const handleStatusUpdate = async (appId: string, newStatus: string) => {
     try {
@@ -215,8 +230,12 @@ export default function EmployerJobDetails() {
                     <Clock size={20} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('common.date')}</p>
-                    <p className="text-sm font-bold">{format(job.createdAt?.toDate?.() || new Date(), 'd MMM, yyyy', { locale: getDateLocale() })}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('employer.dashboard.scheduled_at')}</p>
+                    <p className="text-sm font-bold">
+                      {job.scheduledAt
+                        ? format(new Date(job.scheduledAt), 'd MMM, yyyy HH:mm', { locale: getDateLocale() })
+                        : t('my_work.agreed_time')}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -283,11 +302,27 @@ export default function EmployerJobDetails() {
                               {t('employer.dashboard.reject')}
                             </button>
                           </>
+                        ) : app.status === 'completed' && !app.reviewed ? (
+                          <button
+                            type="button"
+                            onClick={() => setReviewRow(app)}
+                            className="flex-1 md:flex-none px-6 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-bold"
+                          >
+                            {t('reviews.title')}
+                          </button>
                         ) : (
                           <div className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest ${
-                            app.status === 'accepted' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                            app.status === 'accepted'
+                              ? 'bg-green-50 text-green-700'
+                              : app.status === 'completed'
+                                ? 'bg-blue-50 text-blue-700'
+                                : 'bg-red-50 text-red-700'
                           }`}>
-                            {app.status === 'accepted' ? t('employer.dashboard.accepted') : t('employer.dashboard.rejected')}
+                            {app.status === 'accepted'
+                              ? t('employer.dashboard.accepted')
+                              : app.status === 'completed'
+                                ? t('my_work.completed')
+                                : t('employer.dashboard.rejected')}
                           </div>
                         )}
                         <Link
@@ -342,6 +377,21 @@ export default function EmployerJobDetails() {
           </div>
         </div>
       </div>
+      <ReviewModal
+        isOpen={Boolean(reviewRow)}
+        onClose={() => setReviewRow(null)}
+        applicationId={reviewRow?.id || ''}
+        workerName={reviewRow?.worker?.fullName || reviewRow?.workerName}
+        jobTitle={job?.title}
+        onSubmitted={() => {
+          if (!reviewRow) return;
+          setApplications((current) =>
+            current.map((application) =>
+              application.id === reviewRow.id ? { ...application, reviewed: true } : application,
+            ),
+          );
+        }}
+      />
     </DashboardLayout>
   );
 }

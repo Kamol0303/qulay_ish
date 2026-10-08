@@ -135,6 +135,7 @@ export interface Job {
   price?: number;
   salaryType?: 'hourly' | 'daily' | 'monthly' | 'fixed';
   workType?: string;
+  scheduledAt?: string | Date;
   status?: 'active' | 'closed' | 'draft' | 'open';
   isPromoted?: boolean;
   requirements?: string[];
