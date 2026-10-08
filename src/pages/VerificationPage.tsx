@@ -1,9 +1,8 @@
 import { useEffect, useState, type ReactNode, type FormEvent } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
-  ArrowLeft,
   Camera,
   CheckCircle,
   Clock,
@@ -17,7 +16,6 @@ import { api } from '../lib/api';
 import type { PassportData, VerificationRequest } from '../types';
 import { SecureImage } from '../components/verification/SecureMedia';
 import { VerificationStatusCard } from '../components/verification/VerificationStatusCard';
-import { PASSPORT_FILL_PROMPT, VERIFICATION_REQUIRED_MESSAGE } from '../lib/verificationGate';
 
 type FormState = {
   idPhotoUrl: string;
@@ -37,7 +35,6 @@ const emptyPassport = (): PassportData => ({
 export default function VerificationPage() {
   const { t } = useTranslation();
   const { profile, refreshProfile } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const gateMessage =
     (location.state as { message?: string; prompt?: string } | null)?.message ||
@@ -107,7 +104,7 @@ export default function VerificationPage() {
           : {}),
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Yuklash xatosi');
+      setError(err instanceof Error ? err.message : t('verification.upload_error'));
     } finally {
       setUploading(null);
     }
@@ -119,10 +116,10 @@ export default function VerificationPage() {
 
   const validatePassportLocal = (): string | null => {
     const p = formData.passport;
-    if (!/^[A-Za-z]{2}$/.test(p.series.trim())) return 'Pasport seriyasi 2 ta harf (masalan: AA)';
-    if (!/^\d{7}$/.test(p.number.trim())) return 'Pasport raqami 7 ta raqam bo\'lishi kerak';
-    if (!/^\d{14}$/.test(p.pinfl.trim())) return 'JSHSHIR (PINFL) 14 ta raqam bo\'lishi kerak';
-    if (p.fullName.trim().length < 3) return PASSPORT_FILL_PROMPT;
+    if (!/^[A-Za-z]{2}$/.test(p.series.trim())) return t('verification.series_error');
+    if (!/^\d{7}$/.test(p.number.trim())) return t('verification.number_error');
+    if (!/^\d{14}$/.test(p.pinfl.trim())) return t('verification.pinfl_error');
+    if (p.fullName.trim().length < 3) return t('verification.full_name_error');
     return null;
   };
 
@@ -130,7 +127,7 @@ export default function VerificationPage() {
     e.preventDefault();
     if (!profile?.uid) return;
     if (!formData.idPhotoUrl || !formData.selfieUrl) {
-      setError('ID hujjat va selfi majburiy');
+      setError(t('verification.documents_required'));
       return;
     }
     const passportError = validatePassportLocal();
@@ -169,7 +166,7 @@ export default function VerificationPage() {
       setForceForm(false);
       await refreshProfile();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Yuborishda xatolik');
+      setError(err instanceof Error ? err.message : t('verification.submit_error'));
     } finally {
       setSubmitting(false);
     }
@@ -191,15 +188,6 @@ export default function VerificationPage() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-3xl space-y-8">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-2 flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2 font-bold shadow-sm"
-        >
-          <ArrowLeft size={18} />
-          {t('common.back')}
-        </button>
-
         <div className="flex items-center gap-4">
           <div className="rounded-3xl bg-primary/10 p-4 text-primary">
             <ShieldCheck className="h-8 w-8" />
@@ -208,7 +196,7 @@ export default function VerificationPage() {
             <h2 className="text-3xl font-bold tracking-tight">{t('verification.title')}</h2>
             <p className="mt-1 text-muted-foreground">
               {profile?.role === 'employer'
-                ? 'Kompaniya / buyurtmachi shaxsni tasdiqlash'
+                ? t('verification.employer_subtitle')
                 : t('verification.subtitle')}
             </p>
           </div>
@@ -216,8 +204,8 @@ export default function VerificationPage() {
 
         {gateMessage && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
-            <p className="font-bold">{PASSPORT_FILL_PROMPT}</p>
-            <p className="mt-1">{gateMessage === PASSPORT_FILL_PROMPT ? VERIFICATION_REQUIRED_MESSAGE : gateMessage}</p>
+            <p className="font-bold">{t('verification.passport_prompt')}</p>
+            <p className="mt-1">{t('verification.required_notice')}</p>
           </div>
         )}
 
@@ -235,7 +223,7 @@ export default function VerificationPage() {
                 <div className="mx-auto grid max-w-md grid-cols-2 gap-4 pt-4">
                   <StatusSlot label={t('verification.id_submitted')} ok={Boolean(request.idPhotoUrl)} />
                   <StatusSlot label={t('verification.selfie_submitted')} ok={Boolean(request.selfieUrl)} />
-                  <StatusSlot label="Pasport ma'lumotlari" ok={Boolean(request.passportData?.pinfl)} />
+                  <StatusSlot label={t('verification.passport_info')} ok={Boolean(request.passportData?.pinfl)} />
                 </div>
               </>
             )}
@@ -254,7 +242,7 @@ export default function VerificationPage() {
                   <AlertTriangle className="h-10 w-10" />
                 </div>
                 <h3 className="text-2xl font-bold">
-                  {request.status === 'need_reupload' ? 'Qayta yuklash kerak' : t('verification.rejected_title')}
+                  {request.status === 'need_reupload' ? t('verification.reupload_title') : t('verification.rejected_title')}
                 </h3>
                 <p className="text-muted-foreground">
                   {request.rejectionReason || request.reviewNote || t('verification.rejected_desc')}
@@ -287,36 +275,36 @@ export default function VerificationPage() {
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-6 rounded-[2.5rem] border border-border bg-card p-8 shadow-sm">
               <div>
-                <h3 className="text-xl font-bold">Pasport ma&apos;lumotlari (majburiy)</h3>
+                <h3 className="text-xl font-bold">{t('verification.passport_section')}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {PASSPORT_FILL_PROMPT}. Bu ma&apos;lumotlar buyurtmachilarga ko&apos;rinmaydi.
+                  {t('verification.passport_help')}
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field
-                  label="Seriya *"
+                  label={t('verification.series')}
                   value={formData.passport.series}
                   onChange={(v) => setPassport({ series: v.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2) })}
                   placeholder="AA"
                 />
                 <Field
-                  label="Raqam *"
+                  label={t('verification.number')}
                   value={formData.passport.number}
                   onChange={(v) => setPassport({ number: v.replace(/\D/g, '').slice(0, 7) })}
                   placeholder="1234567"
                 />
                 <Field
-                  label="JSHSHIR (PINFL) *"
+                  label={t('verification.pinfl')}
                   value={formData.passport.pinfl}
                   onChange={(v) => setPassport({ pinfl: v.replace(/\D/g, '').slice(0, 14) })}
-                  placeholder="14 ta raqam"
+                  placeholder={t('verification.pinfl_placeholder')}
                   className="sm:col-span-2"
                 />
                 <Field
-                  label="To'liq ism (pasportdagidek) *"
+                  label={t('verification.full_name')}
                   value={formData.passport.fullName}
                   onChange={(v) => setPassport({ fullName: v })}
-                  placeholder="ISM FAMILIYA"
+                  placeholder={t('verification.full_name_placeholder')}
                   className="sm:col-span-2"
                 />
               </div>
@@ -324,7 +312,7 @@ export default function VerificationPage() {
 
             <div className="space-y-8 rounded-[2.5rem] border border-border bg-card p-8 shadow-sm">
               <UploadSlot
-                title={`1. ${t('verification.id_document')} (majburiy)`}
+                title={t('verification.id_document')}
                 desc={t('verification.id_desc')}
                 icon={<FileText className="h-8 w-8" />}
                 url={formData.idPhotoUrl}
@@ -333,7 +321,7 @@ export default function VerificationPage() {
                 onClear={() => setFormData((p) => ({ ...p, idPhotoUrl: '', idChecks: undefined }))}
               />
               <UploadSlot
-                title={`2. ${t('verification.selfie_verification')} (majburiy)`}
+                title={t('verification.selfie_verification')}
                 desc={t('verification.selfie_desc')}
                 icon={<Camera className="h-8 w-8" />}
                 url={formData.selfieUrl}
@@ -433,6 +421,7 @@ function UploadSlot({
   onFile: (file?: File) => void;
   onClear?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -443,7 +432,7 @@ function UploadSlot({
             onClick={onClear}
             className="rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
           >
-            O‘chirish
+            {t('common.delete')}
           </button>
         )}
       </div>
@@ -459,7 +448,7 @@ function UploadSlot({
           ) : (
             <>
               <div className="rounded-2xl bg-primary/10 p-4 text-primary">{icon}</div>
-              <p className="text-sm font-bold text-muted-foreground">Fayl tanlang</p>
+              <p className="text-sm font-bold text-muted-foreground">{t('verification.choose_file')}</p>
             </>
           )}
           <input

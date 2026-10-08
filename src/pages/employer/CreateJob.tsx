@@ -2,22 +2,21 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
-import { REGIONS, DISTRICTS } from '../../constants/locations';
 import { CATEGORIES } from '../../constants/categories';
-import { Briefcase, MapPin, DollarSign, Calendar, FileText, Plus, X, CheckCircle, AlertCircle, Sparkles, Loader } from 'lucide-react';
+import { isValidDistrictId } from '../../constants/districts';
+import { Briefcase, MapPin, DollarSign, CheckCircle, AlertCircle, Sparkles, Loader } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
-import { getDistrictKey } from '../../lib/utils';
 import { jobService } from '../../services/jobService';
-import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
+import { isIdentityVerified } from '../../lib/verificationGate';
 import { Link } from 'react-router-dom';
 
 export default function CreateJob() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user, profile, isDemo } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,10 +31,10 @@ export default function CreateJob() {
         title: formData.title,
         category: formData.category,
         description: formData.description,
-        requirements: formData.requirements,
-        region: formData.region || 'Samarqand viloyati',
+        requirements: [],
+        region: profile?.region || 'Samarqand viloyati',
         salary: formData.price,
-        language: 'uz',
+        language: i18n.resolvedLanguage || i18n.language || 'uz',
       });
       setFormData((prev) => ({ ...prev, description: res.text }));
     } catch (err) {
@@ -49,30 +48,8 @@ export default function CreateJob() {
     description: '',
     category: '',
     price: '',
-    region: '',
-    district: '',
-    neighborhood: '',
     workType: 'one_time',
-    requirements: [] as string[],
-    currentRequirement: ''
   });
-
-  const handleAddRequirement = () => {
-    if (formData.currentRequirement.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        requirements: [...prev.requirements, prev.currentRequirement.trim()],
-        currentRequirement: ''
-      }));
-    }
-  };
-
-  const removeRequirement = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      requirements: prev.requirements.filter((_, i) => i !== index)
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,13 +58,17 @@ export default function CreateJob() {
       return;
     }
     if (!isIdentityVerified(profile)) {
-      setError(VERIFICATION_REQUIRED_MESSAGE);
+      setError(t('verification.required_notice'));
       return;
     }
     
     // Validation
-    if (!formData.title || !formData.description || !formData.category || !formData.price || !formData.region || !formData.district) {
+    if (!formData.title || !formData.description || !formData.category || !formData.price) {
       setError(t('common.fill_all_fields'));
+      return;
+    }
+    if (!isValidDistrictId(profile?.district)) {
+      setError(t('employer.dashboard.profile_district_required'));
       return;
     }
 
@@ -103,11 +84,10 @@ export default function CreateJob() {
         description: formData.description,
         category: formData.category,
         price: Number(formData.price),
-        region: formData.region,
-        district: formData.district,
-        neighborhood: formData.neighborhood,
+        region: profile.region || 'Samarqand viloyati',
+        district: profile.district,
         workType: formData.workType,
-        requirements: formData.requirements.filter(r => r.trim()), // Filter empty strings
+        requirements: [],
         status: 'open'
       });
 
@@ -129,21 +109,21 @@ export default function CreateJob() {
     <DashboardLayout>
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t('employer.dashboard.post_job')}</h1>
-          <p className="text-gray-500 mt-2">{t('employer.dashboard.post_job_desc')}</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">{t('employer.dashboard.post_job')}</h1>
+          <p className="text-muted-foreground mt-2">{t('employer.dashboard.post_job_desc')}</p>
         </div>
 
         {!verified && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3 text-amber-800">
             <div className="flex items-center gap-3 flex-1">
               <AlertCircle size={20} className="shrink-0" />
-              <p className="font-medium text-sm">{VERIFICATION_REQUIRED_MESSAGE}</p>
+              <p className="font-medium text-sm">{t('verification.required_notice')}</p>
             </div>
             <Link
               to="/verification"
               className="shrink-0 px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-bold text-center"
             >
-              Shaxsni tasdiqlash
+              {t('verification.action')}
             </Link>
           </div>
         )}
@@ -176,34 +156,34 @@ export default function CreateJob() {
           ) : (
             <form onSubmit={handleSubmit} className={`space-y-8 ${!verified ? 'pointer-events-none opacity-60' : ''}`}>
               {/* Basic Info */}
-              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+              <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
                     <Briefcase size={20} />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">{t('employer.dashboard.basic_info')}</h2>
+                  <h2 className="text-xl font-bold text-foreground">{t('employer.dashboard.basic_info')}</h2>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{t('employer.dashboard.job_title')}</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('employer.dashboard.job_title')}</label>
                     <input
                       type="text"
                       required
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      className="w-full px-5 py-4 rounded-2xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       placeholder={t('employer.dashboard.job_title_placeholder')}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{t('jobs.category')}</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('jobs.category')}</label>
                     <select
                       required
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      className="w-full px-5 py-4 rounded-2xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     >
                       <option value="">{t('common.select')}...</option>
                       {CATEGORIES.map(c => <option key={c.id} value={c.id}>{t(`categories.${c.id}`)}</option>)}
@@ -212,7 +192,7 @@ export default function CreateJob() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">{t('jobs.description')}</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">{t('jobs.description')}</label>
                       <button
                         type="button"
                         onClick={handleAiVacancy}
@@ -220,7 +200,7 @@ export default function CreateJob() {
                         className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-100 disabled:opacity-50"
                       >
                         {aiLoading ? <Loader size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                        AI yordam
+                        {t('employer.dashboard.ai_help')}
                       </button>
                     </div>
                     <textarea
@@ -228,132 +208,60 @@ export default function CreateJob() {
                       rows={4}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
+                      className="w-full px-5 py-4 rounded-2xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
                       placeholder={t('employer.dashboard.job_desc_placeholder')}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Location & Price */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-green-600">
-                      <MapPin size={20} />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900">{t('common.location')}</h2>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl mb-4">
-                      <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">{t('profile.region')}</p>
-                      <p className="text-sm font-black text-blue-900">{t('common.region_name', { defaultValue: 'Samarqand viloyati' })}</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t('profile.district')}</label>
-                      <select
-                        required
-                        value={formData.district}
-                        onChange={(e) => setFormData({ ...formData, district: e.target.value, region: 'Samarqand viloyati' })}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                      >
-                        <option value="">{t('common.select')}...</option>
-                        {DISTRICTS["Samarqand viloyati"].map(d => <option key={d} value={d}>{t(`districts.${getDistrictKey(d)}`)}</option>)}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t('profile.neighborhood')}</label>
-                      <input
-                        type="text"
-                        value={formData.neighborhood}
-                        onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                        placeholder={t('auth.neighborhood_placeholder')}
-                      />
-                    </div>
-                  </div>
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                <div className="flex items-center gap-2 font-bold">
+                  <MapPin size={18} className="text-primary" />
+                  {t('employer.dashboard.location_automatic')}
                 </div>
+                <p className="mt-1 text-muted-foreground">
+                  {t('employer.dashboard.location_automatic_desc', {
+                    district: t(`districts.${profile?.district}`, { defaultValue: profile?.district || '—' }),
+                  })}
+                </p>
+              </div>
 
-                <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+              {/* Price and work type */}
+              <div className="grid grid-cols-1 gap-8">
+                <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm space-y-6">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
                       <DollarSign size={20} />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900">{t('employer.dashboard.price_and_duration')}</h2>
+                    <h2 className="text-xl font-bold text-foreground">{t('employer.dashboard.price_and_duration')}</h2>
                   </div>
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t('employer.dashboard.offered_price')}</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('employer.dashboard.offered_price')}</label>
                       <input
                         type="number"
                         required
                         value={formData.price}
                         onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                         placeholder={t('employer.dashboard.price_placeholder', { defaultValue: 'Masalan: 100000' })}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t('employer.dashboard.job_type')}</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('employer.dashboard.job_type')}</label>
                       <select
                         value={formData.workType}
                         onChange={(e) => setFormData({ ...formData, workType: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       >
                         <option value="one_time">{t('jobs.one_time')}</option>
                         <option value="daily">{t('jobs.daily')}</option>
                         <option value="permanent">{t('jobs.permanent')}</option>
                       </select>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Requirements */}
-              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600">
-                    <FileText size={20} />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900">{t('jobs.requirements')}</h2>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={formData.currentRequirement}
-                      onChange={(e) => setFormData({ ...formData, currentRequirement: e.target.value })}
-                      className="flex-1 px-4 py-3 rounded-xl border border-gray-200 outline-none"
-                      placeholder={t('employer.dashboard.requirement_placeholder')}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddRequirement}
-                      className="bg-gray-900 text-white px-6 rounded-xl font-bold hover:bg-gray-800"
-                    >
-                      {t('auth.add')}
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {formData.requirements.map((req, index) => (
-                      <div key={`req-${index}-${req}`} className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2">
-                        <span className="text-sm text-gray-700">{req}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeRequirement(index)}
-                          className="text-gray-400 hover:text-red-500"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>

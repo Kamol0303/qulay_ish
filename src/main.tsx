@@ -18,9 +18,6 @@ if (import.meta.env.DEV) {
   };
 }
 
-// Force light mode — remove any dark class that may have been persisted
-document.documentElement.classList.remove('dark');
-localStorage.removeItem('theme');
 clearLegacyDemoStorage();
 
 async function boot() {

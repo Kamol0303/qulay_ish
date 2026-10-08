@@ -463,11 +463,18 @@ export class JobsController {
         ? String(body.employerId)
         : req.user.userId;
 
+    const employer = await this.prisma.user.findUnique({ where: { id: employerId } });
+    if (!employer) throw new NotFoundException('Buyurtmachi topilmadi');
+
     if (!isStaff(req.user.role)) {
-      const employer = await this.prisma.user.findUnique({ where: { id: employerId } });
       if (!employer?.isVerified && employer?.verificationStatus !== 'verified') {
         throw new ForbiddenException(
           'Iltimos, ish e\'lonidan oldin shaxsingizni tasdiqlang va pasport ma\'lumotlaringizni to\'ldiring.',
+        );
+      }
+      if (!isValidDistrictId(employer.district)) {
+        throw new BadRequestException(
+          'Profilingizda Samarqand tumani yoki shahri tanlanmagan',
         );
       }
     }
@@ -480,16 +487,22 @@ export class JobsController {
         employerId,
         employerName: body.employerName as string,
         category: body.category as string,
-        region: body.region as string,
-        district: body.district as string,
-        neighborhood: body.neighborhood as string,
+        // Public jobs inherit the employer's fixed registration district.
+        // This prevents spoofed job addresses and powers district proximity.
+        region: isStaff(req.user.role)
+          ? (body.region as string) || employer.region
+          : employer.region,
+        district: isStaff(req.user.role)
+          ? (body.district as string) || employer.district
+          : employer.district,
+        neighborhood: isStaff(req.user.role) ? (body.neighborhood as string) : null,
         salary: body.salary as number,
         price: body.price as number,
         salaryType: body.salaryType as string,
         workType: body.workType as string,
         status: (body.status as any) || 'active',
         isPromoted: isStaff(req.user.role) ? Boolean(body.isPromoted) : false,
-        requirements: (body.requirements as string[]) || [],
+        requirements: isStaff(req.user.role) ? (body.requirements as string[]) || [] : [],
         images: (body.images as string[]) || [],
       },
     });
