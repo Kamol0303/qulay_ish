@@ -463,17 +463,18 @@ export const api = {
         ids: params?.ids?.length ? params.ids.join(',') : undefined,
       });
       const token = getAccessToken();
-      const res = await fetch(`${API_BASE}/admin/export/users.xlsx${toQuery(query)}`, {
+      const res = await fetch(`${API_BASE}/admin/export/users${toQuery(query)}`, {
         method: 'GET',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
-        let message = `Export ${res.status}`;
+        const raw = await res.text();
+        let message = raw.trim() || `Export ${res.status}`;
         try {
-          const body = await res.json();
+          const body = JSON.parse(raw) as { message?: unknown };
           if (body?.message) message = Array.isArray(body.message) ? body.message.join(', ') : String(body.message);
         } catch {
-          /* non-JSON error body */
+          /* plain-text error body */
         }
         throw new Error(message);
       }
