@@ -138,8 +138,6 @@ export class VerificationRequestsController {
         idPhotoUrl,
         documentUrl: idPhotoUrl,
         selfieUrl,
-        addressProofUrl: (body.addressProofUrl as string) || null,
-        additionalFiles: (body.additionalFiles as object) || undefined,
         passportData: passportData as object,
         documentChecks: (documentChecks as object) || undefined,
         status: 'pending',
@@ -233,8 +231,6 @@ export class VerificationRequestsController {
       'idPhotoUrl',
       'documentUrl',
       'selfieUrl',
-      'addressProofUrl',
-      'additionalFiles',
       'documentType',
       'documentChecks',
     ]) {

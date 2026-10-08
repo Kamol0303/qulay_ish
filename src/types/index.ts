@@ -221,8 +221,9 @@ export interface PassportData {
   number: string;
   pinfl: string;
   fullName: string;
-  issueDate: string;
-  expiryDate: string;
+  /** Legacy fields kept optional so older verification records still render. */
+  issueDate?: string;
+  expiryDate?: string;
 }
 
 export interface DocumentCheckResult {

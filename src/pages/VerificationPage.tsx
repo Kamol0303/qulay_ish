@@ -10,7 +10,6 @@ import {
   FileText,
   Loader2,
   ShieldCheck,
-  Upload,
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -23,8 +22,6 @@ import { PASSPORT_FILL_PROMPT, VERIFICATION_REQUIRED_MESSAGE } from '../lib/veri
 type FormState = {
   idPhotoUrl: string;
   selfieUrl: string;
-  addressProofUrl: string;
-  additionalUrl: string;
   passport: PassportData;
   idChecks?: unknown;
   selfieChecks?: unknown;
@@ -35,8 +32,6 @@ const emptyPassport = (): PassportData => ({
   number: '',
   pinfl: '',
   fullName: '',
-  issueDate: '',
-  expiryDate: '',
 });
 
 export default function VerificationPage() {
@@ -58,8 +53,6 @@ export default function VerificationPage() {
   const [formData, setFormData] = useState<FormState>({
     idPhotoUrl: '',
     selfieUrl: '',
-    addressProofUrl: '',
-    additionalUrl: '',
     passport: emptyPassport(),
   });
 
@@ -95,7 +88,7 @@ export default function VerificationPage() {
 
   const uploadField = async (
     file: File | undefined,
-    field: 'idPhotoUrl' | 'selfieUrl' | 'addressProofUrl' | 'additionalUrl',
+    field: 'idPhotoUrl' | 'selfieUrl',
     kind: string,
   ) => {
     if (!file) return;
@@ -130,7 +123,6 @@ export default function VerificationPage() {
     if (!/^\d{7}$/.test(p.number.trim())) return 'Pasport raqami 7 ta raqam bo\'lishi kerak';
     if (!/^\d{14}$/.test(p.pinfl.trim())) return 'JSHSHIR (PINFL) 14 ta raqam bo\'lishi kerak';
     if (p.fullName.trim().length < 3) return PASSPORT_FILL_PROMPT;
-    if (!p.issueDate || !p.expiryDate) return 'Pasport berilgan va amal qilish sanalari majburiy';
     return null;
   };
 
@@ -154,17 +146,11 @@ export default function VerificationPage() {
         number: formData.passport.number.trim(),
         pinfl: formData.passport.pinfl.trim(),
         fullName: formData.passport.fullName.trim(),
-        issueDate: formData.passport.issueDate,
-        expiryDate: formData.passport.expiryDate,
       };
       const payload = {
         idPhotoUrl: formData.idPhotoUrl,
         documentUrl: formData.idPhotoUrl,
         selfieUrl: formData.selfieUrl,
-        addressProofUrl: formData.addressProofUrl || undefined,
-        additionalFiles: formData.additionalUrl
-          ? [{ url: formData.additionalUrl, title: 'Qo\'shimcha hujjat' }]
-          : undefined,
         documentType: 'passport',
         passportData: passport,
         documentChecks: {
@@ -282,8 +268,6 @@ export default function VerificationPage() {
                         ...prev,
                         idPhotoUrl: '',
                         selfieUrl: '',
-                        addressProofUrl: '',
-                        additionalUrl: '',
                         passport: request.passportData
                           ? { ...emptyPassport(), ...request.passportData }
                           : emptyPassport(),
@@ -338,18 +322,6 @@ export default function VerificationPage() {
                   placeholder="ISM FAMILIYA"
                   className="sm:col-span-2"
                 />
-                <Field
-                  label="Berilgan sana *"
-                  type="date"
-                  value={formData.passport.issueDate}
-                  onChange={(v) => setPassport({ issueDate: v })}
-                />
-                <Field
-                  label="Amal qilish muddati *"
-                  type="date"
-                  value={formData.passport.expiryDate}
-                  onChange={(v) => setPassport({ expiryDate: v })}
-                />
               </div>
             </div>
 
@@ -372,24 +344,6 @@ export default function VerificationPage() {
                 square
                 onFile={(f) => void uploadField(f, 'selfieUrl', 'verification_selfie')}
                 onClear={() => setFormData((p) => ({ ...p, selfieUrl: '', selfieChecks: undefined }))}
-              />
-              <UploadSlot
-                title="Manzil tasdiqlovchi hujjat (ixtiyoriy)"
-                desc="Kommunal to‘lov yoki manzilni tasdiqlovchi boshqa hujjat"
-                icon={<Upload className="h-8 w-8" />}
-                url={formData.addressProofUrl}
-                loading={uploading === 'addressProofUrl'}
-                onFile={(f) => void uploadField(f, 'addressProofUrl', 'verification_address')}
-                onClear={() => setFormData((p) => ({ ...p, addressProofUrl: '' }))}
-              />
-              <UploadSlot
-                title="Qo‘shimcha hujjat (ixtiyoriy)"
-                desc="Litsenziya, guvohnoma yoki boshqa fayl"
-                icon={<FileText className="h-8 w-8" />}
-                url={formData.additionalUrl}
-                loading={uploading === 'additionalUrl'}
-                onFile={(f) => void uploadField(f, 'additionalUrl', 'verification_extra')}
-                onClear={() => setFormData((p) => ({ ...p, additionalUrl: '' }))}
               />
             </div>
 
