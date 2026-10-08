@@ -94,9 +94,6 @@ export function VerificationStatusCard({
           </Link>
         )}
       </div>
-      <p className="mt-3 text-[11px] opacity-60">
-        Pasport, ID va selfi hujjatlari faqat Super Admin panelida ko‘rinadi.
-      </p>
     </div>
   );
 }

@@ -280,9 +280,6 @@ export default function VerificationPage() {
                 )}
               </>
             )}
-            <p className="text-xs text-muted-foreground">
-              Pasport, ID va selfi hujjatlari faqat Super Admin panelida ko&apos;rinadi.
-            </p>
           </div>
         )}
 
