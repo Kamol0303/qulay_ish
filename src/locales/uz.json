@@ -1023,6 +1023,7 @@
     "submit_btn": "Tasdiqlash uchun yuborish"
   },
   "education_levels": {
+    "none": "Ma'lumoti yo'q",
     "secondary": "O'rta ta'lim",
     "vocational": "O'rta maxsus (kollej/litsey)",
     "bachelor": "Bakalavr",

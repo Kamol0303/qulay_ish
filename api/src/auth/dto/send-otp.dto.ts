@@ -50,7 +50,7 @@ export class SendOtpDto {
 
   /** Worker's education level (optional, register only) */
   @IsOptional()
-  @IsIn(['secondary', 'vocational', 'bachelor', 'master', 'phd', 'other'])
+  @IsIn(['none', 'secondary', 'vocational', 'other'])
   educationLevel?: string;
 
   /**

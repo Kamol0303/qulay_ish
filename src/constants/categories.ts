@@ -47,11 +47,9 @@ export const CATEGORIES = [
 ];
 
 export const EDUCATION_LEVELS = [
+  { id: 'none', name: "Ma'lumoti yo'q" },
   { id: 'secondary', name: "O'rta ta'lim" },
   { id: 'vocational', name: "O'rta maxsus (kollej/litsey)" },
-  { id: 'bachelor', name: 'Bakalavr' },
-  { id: 'master', name: 'Magistr' },
-  { id: 'phd', name: 'PhD / Fan nomzodi' },
   { id: 'other', name: 'Boshqa' },
 ];
 

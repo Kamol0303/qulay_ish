@@ -1023,6 +1023,7 @@
     "success_desc": "Admins will review the situation soon."
   },
   "education_levels": {
+    "none": "No education",
     "secondary": "Secondary education",
     "vocational": "Vocational (college/lyceum)",
     "bachelor": "Bachelor",
