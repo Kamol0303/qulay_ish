@@ -4,6 +4,7 @@ import AuthPage from './pages/AuthPage';
 import SuperAdminLogin from './pages/SuperAdminLogin';
 import JobsPage from './pages/JobsPage';
 import WorkersPage from './pages/WorkersPage';
+import PeopleDirectoryPage from './pages/PeopleDirectoryPage';
 import ProfilePage from './pages/ProfilePage';
 import MyProfilePage from './pages/MyProfilePage';
 import ChatPage from './pages/ChatPage';
@@ -41,7 +42,6 @@ import ForbiddenPage from './pages/ForbiddenPage';
 import EmployerApplications from './pages/employer/Applications';
 import EmployerJobDetails from './pages/employer/JobDetails';
 import CreateContract from './pages/employer/CreateContract';
-import WorkerApplications from './pages/worker/Applications';
 import WorkerContracts from './pages/worker/Contracts';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
@@ -60,7 +60,6 @@ import DesktopShell from './mobile/shell/DesktopShell';
 import HomeMobile from './mobile/screens/HomeMobile';
 import JobsMobile from './mobile/screens/JobsMobile';
 import { WorkerDashboardMobile, EmployerDashboardMobile } from './mobile/screens/DashboardMobile';
-import { WorkerApplicationsMobile, EmployerApplicationsMobile } from './mobile/screens/ApplicationsMobile';
 import ChatMobile from './mobile/screens/ChatMobile';
 import ProfileMobile from './mobile/screens/ProfileMobile';
 import NotificationsMobile from './mobile/screens/NotificationsMobile';
@@ -85,6 +84,15 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       <Route path="/jobs" element={mobile ? <JobsMobile /> : <JobsPage />} />
       <Route path="/workers" element={<WorkersPage />} />
       <Route path="/worker/:userId" element={<ProfilePage />} />
+      <Route path="/profile/:userId" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+      <Route
+        path="/directory"
+        element={
+          <RoleProtectedRoute allowedRoles={['worker', 'employer']}>
+            <PeopleDirectoryPage />
+          </RoleProtectedRoute>
+        }
+      />
       <Route path="/statistics" element={<StatisticsPage />} />
       <Route path="/courses" element={<CoursesPage />} />
 
@@ -120,11 +128,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       />
       <Route
         path="/worker/applications"
-        element={
-          <RoleProtectedRoute allowedRoles={['worker']}>
-            {mobile ? <WorkerApplicationsMobile /> : <WorkerApplications />}
-          </RoleProtectedRoute>
-        }
+        element={<Navigate to="/directory" replace />}
       />
       <Route path="/worker/nearby-jobs" element={<RoleProtectedRoute allowedRoles={['worker']}><NearbyJobs /></RoleProtectedRoute>} />
       <Route path="/worker/contracts" element={<RoleProtectedRoute allowedRoles={['worker']}><WorkerContracts /></RoleProtectedRoute>} />
@@ -150,17 +154,13 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       />
       <Route
         path="/employer/applicants"
-        element={
-          <RoleProtectedRoute allowedRoles={['employer']}>
-            {mobile ? <EmployerApplicationsMobile /> : <EmployerApplications />}
-          </RoleProtectedRoute>
-        }
+        element={<Navigate to="/directory" replace />}
       />
       <Route
         path="/employer/contracts"
         element={
           <RoleProtectedRoute allowedRoles={['employer']}>
-            {mobile ? <EmployerApplicationsMobile /> : <EmployerApplications />}
+            <EmployerApplications />
           </RoleProtectedRoute>
         }
       />

@@ -39,6 +39,8 @@ function toPublicUser(
 ) {
   const {
     passwordHash: _p,
+    email: _email,
+    phoneNumber: _phone,
     companyDocuments,
     personalInfo,
     coreIndicators,

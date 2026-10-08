@@ -49,7 +49,7 @@ export default function CreateContract() {
       try {
         const appData = await applicationService.getById(appId);
         if (!appData) {
-          navigate('/employer/applicants');
+          navigate('/employer/dashboard');
           return;
         }
         setApplication(appData);

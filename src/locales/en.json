@@ -1,4 +1,26 @@
 {
+  "mobile_nav": {
+    "home": "Home",
+    "posts": "Posts",
+    "jobs": "Jobs",
+    "workers": "Workers",
+    "employers": "Employers",
+    "chat": "Chat",
+    "profile": "Profile",
+    "login": "Log in",
+    "aria_label": "Main navigation"
+  },
+  "directory": {
+    "workers_title": "Workers",
+    "employers_title": "Employers",
+    "workers_desc": "Browse worker profiles from nearby districts.",
+    "employers_desc": "Browse employer profiles from nearby districts.",
+    "search": "Search by name or district",
+    "empty": "No users found yet",
+    "location_unknown": "District not provided",
+    "worker": "Worker",
+    "employer": "Employer"
+  },
   "admin_users": {
     "title": "Admin Users",
     "subtitle": "Add new admins by assigning a login and password",

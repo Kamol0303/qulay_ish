@@ -2,12 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { debugLogger } from '../../lib/debugLogger';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { api } from '../../lib/api';
-import { applicationService } from '../../services/applicationService';
 import { contractService } from '../../services/contractService';
 import { jobService } from '../../services/jobService';
-import { Job, Application, Profile } from '../../types';
-import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Star, Users, MessageSquare, Plus, ChevronRight, User } from 'lucide-react';
+import { Job } from '../../types';
+import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Users, Plus, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { uz } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
@@ -18,16 +16,14 @@ import { ru, enUS } from 'date-fns/locale';
 import { getDistrictKey, toJsDate } from '../../lib/utils';
 
 export default function EmployerDashboard() {
-  const { profile, isDemo } = useAuth();
+  const { profile } = useAuth();
   const { t, i18n } = useTranslation();
   const [stats, setStats] = useState({
     activeJobs: 0,
-    totalApplicants: 0,
     activeContracts: 0,
     totalSpent: 0
   });
   const [myJobs, setMyJobs] = useState<Job[]>([]);
-  const [recentApplicants, setRecentApplicants] = useState<(Application & { worker?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,9 +31,8 @@ export default function EmployerDashboard() {
 
     const load = async () => {
       try {
-        const [employerJobs, apps, contracts] = await Promise.all([
+        const [employerJobs, contracts] = await Promise.all([
           jobService.getByEmployer(profile.uid),
-          applicationService.getByEmployer(profile.uid),
           contractService.getByEmployer(profile.uid),
         ]);
 
@@ -45,18 +40,9 @@ export default function EmployerDashboard() {
         setStats(prev => ({
           ...prev,
           activeJobs: employerJobs.filter(j => j.status === 'open' || j.status === 'active').length,
-          totalApplicants: apps.length,
           activeContracts: contracts.filter(c => c.status === 'active').length,
           totalSpent: contracts.filter(c => c.status === 'completed').reduce((acc, c) => acc + (c.amount || 0), 0),
         }));
-
-        const recent = await Promise.all(
-          apps.slice(0, 5).map(async (app) => {
-            const worker = await api.users.get(app.workerId).catch(() => undefined);
-            return { ...app, worker };
-          })
-        );
-        setRecentApplicants(recent);
         setLoading(false);
       } catch (error) {
         debugLogger.error('Employer dashboard error:', error);
@@ -79,7 +65,6 @@ export default function EmployerDashboard() {
 
   const statCards = [
     { label: t('employer.dashboard.active_jobs'), value: stats.activeJobs, icon: Briefcase, color: 'bg-blue-600', shadow: 'shadow-blue-500/20' },
-    { label: t('employer.dashboard.total_applicants'), value: stats.totalApplicants, icon: Users, color: 'bg-emerald-600', shadow: 'shadow-emerald-600/20' },
     { label: t('employer.dashboard.active_contracts'), value: stats.activeContracts, icon: CheckCircle, color: 'bg-blue-500', shadow: 'shadow-blue-500/20' },
     { label: t('employer.dashboard.total_spent'), value: `${stats.totalSpent.toLocaleString()} ${t('common.uzs')}`, icon: TrendingUp, color: 'bg-amber-600', shadow: 'shadow-amber-600/20' },
   ];
@@ -103,7 +88,7 @@ export default function EmployerDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {statCards.map((stat, idx) => (
             <motion.div
               key={stat.label}
@@ -188,61 +173,19 @@ export default function EmployerDashboard() {
             </div>
           </div>
 
-          {/* Recent Applicants */}
           <div className="space-y-6">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3 px-2">
-              <div className="w-2 h-8 bg-emerald-500 rounded-full" />
-              {t('employer.dashboard.new_applicants')}
-            </h3>
-
-            <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-sm">
-              {loading ? (
-                <div className="p-12 text-center animate-pulse text-slate-400 font-bold">{t('employer.dashboard.loading')}</div>
-              ) : recentApplicants.length > 0 ? (
-                <div className="divide-y divide-slate-50">
-                  {recentApplicants.map((app) => (
-                    <div key={app.id} className="p-6 hover:bg-slate-50 transition-all flex items-center gap-4 group">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 group-hover:border-emerald-500/30 transition-colors">
-                        {app.worker?.photoUrl ? (
-                          <img src={app.worker.photoUrl} alt={app.worker.fullName} className="w-full h-full object-cover" />
-                        ) : (
-                          <User className="w-6 h-6 text-slate-400" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black text-slate-900 truncate group-hover:text-emerald-600 transition-colors">{app.worker?.fullName || t('common.unknown')}</p>
-                        <p className="text-[10px] font-bold text-slate-400 truncate uppercase tracking-wider mt-0.5">{t('employer.dashboard.on_job_id', { id: app.jobId.slice(-6) })}</p>
-                      </div>
-                      <Link to={`/chat?with=${app.workerId}&jobId=${app.jobId}`} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-emerald-500 hover:text-white transition-all shadow-sm">
-                        <MessageSquare className="w-5 h-5" />
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-16 text-center">
-                  <p className="text-sm text-slate-400 font-bold">{t('employer.dashboard.no_applicants')}</p>
-                </div>
-              )}
-              <div className="p-6 bg-slate-50/50 border-t border-slate-50">
-                <Link to="/employer/applicants" className="text-xs font-black text-emerald-600 uppercase tracking-widest hover:text-emerald-700 block text-center">
-                  {t('employer.dashboard.view_all_applicants')}
-                </Link>
-              </div>
-            </div>
-
             {/* Quick Actions */}
             <div className="bg-slate-900 rounded-[40px] p-8 border border-slate-800 shadow-2xl space-y-6">
               <h4 className="font-black text-white uppercase tracking-widest text-xs">{t('employer.dashboard.quick_actions')}</h4>
               <div className="space-y-3">
-                <Link to="/workers" className="flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-blue-500 transition-all group">
+                <Link to="/directory" className="flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-blue-500 transition-all group">
                   <div className="flex items-center gap-3">
                     <Users className="w-5 h-5 text-blue-400" />
                     <span className="text-xs font-black text-white uppercase tracking-wider">{t('employer.dashboard.worker_base')}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
                 </Link>
-                <Link to="/employer/applicants" className="flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-emerald-500 transition-all group">
+                <Link to="/employer/contracts" className="flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:border-emerald-500 transition-all group">
                   <div className="flex items-center gap-3">
                     <CheckCircle className="w-5 h-5 text-emerald-400" />
                     <span className="text-xs font-black text-white uppercase tracking-wider">{t('employer.dashboard.contracts')}</span>

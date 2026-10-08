@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Briefcase, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { Briefcase, CheckCircle, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { applicationService } from '../../services/applicationService';
 import { contractService } from '../../services/contractService';
 import { jobService } from '../../services/jobService';
 import MobileCard from '../components/Card';
@@ -15,18 +14,14 @@ export function WorkerDashboardMobile() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ apps: 0, contracts: 0, done: 0, earnings: 0 });
+  const [stats, setStats] = useState({ contracts: 0, done: 0, earnings: 0 });
 
   const load = async () => {
     if (!profile?.uid) return;
     setLoading(true);
     try {
-      const [apps, contracts] = await Promise.all([
-        applicationService.getByWorker(profile.uid),
-        contractService.getByWorker(profile.uid),
-      ]);
+      const contracts = await contractService.getByWorker(profile.uid);
       setStats({
-        apps: apps.filter((a) => a.status === 'pending').length,
         contracts: contracts.filter((c) => c.status === 'active').length,
         done: contracts.filter((c) => c.status === 'completed').length,
         earnings: contracts
@@ -53,7 +48,6 @@ export function WorkerDashboardMobile() {
           <SkeletonList count={2} />
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <Stat icon={Clock} label="Kutilayotgan" value={stats.apps} />
             <Stat icon={CheckCircle} label="Faol shartnoma" value={stats.contracts} />
             <Stat icon={Briefcase} label="Yakunlangan" value={stats.done} />
             <Stat icon={TrendingUp} label="Daromad" value={`${stats.earnings.toLocaleString()}`} />
@@ -61,7 +55,7 @@ export function WorkerDashboardMobile() {
         )}
         <div className="space-y-2">
           <Quick to="/jobs" label="Ishlar ro‘yxati" />
-          <Quick to="/worker/applications" label="Arizalarim" />
+          <Quick to="/directory" label="Buyurtmachilar" />
           <Quick to="/verification" label="Tasdiqlash" />
           <Quick to="/saved-jobs" label="Saqlangan ishlar" />
         </div>
@@ -75,20 +69,18 @@ export function EmployerDashboardMobile() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ jobs: 0, apps: 0, contracts: 0 });
+  const [stats, setStats] = useState({ jobs: 0, contracts: 0 });
 
   const load = async () => {
     if (!profile?.uid) return;
     setLoading(true);
     try {
-      const [jobs, apps, contracts] = await Promise.all([
+      const [jobs, contracts] = await Promise.all([
         jobService.getByEmployer(profile.uid),
-        applicationService.getByEmployer(profile.uid),
         contractService.getByEmployer(profile.uid),
       ]);
       setStats({
         jobs: jobs.filter((j) => j.status === 'open' || j.status === 'active').length,
-        apps: apps.length,
         contracts: contracts.filter((c) => c.status === 'active').length,
       });
     } finally {
@@ -110,14 +102,13 @@ export function EmployerDashboardMobile() {
         {loading ? (
           <SkeletonList count={2} />
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Stat icon={Briefcase} label="E’lonlar" value={stats.jobs} />
-            <Stat icon={Clock} label="Arizalar" value={stats.apps} />
             <Stat icon={CheckCircle} label="Shartnoma" value={stats.contracts} />
           </div>
         )}
         <div className="space-y-2">
-          <Quick to="/employer/applicants" label="Arizalarni ko‘rish" />
+          <Quick to="/directory" label="Ishchilar" />
           <Quick to="/employer/jobs" label="E’lonlarim" />
           <Quick to="/verification" label="Tasdiqlash" />
         </div>

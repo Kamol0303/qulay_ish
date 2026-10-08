@@ -2,12 +2,10 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { api } from '../../lib/api';
-import { applicationService } from '../../services/applicationService';
 import { contractService } from '../../services/contractService';
 import { jobService } from '../../services/jobService';
-import { Job, Application, Contract } from '../../types';
-import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Star, Users, MessageSquare, User } from 'lucide-react';
+import { Job } from '../../types';
+import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Building2, MessageSquare, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { uz } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
@@ -20,13 +18,11 @@ export default function WorkerDashboard() {
   const { profile } = useAuth();
   const { t, i18n } = useTranslation();
   const [stats, setStats] = useState({
-    activeApplications: 0,
     completedJobs: 0,
     activeContracts: 0,
     earnings: 0
   });
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
-  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,16 +30,13 @@ export default function WorkerDashboard() {
 
     const load = async () => {
       try {
-        const [apps, contracts, jobs] = await Promise.all([
-          applicationService.getByWorker(profile.uid),
+        const [contracts, jobs] = await Promise.all([
           contractService.getByWorker(profile.uid),
           jobService.list({ region: 'Samarqand viloyati', status: 'open' }),
         ]);
 
-        setRecentApplications(apps.slice(0, 5));
         setStats(prev => ({
           ...prev,
-          activeApplications: apps.filter(d => d.status === 'pending').length,
           completedJobs: contracts.filter(d => d.status === 'completed').length,
           activeContracts: contracts.filter(d => d.status === 'active').length,
           earnings: contracts.filter(d => d.status === 'completed').reduce((acc, d) => acc + (d.amount || 0), 0),
@@ -70,7 +63,6 @@ export default function WorkerDashboard() {
   };
 
   const statCards = [
-    { label: t('worker.dashboard.active_applications'), value: stats.activeApplications, icon: Clock, color: 'bg-blue-600', shadow: 'shadow-blue-500/20' },
     { label: t('worker.dashboard.active_contracts'), value: stats.activeContracts, icon: CheckCircle, color: 'bg-emerald-600', shadow: 'shadow-emerald-600/20' },
     { label: t('worker.dashboard.completed_jobs'), value: stats.completedJobs, icon: Briefcase, color: 'bg-blue-500', shadow: 'shadow-blue-500/20' },
     { label: t('worker.dashboard.total_earnings'), value: `${stats.earnings.toLocaleString()} ${t('common.uzs')}`, icon: TrendingUp, color: 'bg-amber-600', shadow: 'shadow-amber-600/20' },
@@ -95,7 +87,7 @@ export default function WorkerDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {statCards.map((stat, idx) => (
             <motion.div
               key={stat.label}
@@ -175,58 +167,20 @@ export default function WorkerDashboard() {
             </div>
           </div>
 
-          {/* Recent Applications */}
           <div className="space-y-6">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3 px-2">
-              <div className="w-2 h-8 bg-amber-500 rounded-full" />
-              {t('worker.dashboard.recent_applications')}
-            </h3>
-
-            <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-sm">
-              {loading ? (
-                <div className="p-12 text-center animate-pulse text-slate-400 font-bold">{t('worker.dashboard.loading')}</div>
-              ) : recentApplications.length > 0 ? (
-                <div className="divide-y divide-slate-50">
-                  {recentApplications.map((app) => (
-                    <div key={app.id} className="p-6 hover:bg-slate-50 transition-all group">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={cn(
-                          "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                          app.status === 'pending' ? "bg-amber-50 text-amber-600 border-amber-100" :
-                          app.status === 'accepted' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                          "bg-rose-50 text-rose-600 border-rose-100"
-                        )}>
-                          {app.status === 'pending' ? t('worker.dashboard.pending') : app.status === 'accepted' ? t('worker.dashboard.accepted') : t('worker.dashboard.rejected')}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {format(app.createdAt?.toDate?.() || new Date(), 'd MMM', { locale: getDateLocale() })}
-                        </span>
-                      </div>
-                      <p className="text-sm font-black text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">ID: {app.jobId.slice(-8)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-16 text-center">
-                  <p className="text-sm text-slate-400 font-bold">{t('worker.dashboard.no_applications')}</p>
-                </div>
-              )}
-              <div className="p-6 bg-slate-50/50 border-t border-slate-50">
-                <Link to="/worker/applications" className="text-xs font-black text-blue-600 uppercase tracking-widest hover:text-blue-700 block text-center">
-                  {t('worker.dashboard.view_all_applications')}
-                </Link>
-              </div>
-            </div>
-
             {/* Quick Actions */}
             <div className="bg-slate-900 rounded-[40px] p-8 border border-slate-800 shadow-2xl space-y-6">
               <h4 className="font-black text-white uppercase tracking-widest text-xs">{t('worker.dashboard.quick_actions')}</h4>
               <div className="grid grid-cols-2 gap-4">
+                <Link to="/directory" className="p-5 bg-slate-800/50 rounded-2xl border border-slate-700/50 text-center hover:border-blue-500 transition-all group">
+                  <Building2 className="w-6 h-6 mx-auto mb-2 text-blue-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">{t('directory.employers_title')}</span>
+                </Link>
                 <Link to="/my-profile" className="p-5 bg-slate-800/50 rounded-2xl border border-slate-700/50 text-center hover:border-blue-500 transition-all group">
                   <User className="w-6 h-6 mx-auto mb-2 text-blue-400 group-hover:scale-110 transition-transform" />
                   <span className="text-[10px] font-black text-white uppercase tracking-widest">{t('worker.dashboard.profile')}</span>
                 </Link>
-                <Link to="/chat" className="p-5 bg-slate-800/50 rounded-2xl border border-slate-700/50 text-center hover:border-emerald-500 transition-all group">
+                <Link to="/chat" className="col-span-2 p-5 bg-slate-800/50 rounded-2xl border border-slate-700/50 text-center hover:border-emerald-500 transition-all group">
                   <MessageSquare className="w-6 h-6 mx-auto mb-2 text-emerald-400 group-hover:scale-110 transition-transform" />
                   <span className="text-[10px] font-black text-white uppercase tracking-widest">{t('worker.dashboard.messages')}</span>
                 </Link>
@@ -237,8 +191,4 @@ export default function WorkerDashboard() {
       </div>
     </DashboardLayout>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }

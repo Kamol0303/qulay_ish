@@ -103,7 +103,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         onClose();
         setSuccess(false);
         setMessage('');
-        navigate(`/worker/applications`);
+        navigate('/jobs');
       }, 1500);
     } catch (err) {
       debugLogger.error("Application error:", err);

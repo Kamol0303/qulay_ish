@@ -1,4 +1,26 @@
 {
+  "mobile_nav": {
+    "home": "Bosh",
+    "posts": "Eʼlonlar",
+    "jobs": "Ishlar",
+    "workers": "Ishchilar",
+    "employers": "Buyurtmachilar",
+    "chat": "Chat",
+    "profile": "Profil",
+    "login": "Kirish",
+    "aria_label": "Asosiy navigatsiya"
+  },
+  "directory": {
+    "workers_title": "Ishchilar",
+    "employers_title": "Buyurtmachilar",
+    "workers_desc": "Yaqin hududdagi ishchilarni ko‘ring va profilini oching.",
+    "employers_desc": "Yaqin hududdagi buyurtmachilarni ko‘ring va profilini oching.",
+    "search": "Ism yoki tuman bo‘yicha qidirish",
+    "empty": "Hozircha foydalanuvchilar topilmadi",
+    "location_unknown": "Hudud ko‘rsatilmagan",
+    "worker": "Ishchi",
+    "employer": "Buyurtmachi"
+  },
   "admin_users": {
     "title": "Admin foydalanuvchilar",
     "subtitle": "Admin uchun login va parol berib, yangi admin qoʻshing",
