@@ -1,14 +1,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LogOut, User, Briefcase, BarChart2, MessageSquare, Menu, X, Globe, ChevronDown, Shield } from 'lucide-react';
+import { LogOut, User, Briefcase, BarChart2, MessageSquare, Menu, X, Globe, ChevronDown, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { normalizeLanguageCode } from '../lib/utils';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Header({ minimalNav = false }: { minimalNav?: boolean }) {
   const { user, profile, signOut: authSignOut } = useAuth();
   const { t, i18n } = useTranslation();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isLangOpen, setIsLangOpen] = React.useState(false);
@@ -86,6 +88,15 @@ export default function Header({ minimalNav = false }: { minimalNav?: boolean })
             ))}
             
             {/* Language Switcher */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
+              aria-label={theme === 'dark' ? t('common.light_mode') : t('common.dark_mode')}
+              title={theme === 'dark' ? t('common.light_mode') : t('common.dark_mode')}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <div className="relative">
               <button
                 onClick={() => setIsLangOpen(!isLangOpen)}
@@ -222,6 +233,14 @@ export default function Header({ minimalNav = false }: { minimalNav?: boolean })
                     </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary p-3 text-sm font-bold text-foreground"
+                >
+                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                  {theme === 'dark' ? t('common.light_mode') : t('common.dark_mode')}
+                </button>
               </div>
 
               {user ? (

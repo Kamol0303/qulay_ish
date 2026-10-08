@@ -59,14 +59,11 @@ import { useIsMobileUi } from './hooks/useIsMobileUi';
 import MobileShell from './mobile/shell/MobileShell';
 import DesktopShell from './mobile/shell/DesktopShell';
 import HomeMobile from './mobile/screens/HomeMobile';
-import JobsMobile from './mobile/screens/JobsMobile';
-import { WorkerDashboardMobile, EmployerDashboardMobile } from './mobile/screens/DashboardMobile';
 import ChatMobile from './mobile/screens/ChatMobile';
 import ProfileMobile from './mobile/screens/ProfileMobile';
 import NotificationsMobile from './mobile/screens/NotificationsMobile';
 import AuthMobile from './mobile/screens/AuthMobile';
 import SavedJobsMobile from './mobile/screens/SavedJobsMobile';
-import EmployerJobsMobile from './mobile/screens/EmployerJobsMobile';
 
 function ContractsRedirect() {
   const { contractId } = useParams<{ contractId: string }>();
@@ -82,7 +79,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       <Route path="/super-admin-login" element={<SuperAdminLogin />} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="/home" element={<Navigate to="/" replace />} />
-      <Route path="/jobs" element={mobile ? <JobsMobile /> : <JobsPage />} />
+      <Route path="/jobs" element={<JobsPage />} />
       <Route path="/workers" element={<WorkersPage />} />
       <Route path="/worker/:userId" element={<ProfilePage />} />
       <Route path="/profile/:userId" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
@@ -123,7 +120,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
         path="/worker/dashboard"
         element={
           <RoleProtectedRoute allowedRoles={['worker']}>
-            {mobile ? <WorkerDashboardMobile /> : <WorkerDashboard />}
+            <WorkerDashboard />
           </RoleProtectedRoute>
         }
       />
@@ -149,7 +146,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
         path="/employer/dashboard"
         element={
           <RoleProtectedRoute allowedRoles={['employer']}>
-            {mobile ? <EmployerDashboardMobile /> : <EmployerDashboard />}
+            <EmployerDashboard />
           </RoleProtectedRoute>
         }
       />
@@ -157,7 +154,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
         path="/employer/jobs"
         element={
           <RoleProtectedRoute allowedRoles={['employer']}>
-            {mobile ? <EmployerJobsMobile /> : <EmployerDashboard />}
+            <EmployerDashboard />
           </RoleProtectedRoute>
         }
       />

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Job } from '../types';
-import { MapPin, Clock, Star, ArrowRight, ShieldCheck } from 'lucide-react';
+import { MapPin, Clock, Star, ArrowRight, ShieldCheck, CalendarClock } from 'lucide-react';
 import { motion } from 'motion/react';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey, toJsDate } from '../lib/utils';
@@ -61,6 +61,12 @@ export default function JobCard({ job, onApply }: JobCardProps) {
               <Clock size={14} className="mr-2 text-muted-foreground/60" />
               {formatDistanceToNow(date, { addSuffix: true, locale: getLocale() })}
             </span>
+            {job.scheduledAt && (
+              <span className="flex items-center font-semibold">
+                <CalendarClock size={14} className="mr-2 text-primary/60" />
+                {format(toJsDate(job.scheduledAt) || new Date(), 'd MMM, HH:mm', { locale: getLocale() })}
+              </span>
+            )}
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@ import Sidebar from './Sidebar';
 import BackButton from './BackButton';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Bell, Search, User, Globe, ChevronDown, MessageSquare } from 'lucide-react';
+import { Bell, Search, User, Globe, ChevronDown, MessageSquare, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn, normalizeLanguageCode } from '../lib/utils';
@@ -13,10 +13,12 @@ import { useIsMobileUi } from '../hooks/useIsMobileUi';
 import { useSubscription } from '../context/SubscriptionContext';
 import SubscriptionBanner from './subscription/SubscriptionBanner';
 import SubscriptionBlock from './subscription/SubscriptionBlock';
+import { useTheme } from '../context/ThemeContext';
 
 export default function DashboardLayout({ children, title }: { children: React.ReactNode, title?: string }) {
   const { profile, loading } = useAuth();
   const { t, i18n } = useTranslation();
+  const { theme, toggleTheme } = useTheme();
   const [isLangOpen, setIsLangOpen] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const location = useLocation();
@@ -115,6 +117,15 @@ export default function DashboardLayout({ children, title }: { children: React.R
           </div>
 
           <div className="flex items-center gap-5">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/50 bg-secondary text-muted-foreground transition-all hover:bg-primary/5 hover:text-primary"
+              aria-label={theme === 'dark' ? t('common.light_mode') : t('common.dark_mode')}
+              title={theme === 'dark' ? t('common.light_mode') : t('common.dark_mode')}
+            >
+              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
             {/* Language Switcher */}
             <div className="relative">
               <button

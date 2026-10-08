@@ -173,7 +173,15 @@ export default function LandingPage() {
               <h3 className="text-xl font-bold text-gray-900 mb-3">{t('landing.step_apply')}</h3>
               <p className="text-gray-500 mb-6">{t('landing.step_apply_desc')}</p>
               <button
-                onClick={() => navigate(profile?.role === 'worker' ? '/worker/applications' : '/auth?mode=login')}
+                onClick={() =>
+                  navigate(
+                    profile?.role === 'worker'
+                      ? '/my-work'
+                      : profile?.role === 'employer'
+                        ? '/directory'
+                        : '/auth?mode=login',
+                  )
+                }
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-all"
               >
                 {t('landing.submit_application')}

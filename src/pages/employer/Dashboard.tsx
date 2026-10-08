@@ -75,8 +75,8 @@ export default function EmployerDashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight">{t('employer.dashboard.welcome', { name: profile?.fullName?.split(' ')[0] || '' })}</h2>
-            <p className="text-slate-500 mt-2 font-medium">{t('employer.dashboard.subtitle')}</p>
+            <h2 className="text-4xl font-black text-foreground tracking-tight">{t('employer.dashboard.welcome', { name: profile?.fullName?.split(' ')[0] || '' })}</h2>
+            <p className="text-muted-foreground mt-2 font-medium">{t('employer.dashboard.subtitle')}</p>
           </div>
           <Link
             to="/employer/create-job"
@@ -114,7 +114,7 @@ export default function EmployerDashboard() {
           {/* My Jobs */}
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between px-2">
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <h3 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
                 <div className="w-2 h-8 bg-blue-500 rounded-full" />
                 {t('employer.dashboard.my_jobs')}
               </h3>
@@ -130,17 +130,19 @@ export default function EmployerDashboard() {
                 myJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="bg-white p-6 rounded-[32px] border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between hover:border-blue-500/30 hover:shadow-xl transition-all duration-300 group"
+                    className="bg-card p-6 rounded-[32px] border border-border flex flex-col sm:flex-row sm:items-center justify-between hover:border-blue-500/30 hover:shadow-xl transition-all duration-300 group"
                   >
                     <div className="flex gap-5 items-center mb-4 sm:mb-0">
                       <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-blue-50 transition-colors">
                         <Briefcase className="w-7 h-7 text-slate-400 group-hover:text-blue-600 transition-colors" />
                       </div>
                       <div>
-                        <h4 className="font-black text-slate-900 group-hover:text-blue-600 transition-colors text-lg">{job.title}</h4>
-                        <div className="flex items-center gap-4 mt-1.5 text-xs font-bold text-slate-400">
+                        <h4 className="font-black text-foreground group-hover:text-blue-600 transition-colors text-lg">{job.title}</h4>
+                        <div className="flex flex-wrap items-center gap-4 mt-1.5 text-xs font-bold text-muted-foreground">
                           <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-blue-400" /> {t(`districts.${getDistrictKey(job.district)}`)}</span>
-                          <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {format(toJsDate(job.createdAt) || new Date(), 'd MMM', { locale: getDateLocale() })}</span>
+                          <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {job.scheduledAt
+                            ? format(toJsDate(job.scheduledAt) || new Date(), 'd MMM, HH:mm', { locale: getDateLocale() })
+                            : format(toJsDate(job.createdAt) || new Date(), 'd MMM', { locale: getDateLocale() })}</span>
                         </div>
                       </div>
                     </div>

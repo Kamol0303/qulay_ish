@@ -74,8 +74,8 @@ export default function WorkerDashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight">{t('worker.dashboard.welcome', { name: profile?.fullName?.split(' ')[0] || '' })}</h2>
-            <p className="text-slate-500 mt-2 font-medium">{t('worker.dashboard.subtitle')}</p>
+            <h2 className="text-4xl font-black text-foreground tracking-tight">{t('worker.dashboard.welcome', { name: profile?.fullName?.split(' ')[0] || '' })}</h2>
+            <p className="text-muted-foreground mt-2 font-medium">{t('worker.dashboard.subtitle')}</p>
           </div>
           <Link
             to="/jobs?near=true"
@@ -113,7 +113,7 @@ export default function WorkerDashboard() {
           {/* Recent Jobs */}
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between px-2">
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <h3 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
                 <div className="w-2 h-8 bg-blue-500 rounded-full" />
                 {t('worker.dashboard.jobs_in_region')}
               </h3>

@@ -35,13 +35,13 @@ export const notificationService = {
     return api.notifications.update(id, { read: true });
   },
 
-  async notifyNewApplication(employerId: string, workerName: string, jobTitle: string, applicationId: string) {
+  async notifyNewApplication(employerId: string, workerName: string, jobTitle: string, _applicationId: string) {
     return this.create({
       userId: employerId,
       title: 'Yangi ariza',
       message: `${workerName} "${jobTitle}" ishiga ariza yubordi`,
       type: 'application',
-      link: `/employer/applicants?highlight=${applicationId}`,
+      link: '/employer/dashboard',
     });
   },
 
@@ -51,7 +51,7 @@ export const notificationService = {
       title: 'Ariza qabul qilindi',
       message: `Sizning "${jobTitle}" ishiga arizangiz qabul qilindi!`,
       type: 'application',
-      link: '/worker/applications',
+      link: '/my-work',
     });
   },
 
@@ -61,7 +61,7 @@ export const notificationService = {
       title: 'Ariza rad etildi',
       message: `Sizning "${jobTitle}" ishiga arizangiz rad etildi`,
       type: 'application',
-      link: '/worker/applications',
+      link: '/jobs',
     });
   },
 
