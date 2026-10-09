@@ -14,7 +14,6 @@ import {
   BLOCKED_SUPER_ADMIN_PATHS,
   PRICE_MAX,
   PRICE_MIN,
-  SUBSCRIPTION_GRACE_DAYS,
   SUBSCRIPTION_WARNING_DAYS,
 } from './subscription.config';
 
@@ -33,7 +32,6 @@ export class SubscriptionController {
       ...snap,
       priceRange: { min: PRICE_MIN, max: PRICE_MAX },
       warningDays: SUBSCRIPTION_WARNING_DAYS,
-      graceDays: SUBSCRIPTION_GRACE_DAYS,
       blockedPaths: BLOCKED_SUPER_ADMIN_PATHS,
     };
   }

@@ -1,11 +1,12 @@
-/** Free trial window from first activation. */
+/** Free trial window from first activation. During this month nothing is blocked. */
 export const SUBSCRIPTION_FREE_DAYS = 30;
-/** Days of continued access after expiry before pages are blocked. */
-export const SUBSCRIPTION_GRACE_DAYS = 7;
-/** Show a warning banner this many days before the period ends. */
+/** No extra access after the month ends — main pages block immediately. */
+export const SUBSCRIPTION_GRACE_DAYS = 0;
+/** Show the AI/SMS payment warning this many days before the period ends. */
 export const SUBSCRIPTION_WARNING_DAYS = 7;
 /** A paid period lasts this many days. */
 export const SUBSCRIPTION_PERIOD_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Admin-configurable price bounds (som). */
 export const PRICE_MIN = 250_000;
@@ -55,19 +56,59 @@ export const PAYMENT_OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 export const PAYMENT_OTP_MAX_ATTEMPTS = 5;
 export const PAYMENT_OTP_RATE_LIMIT_MS = 60 * 1000; // 1 request / minute
 
-export type SubscriptionStatus = 'active' | 'grace' | 'expired';
+export type SubscriptionStatus = 'active' | 'expired';
+
+export type PeriodView = {
+  status: SubscriptionStatus;
+  daysRemaining: number;
+  inWarningWindow: boolean;
+  blocked: boolean;
+};
 
 /**
- * Super Admin pages blocked once the subscription is expired (past grace).
- * Export and backup are intentionally NOT in this list — they must never be
- * blocked so data stays recoverable. The frontend reads this same list.
+ * One calendar month of access, then an immediate block.
+ * The last SUBSCRIPTION_WARNING_DAYS of that month only warn — they do not block.
+ */
+export function describePeriod(nowMs: number, effectiveUntilMs: number | null): PeriodView {
+  if (effectiveUntilMs == null) {
+    return {
+      status: 'active',
+      daysRemaining: SUBSCRIPTION_FREE_DAYS,
+      inWarningWindow: false,
+      blocked: false,
+    };
+  }
+  const daysRemaining = Math.ceil((effectiveUntilMs - nowMs) / DAY_MS);
+  if (nowMs <= effectiveUntilMs) {
+    return {
+      status: 'active',
+      daysRemaining,
+      inWarningWindow: daysRemaining > 0 && daysRemaining <= SUBSCRIPTION_WARNING_DAYS,
+      blocked: false,
+    };
+  }
+  return {
+    status: 'expired',
+    daysRemaining,
+    inWarningWindow: false,
+    blocked: true,
+  };
+}
+
+/**
+ * Super Admin pages that stop working once the month has ended.
+ * The dashboard stays mounted so the payment frame can open there.
+ * The frontend reads this same list.
  */
 export const BLOCKED_SUPER_ADMIN_PATHS: string[] = [
   '/super-admin/users',
   '/super-admin/jobs',
   '/super-admin/applications',
   '/super-admin/contracts',
-  '/super-admin/verifications',
-  '/super-admin/finance',
+  '/super-admin/verification',
+  '/super-admin/disputes',
+  '/super-admin/admins',
   '/super-admin/settings',
+  '/super-admin/analytics',
+  '/super-admin/system',
 ];

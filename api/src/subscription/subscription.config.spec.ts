@@ -8,6 +8,9 @@ import {
   pickRoundPrice,
   snapPrice,
   monthlyPrice,
+  describePeriod,
+  SUBSCRIPTION_FREE_DAYS,
+  SUBSCRIPTION_WARNING_DAYS,
 } from './subscription.config';
 
 test('snapPrice snaps to the nearest round step within bounds', () => {
@@ -56,6 +59,43 @@ test('monthlyPrice is always a round price inside bounds', () => {
       assert.ok(price >= PRICE_MIN && price <= PRICE_MAX, `${price} in range`);
     }
   }
+});
+
+const DAY = 24 * 60 * 60 * 1000;
+
+test('describePeriod stays open for the whole month', () => {
+  const until = Date.UTC(2026, 10, 8);
+  const early = describePeriod(until - 20 * DAY, until);
+  assert.equal(early.status, 'active');
+  assert.equal(early.blocked, false);
+  assert.equal(early.inWarningWindow, false);
+});
+
+test('describePeriod warns during the last week and names the days left', () => {
+  const until = Date.UTC(2026, 10, 8);
+  const week = describePeriod(until - 7 * DAY + 1000, until);
+  assert.equal(week.status, 'active');
+  assert.equal(week.blocked, false);
+  assert.equal(week.inWarningWindow, true);
+  assert.equal(week.daysRemaining, SUBSCRIPTION_WARNING_DAYS);
+  const oneDay = describePeriod(until - DAY + 1000, until);
+  assert.equal(oneDay.inWarningWindow, true);
+  assert.equal(oneDay.daysRemaining, 1);
+});
+
+test('describePeriod blocks as soon as the month ends', () => {
+  const until = Date.UTC(2026, 10, 8);
+  const expired = describePeriod(until + 1, until);
+  assert.equal(expired.status, 'expired');
+  assert.equal(expired.blocked, true);
+  assert.equal(expired.inWarningWindow, false);
+});
+
+test('describePeriod with no end date does not block', () => {
+  const open = describePeriod(Date.now(), null);
+  assert.equal(open.status, 'active');
+  assert.equal(open.blocked, false);
+  assert.equal(open.daysRemaining, SUBSCRIPTION_FREE_DAYS);
 });
 
 test('monthlyPrice varies across months', () => {

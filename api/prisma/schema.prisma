@@ -549,7 +549,7 @@ model RefreshToken {
  */
 model PlatformSubscription {
   id            String    @id @default("platform")
-  status        String    @default("active") // active | grace | expired
+  status        String    @default("active") // active | expired
   freeUntil     DateTime? @map("free_until")
   paidUntil     DateTime? @map("paid_until")
   lastPaymentAt DateTime? @map("last_payment_at")

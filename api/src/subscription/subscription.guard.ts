@@ -10,7 +10,7 @@ import { SubscriptionService } from './subscription.service';
 
 /**
  * Blocks endpoints marked with @RequiresSubscription when the platform
- * subscription is expired (past grace). Returns 403 with code
+ * subscription month has ended. Returns 403 with code
  * "subscription_required". Workers/employers are never affected because only
  * super-admin-scoped endpoints carry the marker.
  */

@@ -6,8 +6,6 @@ import systemLogService, { GlobalSettings } from '../../services/systemLogServic
 import { Settings, Zap, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
-import SubscriptionSettingsCard from '../../components/subscription/SubscriptionSettingsCard';
-
 export default function SuperAdminSettingsPage() {
   const { t } = useTranslation();
   const { profile } = useAuth();
@@ -121,9 +119,6 @@ export default function SuperAdminSettingsPage() {
             <p className="text-red-700 font-medium">{errorMessage}</p>
           </motion.div>
         )}
-
-        {/* Subscription & payment */}
-        <SubscriptionSettingsCard />
 
         {/* Rate Limiting Settings */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 space-y-6">

@@ -15,10 +15,8 @@ import {
   PAYMENT_OTP_TTL_MS,
   monthlyPrice,
   snapPrice,
-  SUBSCRIPTION_FREE_DAYS,
-  SUBSCRIPTION_GRACE_DAYS,
+  describePeriod,
   SUBSCRIPTION_PERIOD_DAYS,
-  SUBSCRIPTION_WARNING_DAYS,
   SubscriptionStatus,
 } from './subscription.config';
 
@@ -36,7 +34,6 @@ export type SubscriptionSnapshot = {
   lastPaymentAt: Date | null;
   priceSom: number;
   daysRemaining: number;
-  graceDaysRemaining: number;
   inWarningWindow: boolean;
   blocked: boolean;
 };
@@ -94,26 +91,9 @@ export class SubscriptionService {
 
     const now = Date.now();
     const effectiveUntil = row.paidUntil ?? row.freeUntil ?? null;
-    const effMs = effectiveUntil ? effectiveUntil.getTime() : 0;
-
-    let status: SubscriptionStatus;
-    if (!effectiveUntil || now <= effMs) {
-      status = 'active';
-    } else if (now <= effMs + SUBSCRIPTION_GRACE_DAYS * DAY_MS) {
-      status = 'grace';
-    } else {
-      status = 'expired';
-    }
-
-    const daysRemaining = effectiveUntil
-      ? Math.ceil((effMs - now) / DAY_MS)
-      : SUBSCRIPTION_FREE_DAYS;
-    const graceDaysRemaining =
-      status === 'grace'
-        ? Math.ceil((effMs + SUBSCRIPTION_GRACE_DAYS * DAY_MS - now) / DAY_MS)
-        : 0;
-    const inWarningWindow =
-      status === 'active' && daysRemaining <= SUBSCRIPTION_WARNING_DAYS;
+    const period = describePeriod(now, effectiveUntil ? effectiveUntil.getTime() : null);
+    const status: SubscriptionStatus = period.status;
+    const { daysRemaining, inWarningWindow } = period;
 
     // Persist derived status when it drifts (keeps DB/audit queries consistent).
     if (row.status !== status) {
@@ -130,9 +110,8 @@ export class SubscriptionService {
       lastPaymentAt: row.lastPaymentAt,
       priceSom,
       daysRemaining,
-      graceDaysRemaining,
       inWarningWindow,
-      blocked: status === 'expired',
+      blocked: period.blocked,
     };
   }
 

@@ -45,7 +45,7 @@ export interface AiMatchWorker {
   distanceLabel?: string;
 }
 
-export type SubscriptionStatusValue = 'active' | 'grace' | 'expired';
+export type SubscriptionStatusValue = 'active' | 'expired';
 
 export interface SubscriptionStatusResponse {
   status: SubscriptionStatusValue;
@@ -55,12 +55,10 @@ export interface SubscriptionStatusResponse {
   lastPaymentAt: string | null;
   priceSom: number;
   daysRemaining: number;
-  graceDaysRemaining: number;
   inWarningWindow: boolean;
   blocked: boolean;
   priceRange: { min: number; max: number };
   warningDays: number;
-  graceDays: number;
   blockedPaths: string[];
 }
 
