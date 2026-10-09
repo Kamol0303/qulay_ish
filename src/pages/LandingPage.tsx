@@ -302,10 +302,9 @@ export default function LandingPage() {
             <div className="relative">
               <div className="aspect-square bg-blue-500 rounded-[40px] overflow-hidden shadow-2xl rotate-3">
                 <img
-                  src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=800&h=800"
+                  src="/landing-worker.jpg"
                   alt="Happy worker"
                   className="w-full h-full object-cover -rotate-3 scale-110"
-                  referrerPolicy="no-referrer"
                 />
               </div>
               <div className="absolute -bottom-8 -left-8 bg-white p-6 rounded-3xl shadow-xl border border-gray-100 max-w-[200px]">
