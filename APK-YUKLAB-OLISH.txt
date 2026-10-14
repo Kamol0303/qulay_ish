@@ -1,0 +1,93 @@
+Mehrli qo'llar — serverdagi APK ni qayerdan olish
+================================================
+
+APK sayt bilan birga chiqmaydi.
+./run.sh deploy faqat sayt va API ni yangilaydi.
+Ilova alohida yig'iladi va loyiha ichidagi artifacts papkasiga tushadi.
+
+
+TAYYOR FAYL
+-----------
+
+Loyiha papkasi ichida:
+
+  artifacts/mexrliqollar-release-latest.apk
+
+Gradle nusxasi (yig'ishdan keyin):
+
+  android/app/build/outputs/apk/release/app-release.apk
+
+
+1. LOYIHA PAPKASINI TOPISH
+--------------------------
+
+Server terminalida:
+
+  sudo find /var/www /home /opt /srv -maxdepth 4 -type d -name qulay-ish -o -type d -name qulay_ish
+
+Topilgan papkaga kiring. Misol:
+
+  cd /var/www/qulay-ish
+
+Kali kompyuterida odatda:
+
+  cd ~/Desktop/qulay_ish
+
+yoki:
+
+  cd ~/qulay_ish
+
+
+2. TAYYOR APK BOR-YO'QLIGINI KO'RISH
+------------------------------------
+
+  ls -lh artifacts/*.apk
+
+Agar fayl chiqsa, shu faylni oling:
+
+  artifacts/mexrliqollar-release-latest.apk
+
+
+3. APK YO'Q BO'LSA — YIG'ISH
+----------------------------
+
+Shu loyiha papkasida:
+
+  git checkout main
+  git pull origin main
+  ./run.sh apk
+
+Tugagach fayl yana shu yerda bo'ladi:
+
+  artifacts/mexrliqollar-release-latest.apk
+
+Yig'ish uchun kompyuterda Java JDK 21 va Android SDK bo'lishi kerak.
+Serverda ular yo'q bo'lsa, APK ni Kali dagi loyiha papkasida yig'ing.
+
+
+4. TELEFONGA YOKI BRAUZERGA YUKLAB OLISH
+----------------------------------------
+
+Loyiha papkasida:
+
+  ./run.sh apk:serve
+
+Brauzerda oching:
+
+  http://server-ip:8080/
+
+Ro'yxatdan mexrliqollar-release-latest.apk ni yuklab oling.
+To'xtatish: Ctrl+C
+
+Kompyuterning o'zida:
+
+  http://localhost:8080/
+
+
+QISQA
+-----
+
+Papka:  loyiha/artifacts/
+Fayl:    mexrliqollar-release-latest.apk
+Yig'ish: ./run.sh apk
+Olish:   ./run.sh apk:serve
