@@ -107,28 +107,32 @@ export async function requireNativeLocation(): Promise<{
   reason: LocationBlockReason | null;
 }> {
   if (!Capacitor.isNativePlatform()) return { ok: true, reason: null };
-  const { Geolocation } = await import('@capacitor/geolocation');
   try {
-    await Geolocation.getCurrentPosition({
-      enableHighAccuracy: false,
-      timeout: 12000,
-      maximumAge: 120000,
-    });
-    return { ok: true, reason: null };
-  } catch (err) {
-    const reason = classifyLocationFailure(err);
-    if (reason !== 'unavailable') return { ok: false, reason };
-    const { code } = errorText(err);
+    const { Geolocation } = await import('@capacitor/geolocation');
     try {
-      const perm = await Geolocation.checkPermissions();
-      const granted = perm.location === 'granted' || perm.coarseLocation === 'granted';
-      // A slow GPS fix is not a disabled location service. Any other failure
-      // keeps the app closed until location is actually on.
-      if (granted && code === 'OS-PLUG-GLOC-0010') return { ok: true, reason: null };
-      return { ok: false, reason: granted ? 'services' : 'permission' };
-    } catch (checkErr) {
-      return { ok: false, reason: classifyLocationFailure(checkErr) };
+      await Geolocation.getCurrentPosition({
+        enableHighAccuracy: false,
+        timeout: 12000,
+        maximumAge: 120000,
+      });
+      return { ok: true, reason: null };
+    } catch (err) {
+      const reason = classifyLocationFailure(err);
+      if (reason !== 'unavailable') return { ok: false, reason };
+      const { code } = errorText(err);
+      try {
+        const perm = await Geolocation.checkPermissions();
+        const granted = perm.location === 'granted' || perm.coarseLocation === 'granted';
+        // A slow GPS fix is not a disabled location service. Any other failure
+        // keeps the gate up until location is actually on.
+        if (granted && code === 'OS-PLUG-GLOC-0010') return { ok: true, reason: null };
+        return { ok: false, reason: granted ? 'services' : 'permission' };
+      } catch (checkErr) {
+        return { ok: false, reason: classifyLocationFailure(checkErr) };
+      }
     }
+  } catch {
+    return { ok: false, reason: 'unavailable' };
   }
 }
 

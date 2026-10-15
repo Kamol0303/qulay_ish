@@ -41,7 +41,9 @@ const config: CapacitorConfig = {
     },
     SplashScreen: {
       launchAutoHide: true,
-      launchShowDuration: 1200,
+      launchShowDuration: 400,
+      // Android 12 exit animation NPEs on Xiaomi (clearOnExitAnimationListener).
+      launchFadeOutDuration: 0,
       backgroundColor: '#102833',
       showSpinner: false,
     },
