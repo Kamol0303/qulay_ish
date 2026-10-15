@@ -23,4 +23,3 @@
 # Release minify must not strip plugins loaded by name from capacitor.plugins.json.
 -keep class com.capacitorjs.plugins.** { *; }
 -keep class io.ionic.libs.iongeolocationlib.** { *; }
--keep class uz.mexrliqollar.app.AppSettingsPlugin { *; }

@@ -41,7 +41,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Required to enter the APK. The app asks on launch and stays closed until location is on. -->
+    <!-- Used only when the user opens nearby jobs or shares a location. Not requested at launch. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 </manifest>

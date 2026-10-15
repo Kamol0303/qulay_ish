@@ -10,17 +10,6 @@
     "login": "Kirish",
     "aria_label": "Asosiy navigatsiya"
   },
-  "location_gate": {
-    "checking": "Joylashuv so‘ralmoqda…",
-    "title": "Joylashuvni yoqing",
-    "required": "Ilovaga kirish uchun joylashuv yoqilgan bo‘lishi shart.",
-    "permission_body": "Telefon joylashuvi uchun ruxsat bering. Ruxsatsiz ilova ochilmaydi.",
-    "services_body": "Telefonda joylashuv xizmati o‘chiq. Yoqing, keyin ilovaga qayting.",
-    "allow": "Ruxsat berish",
-    "enable": "Joylashuvni yoqish",
-    "settings": "Sozlamalarni ochish",
-    "retry": "Qayta tekshirish"
-  },
   "directory": {
     "workers_title": "Ishchilar",
     "employers_title": "Buyurtmachilar",

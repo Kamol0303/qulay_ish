@@ -56,7 +56,6 @@ import QualayIshPage from './pages/QualayIshPage';
 import SavedJobsPage from './pages/SavedJobsPage';
 import QualayIshJobDetailsPage from './pages/QualayIshJobDetailsPage';
 import { useIsMobileUi } from './hooks/useIsMobileUi';
-import LocationRequiredGate from './components/LocationRequiredGate';
 import MobileShell from './mobile/shell/MobileShell';
 import DesktopShell from './mobile/shell/DesktopShell';
 import HomeMobile from './mobile/screens/HomeMobile';
@@ -243,17 +242,15 @@ function AppShell() {
 export default function App() {
   return (
     <ThemeProvider>
-      <LocationRequiredGate>
-        <Router>
-          <AuthProvider>
-            <SubscriptionProvider>
-              <ErrorBoundary>
-                <AppShell />
-              </ErrorBoundary>
-            </SubscriptionProvider>
-          </AuthProvider>
-        </Router>
-      </LocationRequiredGate>
+      <Router>
+        <AuthProvider>
+          <SubscriptionProvider>
+            <ErrorBoundary>
+              <AppShell />
+            </ErrorBoundary>
+          </SubscriptionProvider>
+        </AuthProvider>
+      </Router>
     </ThemeProvider>
   );
 }

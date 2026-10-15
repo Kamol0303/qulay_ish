@@ -11,7 +11,6 @@ public class MainActivity extends BridgeActivity {
     // Must run before super.onCreate. Xiaomi kills the process if the splash
     // theme is applied after AppCompat has already started.
     SplashScreen.installSplashScreen(this);
-    registerPlugin(AppSettingsPlugin.class);
     super.onCreate(savedInstanceState);
     // WebView remote debugging ONLY in debug builds (never in release).
     WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);

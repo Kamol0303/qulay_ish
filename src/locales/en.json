@@ -10,17 +10,6 @@
     "login": "Log in",
     "aria_label": "Main navigation"
   },
-  "location_gate": {
-    "checking": "Asking for location…",
-    "title": "Turn location on",
-    "required": "Location must be on before you can enter the app.",
-    "permission_body": "Allow location access. The app stays closed until you do.",
-    "services_body": "Location is turned off on this phone. Turn it on, then come back.",
-    "allow": "Allow location",
-    "enable": "Turn location on",
-    "settings": "Open settings",
-    "retry": "Check again"
-  },
   "directory": {
     "workers_title": "Workers",
     "employers_title": "Employers",
