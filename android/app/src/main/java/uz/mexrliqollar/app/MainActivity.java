@@ -7,6 +7,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
+    registerPlugin(AppSettingsPlugin.class);
     super.onCreate(savedInstanceState);
     // WebView remote debugging ONLY in debug builds (never in release).
     WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
