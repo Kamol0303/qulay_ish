@@ -29,7 +29,8 @@ async function bootstrap() {
     'http://localhost',
     'capacitor://localhost',
     'ionic://localhost',
-    // Capacitor WebView origins (hostname may be ishliayol.uz or mexrliqollar.uz)
+    // Capacitor WebView origins. App hostname stays localhost so /api is not
+    // served from the APK; these extra origins cover older builds.
     'capacitor://ishliayol.uz',
     'capacitor://mexrliqollar.uz',
     'ionic://ishliayol.uz',
