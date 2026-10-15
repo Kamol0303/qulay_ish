@@ -18,8 +18,7 @@ export VITE_USE_EMULATOR="${VITE_USE_EMULATOR:-false}"
 echo "==> Vite build (mode=capacitor, API=$VITE_API_URL)"
 npm run build -- --mode capacitor
 
-JS_BUNDLE="$(ls dist/assets/index-*.js 2>/dev/null | head -1 || true)"
-if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://ishliayol.uz/api' "$JS_BUNDLE"; then
+if ! grep -Rql --include='*.js' 'https://ishliayol.uz/api' dist; then
   echo "ERROR: dist ichida https://ishliayol.uz/api topilmadi."
   exit 1
 fi

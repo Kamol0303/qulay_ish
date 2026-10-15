@@ -100,13 +100,13 @@ export VITE_USE_EMULATOR="${VITE_USE_EMULATOR:-false}"
 echo "==> Vite build (mode=capacitor, API=$VITE_API_URL)"
 npm run build -- --mode capacitor
 
-# Guard: APK must never ship relative /api-only bundles
-JS_BUNDLE="$(ls dist/assets/index-*.js 2>/dev/null | head -1 || true)"
-if [[ -z "$JS_BUNDLE" ]] || ! grep -q 'https://ishliayol.uz/api' "$JS_BUNDLE"; then
+# Guard: APK must never ship relative /api-only bundles.
+# Vite emits more than one index-*.js; the smallest chunk is not the app bundle.
+if ! grep -Rql --include='*.js' 'https://ishliayol.uz/api' dist; then
   echo "ERROR: dist ichida https://ishliayol.uz/api topilmadi. APK relative /api bilan ishlamaydi."
   exit 1
 fi
-echo "==> API URL baked OK ($(grep -o 'https://ishliayol.uz/api' "$JS_BUNDLE" | wc -l) hits)"
+echo "==> API URL baked OK ($(grep -Roh --include='*.js' 'https://ishliayol.uz/api' dist | wc -l) hits)"
 
 echo "==> Capacitor sync android"
 npx cap sync android
