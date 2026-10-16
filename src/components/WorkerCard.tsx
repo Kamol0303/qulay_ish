@@ -5,19 +5,23 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
-import { SKILLS } from '../constants/categories';
+import { CATEGORIES, SKILLS } from '../constants/categories';
 import RoleBadge from './RoleBadge';
 
 interface WorkerCardProps {
   worker: Profile;
+  price?: number;
 }
 
-export default function WorkerCard({ worker }: WorkerCardProps) {
+export default function WorkerCard({ worker, price }: WorkerCardProps) {
   const { t } = useTranslation();
 
   const getSkillLabel = (skill: string) => {
     const skillObj = SKILLS.find(s => s.id === skill || s.name === skill);
-    return skillObj ? t(`skills.${skillObj.id}`) : skill;
+    if (skillObj) return t(`skills.${skillObj.id}`);
+    const category = CATEGORIES.find((c) => c.id === skill);
+    if (category) return t(`categories.${category.id}`, { defaultValue: category.name });
+    return t(`categories.${skill}`, { defaultValue: skill });
   };
 
   return (
@@ -74,11 +78,21 @@ export default function WorkerCard({ worker }: WorkerCardProps) {
             <div className="text-xs text-gray-500">
               <span className="font-bold text-blue-600">{worker.completedJobs || 0}</span> {t('worker_profile.completed_jobs')}
             </div>
+            {typeof price === 'number' && (
+              <div className="text-xs font-bold text-emerald-600">
+                {price.toLocaleString()} so‘m
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-6">
+        {worker.profession && !worker.skills?.includes(worker.profession) && (
+          <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+            {getSkillLabel(worker.profession)}
+          </span>
+        )}
         {worker.skills?.slice(0, 3).map((skill, idx) => (
           <span key={idx} className="text-[10px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
             {getSkillLabel(skill)}

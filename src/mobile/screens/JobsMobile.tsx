@@ -70,7 +70,7 @@ export default function JobsMobile() {
   return (
     <div className="px-4 py-4 space-y-4">
       <div>
-        <h1 className="text-xl font-black">Ishlar</h1>
+        <h1 className="text-xl font-black">Buyurtmalar</h1>
         <p className="text-sm text-muted-foreground">Samarqand bo‘yicha ochiq e’lonlar</p>
       </div>
 

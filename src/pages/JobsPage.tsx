@@ -3,14 +3,14 @@ import React from 'react';
 import { api } from '../lib/api';
 import { Job } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, MapPin, Filter, X, ChevronDown, SlidersHorizontal, Briefcase, Clock, DollarSign, ArrowLeft } from 'lucide-react';
-import { REGIONS, DISTRICTS } from '../constants/locations';
-import { CATEGORIES } from '../constants/categories';
+import { Search, MapPin, Filter, ChevronDown, SlidersHorizontal, ArrowLeft } from 'lucide-react';
 import Layout from '../components/Layout';
 import JobCard from '../components/JobCard';
 import { useAuth } from '../context/AuthContext';
 import ApplyModal from '../components/ApplyModal';
-import { getDistrictKey, filterJobsForSamarkand } from '../lib/utils';
+import { filterJobsForSamarkand } from '../lib/utils';
+import { pointDistanceKm } from '../constants/districts';
+import { getCurrentPosition } from '../lib/geolocation';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
@@ -24,10 +24,8 @@ export default function JobsPage() {
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [selectedRegion, setSelectedRegion] = React.useState('Samarqand viloyati');
-  const [selectedDistrict, setSelectedDistrict] = React.useState('');
-  const [selectedCategory, setSelectedCategory] = React.useState('');
-  const [sortBy, setSortBy] = React.useState('nearest');
+  const [sortBy, setSortBy] = React.useState('price-low');
+  const [origin, setOrigin] = React.useState<{ lat: number; lng: number } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
   const [selectedJob, setSelectedJob] = React.useState<Job | null>(null);
   const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
@@ -40,14 +38,6 @@ export default function JobsPage() {
     let cancelled = false;
     setIsLoading(true);
 
-    const toMillis = (val: unknown) => {
-      if (!val) return 0;
-      if (typeof val === 'object' && val !== null && 'seconds' in val) {
-        return Number((val as { seconds: number }).seconds) * 1000;
-      }
-      return new Date(val as string | number | Date).getTime() || 0;
-    };
-
     const loadJobs = async () => {
       try {
         const apiJobs = await api.jobs.list({
@@ -56,13 +46,7 @@ export default function JobsPage() {
         });
         if (cancelled) return;
 
-        let filtered = filterJobsForSamarkand(apiJobs, {
-          status: 'open',
-          district: selectedDistrict || undefined,
-        });
-        if (selectedCategory) {
-          filtered = filtered.filter((job: Job) => job.category === selectedCategory);
-        }
+        let filtered = filterJobsForSamarkand(apiJobs, { status: 'open' });
         if (searchQuery.trim()) {
           const searchLower = searchQuery.toLowerCase().trim();
           filtered = filtered.filter((job: Job) => {
@@ -72,12 +56,25 @@ export default function JobsPage() {
           });
         }
 
+        const distanceOf = (job: Job) => {
+          if (!origin) return Number.POSITIVE_INFINITY;
+          const km = pointDistanceKm(origin.lat, origin.lng, job.district);
+          return km == null ? Number.POSITIVE_INFINITY : km;
+        };
+        const priced = (job: Job) => (typeof job.price === 'number' ? job.price : Number.POSITIVE_INFINITY);
+
         if (sortBy === 'price-low') {
-          filtered.sort((a: Job, b: Job) => (a.price || 0) - (b.price || 0));
+          filtered.sort((a: Job, b: Job) => priced(a) - priced(b));
         } else if (sortBy === 'price-high') {
-          filtered.sort((a: Job, b: Job) => (b.price || 0) - (a.price || 0));
-        } else if (sortBy === 'newest') {
-          filtered.sort((a: Job, b: Job) => toMillis(b.createdAt) - toMillis(a.createdAt));
+          filtered.sort((a: Job, b: Job) => {
+            const ap = typeof a.price === 'number' ? a.price : Number.NEGATIVE_INFINITY;
+            const bp = typeof b.price === 'number' ? b.price : Number.NEGATIVE_INFINITY;
+            return bp - ap;
+          });
+        } else if (sortBy === 'nearest') {
+          filtered.sort((a: Job, b: Job) => distanceOf(a) - distanceOf(b));
+        } else if (sortBy === 'farthest') {
+          filtered.sort((a: Job, b: Job) => distanceOf(b) - distanceOf(a));
         }
 
         setJobs(filtered);
@@ -95,36 +92,37 @@ export default function JobsPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [selectedRegion, selectedDistrict, selectedCategory, sortBy, searchQuery, profile?.district]);
+  }, [sortBy, searchQuery, profile?.district, origin]);
 
   /**
    * Clear all filters and reset to defaults
    */
   const handleClearFilters = () => {
     setSearchQuery('');
-    setSelectedRegion('Samarqand viloyati');
-    setSelectedDistrict('');
-    setSelectedCategory('');
-    setSortBy('nearest');
+    setSortBy('price-low');
     setIsFilterOpen(false);
   };
 
-  /**
-   * Set filters based on user's profile location
-   */
-  const useMyLocation = () => {
-    if (profile?.region) {
-      setSelectedRegion(profile.region);
-      setSelectedDistrict(profile.district || '');
+  const useMyLocation = async () => {
+    setSortBy('nearest');
+    try {
+      const pos = await getCurrentPosition();
+      setOrigin({ lat: pos.latitude, lng: pos.longitude });
+    } catch {
+      // Sorting still runs; unknown districts stay at the end.
     }
   };
 
-  /**
-   * Remove region filter by clicking X badge
-   */
-  const handleRemoveRegionFilter = () => {
-    setSelectedRegion('Samarqand viloyati');
-    setSelectedDistrict('');
+  const onSortChange = async (value: string) => {
+    setSortBy(value);
+    if ((value === 'nearest' || value === 'farthest') && !origin) {
+      try {
+        const pos = await getCurrentPosition();
+        setOrigin({ lat: pos.latitude, lng: pos.longitude });
+      } catch {
+        // Keep the chosen sort even if location is declined.
+      }
+    }
   };
 
   const canApply = !profile || profile.role === 'worker';
@@ -207,50 +205,20 @@ export default function JobsPage() {
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
               className="bg-white rounded-[40px] shadow-2xl border border-slate-100 p-8 mb-12 relative z-20"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{t('jobs.district')}</label>
-                  <div className="relative">
-                    <MapPin size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <select
-                      value={selectedDistrict}
-                      onChange={(e) => setSelectedDistrict(e.target.value)}
-                      className="w-full pl-11 pr-4 py-4 rounded-2xl border border-blue-200 bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-bold text-blue-900"
-                    >
-                      <option value="">{t('jobs.all_districts')}</option>
-                      {DISTRICTS["Samarqand viloyati"].map(d => <option key={d} value={d}>{t(`districts.${getDistrictKey(d)}`)}</option>)}
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{t('jobs.category')}</label>
-                  <div className="relative">
-                    <Briefcase size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full pl-11 pr-4 py-4 rounded-2xl border border-emerald-200 bg-emerald-50 focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-bold text-emerald-900"
-                    >
-                      <option value="">{t('jobs.all_categories')}</option>
-                      {CATEGORIES.map(c => <option key={c.id} value={c.id}>{t(`categories.${c.id}`)}</option>)}
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 gap-8">
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{t('jobs.sort_by')}</label>
                   <div className="relative">
                     <Filter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                     <select
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
+                      onChange={(e) => void onSortChange(e.target.value)}
                       className="w-full pl-11 pr-4 py-4 rounded-2xl border border-purple-200 bg-purple-50 focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-bold text-purple-900"
                     >
-                      <option value="nearest">{t('jobs.nearest', { defaultValue: 'Eng yaqin' })}</option>
-                      <option value="newest">{t('jobs.newest')}</option>
                       <option value="price-low">{t('jobs.price_low')}</option>
                       <option value="price-high">{t('jobs.price_high')}</option>
+                      <option value="nearest">{t('jobs.nearest', { defaultValue: 'Eng yaqin' })}</option>
+                      <option value="farthest">{t('jobs.farthest', { defaultValue: 'Eng uzoq' })}</option>
                     </select>
                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
                   </div>
@@ -258,7 +226,7 @@ export default function JobsPage() {
               </div>
               <div className="mt-8 pt-8 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <button
-                  onClick={useMyLocation}
+                  onClick={() => void useMyLocation()}
                   className="text-blue-600 text-xs font-black uppercase tracking-widest flex items-center hover:text-blue-700 transition-colors"
                 >
                   <MapPin size={16} className="mr-2" /> {t('jobs.nearby_jobs')}
@@ -280,28 +248,6 @@ export default function JobsPage() {
             <div className="text-slate-500 font-bold tracking-tight">
               {isLoading ? t('jobs.loading') : t('jobs.found_jobs', { count: jobs.length })}
             </div>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {selectedRegion && selectedRegion !== 'Samarqand viloyati' ? (
-              <span className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center border border-blue-100">
-                {selectedRegion} 
-                <X 
-                  size={14} 
-                  className="ml-2 cursor-pointer hover:text-blue-800 transition-colors" 
-                  onClick={handleRemoveRegionFilter}
-                />
-              </span>
-            ) : null}
-            {selectedCategory && (
-              <span className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center border border-emerald-100">
-                {t(`categories.${selectedCategory}`, { defaultValue: selectedCategory })} 
-                <X 
-                  size={14} 
-                  className="ml-2 cursor-pointer hover:text-emerald-800 transition-colors" 
-                  onClick={() => setSelectedCategory('')}
-                />
-              </span>
-            )}
           </div>
         </div>
 
@@ -327,7 +273,7 @@ export default function JobsPage() {
               <Search size={48} />
             </div>
             <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
-              Afsuski, ushbu filtrlar bo'yicha hech qanday ish topilmadi.
+              Afsuski, ushbu filtrlar bo‘yicha hech qanday buyurtma topilmadi.
             </h3>
             <p className="text-slate-500 max-w-md mx-auto mb-10 leading-relaxed">{t('jobs.no_jobs_desc')}</p>
             <button

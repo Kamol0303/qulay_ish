@@ -105,13 +105,11 @@ export class OtpService {
 
     const purpose = dto.purpose || 'login';
 
-    // Never accept privileged roles from public OTP registration
-    const safeRole =
-      purpose === 'register'
-        ? dto.role === 'employer'
-          ? UserRole.employer
-          : UserRole.worker
-        : undefined;
+    if (purpose === 'register' && dto.role === 'employer') {
+      throw new BadRequestException('Faqat ishchilar roʻyxatdan oʻta oladi');
+    }
+    // Public registration is worker-only. Buyurtmachilar do not create accounts.
+    const safeRole = purpose === 'register' ? UserRole.worker : undefined;
 
     let existingMeta:
       | {
@@ -324,9 +322,8 @@ export class OtpService {
           'Parol topilmadi. Ro\'yxatdan o\'tishni qaytadan boshlang va OTP oling.',
         );
       }
-      // Only worker/employer may be created via public OTP registration
-      const role =
-        session.role === UserRole.employer ? UserRole.employer : UserRole.worker;
+      // Public OTP registration creates workers only.
+      const role = UserRole.worker;
       const fallbackSplit = splitFullName(session.fullName);
       const firstName = (meta.firstName || fallbackSplit.firstName || '').trim();
       const lastName = (meta.lastName || fallbackSplit.lastName || '').trim();
@@ -431,7 +428,10 @@ export class OtpService {
     if (!data.password || data.password.length < 8) {
       throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
     }
-    const role = String(data.role) === 'employer' ? UserRole.employer : UserRole.worker;
+    if (String(data.role) === 'employer') {
+      throw new BadRequestException('Faqat ishchilar roʻyxatdan oʻta oladi');
+    }
+    const role = UserRole.worker;
     const { firstName, lastName, fullName } = normalizeNameInput({ fullName: data.fullName });
     if (fullName.length < 2) {
       throw new BadRequestException('Ism kamida 2 ta belgidan iborat bo\'lishi kerak');

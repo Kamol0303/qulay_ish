@@ -53,18 +53,29 @@ function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+/** Approximate km from a GPS point to a district centroid; null when the district is unknown. */
+export function pointDistanceKm(lat: number, lng: number, districtId?: string | null): number | null {
+  const district = findDistrict(districtId);
+  if (!district) return null;
+  return haversineKm(lat, lng, district.lat, district.lng);
+}
+
 /** Approximate km between two canonical districts; null when either is unknown. */
 export function districtDistanceKm(a?: string | null, b?: string | null): number | null {
   const da = findDistrict(a);
   const db = findDistrict(b);
   if (!da || !db) return null;
   if (da.id === db.id) return 0;
-  const dLat = toRad(db.lat - da.lat);
-  const dLng = toRad(db.lng - da.lng);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(da.lat)) * Math.cos(toRad(db.lat)) * Math.sin(dLng / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return haversineKm(da.lat, da.lng, db.lat, db.lng);
 }
 
 /** Sort key: closest first; unknown districts sink to the end. */

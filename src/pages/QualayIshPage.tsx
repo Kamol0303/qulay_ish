@@ -158,7 +158,7 @@ export default function QualayIshPage() {
             >
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-2 h-8 bg-gradient-to-b from-primary to-primary/50 rounded-full" />
-                <h2 className="text-2xl font-bold">Sizga tavsiya etilgan ishlar</h2>
+                <h2 className="text-2xl font-bold">Sizga tavsiya etilgan buyurtmalar</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <AnimatePresence>
@@ -201,7 +201,7 @@ export default function QualayIshPage() {
           >
             <div className="flex items-center gap-2 mb-6">
               <div className="w-2 h-8 bg-gradient-to-b from-primary to-primary/50 rounded-full" />
-              <h2 className="text-2xl font-bold">Barcha mavjud ishlar</h2>
+              <h2 className="text-2xl font-bold">Barcha mavjud buyurtmalar</h2>
               <span className="ml-auto text-sm text-foreground/60">{filteredJobs.length} ish</span>
             </div>
 

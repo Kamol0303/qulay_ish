@@ -2,7 +2,7 @@ import { debugLogger } from '../lib/debugLogger';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CheckCircle, Loader, Mail, User, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { authService } from '../lib/authService';
 import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
@@ -37,7 +37,7 @@ type AuthState = {
   lastName: string;
   password: string;
   confirmPassword: string;
-  selectedRole: 'worker' | 'employer';
+  selectedRole: 'worker';
   profession: string;
   educationLevel: string;
   district: string;
@@ -242,15 +242,11 @@ export default function AuthPage() {
         fullName: `${state.firstName} ${state.lastName}`.trim().replace(/\s+/g, ' '),
         firstName: state.firstName.trim(),
         lastName: state.lastName.trim() || undefined,
-        role: state.selectedRole,
+        role: 'worker',
         password: state.password,
         district: state.district,
-        profession:
-          state.selectedRole === 'worker' && state.profession ? state.profession : undefined,
-        educationLevel:
-          state.selectedRole === 'worker' && state.educationLevel
-            ? state.educationLevel
-            : undefined,
+        profession: state.profession || undefined,
+        educationLevel: state.educationLevel || undefined,
       });
       if (!result.success) {
         setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
@@ -274,10 +270,10 @@ export default function AuthPage() {
     state.confirmPassword,
     state.firstName,
     state.lastName,
-    state.selectedRole,
     state.profession,
     state.educationLevel,
     state.district,
+    state.selectedRole,
     setPartialState,
     t,
   ]);
@@ -804,35 +800,9 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rolni tanlang</label>
-                  <div className="grid grid-cols-2 gap-3" role="group" aria-label="Rolni tanlang">
-                    <button
-                      type="button"
-                      onClick={() => setPartialState({ selectedRole: 'worker' })}
-                      aria-pressed={state.selectedRole === 'worker'}
-                      className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                        state.selectedRole === 'worker'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                      }`}
-                    >
-                      <User size={18} /> Ishchi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPartialState({ selectedRole: 'employer' })}
-                      aria-pressed={state.selectedRole === 'employer'}
-                      className={`p-4 rounded-xl font-semibold transition flex flex-col items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                        state.selectedRole === 'employer'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Mail size={18} /> Buyurtmachi
-                    </button>
-                  </div>
-                </div>
+                <p className="text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                  Roʻyxatdan o‘tish faqat ishchilar uchun. Buyurtmachilar akkaunt ochmaydi — ishchilarni koʻnikmasi boʻyicha koʻradi.
+                </p>
 
                 <div>
                   <label htmlFor="auth-district" className="block text-sm font-medium text-gray-700 mb-1">
@@ -874,8 +844,7 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                {state.selectedRole === 'worker' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="auth-profession" className="block text-sm font-medium text-gray-700 mb-1">
                         {t('auth.profession', { defaultValue: 'Mutaxassisligingiz' })}
@@ -921,7 +890,6 @@ export default function AuthPage() {
                       </select>
                     </div>
                   </div>
-                )}
 
                 <button
                   type="submit"

@@ -63,7 +63,7 @@ export const authService = {
     phone: string;
     password: string;
     fullName: string;
-    role: 'worker' | 'employer';
+    role: 'worker';
   }): Promise<AuthResult> {
     try {
       const res = await api.auth.register({
@@ -90,7 +90,7 @@ export const authService = {
     fullName?: string;
     firstName?: string;
     lastName?: string;
-    role?: 'worker' | 'employer';
+    role?: 'worker';
     password?: string;
     profession?: string;
     educationLevel?: string;

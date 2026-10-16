@@ -34,10 +34,11 @@ function tabsForRole(role: string | null | undefined, t: (key: string) => string
       { to: '/my-profile', label: t('mobile_nav.profile'), icon: User },
     ];
   }
-  // Guest / other — compact public tabs
+  // Guests browse orders and workers. Only workers register.
   return [
     { to: '/', label: t('mobile_nav.home'), icon: Home, end: true },
     { to: '/jobs', label: t('mobile_nav.jobs'), icon: Briefcase },
+    { to: '/workers', label: t('mobile_nav.workers'), icon: Users },
     { to: '/auth', label: t('mobile_nav.login'), icon: User },
   ];
 }

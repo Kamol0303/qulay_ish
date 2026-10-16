@@ -1,12 +1,13 @@
 import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Send, AlertCircle, MessageSquare } from 'lucide-react';
+import { X, Send, AlertCircle } from 'lucide-react';
 import { Job, Profile } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { applicationService } from '../services/applicationService';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
+import { useIsMobileUi } from '../hooks/useIsMobileUi';
 
 interface ApplyModalProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ interface ApplyModalProps {
 export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModalProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const mobile = useIsMobileUi();
+  const [expanded, setExpanded] = React.useState(false);
   const [message, setMessage] = React.useState('');
   const [coverLetter, setCoverLetter] = React.useState('');
   const [expectedSalary, setExpectedSalary] = React.useState(job?.price ? String(job.price) : '');
@@ -31,6 +34,7 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
       setExpectedSalary(job?.price ? String(job.price) : '');
       setError(null);
       setSuccess(false);
+      setExpanded(false);
       // Hard gate: unverified workers never stay on the apply form
       if (profile && !isIdentityVerified(profile)) {
         onClose();
@@ -44,6 +48,10 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!coverLetter.trim()) {
+      setError(t('jobs.cover_letter_placeholder', { defaultValue: 'Nega bu buyurtmaga mos ekansiz, o‘zingiz haqingizda qisqacha yozing' }));
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -113,116 +121,178 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
     }
   };
 
+  const onHandleDragEnd = (_event: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
+    if (info.offset.y < -48 || info.velocity.y < -450) {
+      setExpanded(true);
+      return;
+    }
+    if (info.offset.y > 80 || info.velocity.y > 550) {
+      if (expanded) setExpanded(false);
+      else onClose();
+    }
+  };
+
+  const formBody = (
+    <>
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm">
+          <AlertCircle size={18} />
+          <p className="font-medium">{error}</p>
+        </div>
+      )}
+
+      {success ? (
+        <div className="py-12 text-center">
+          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
+            <Send size={40} />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{t('jobs.apply_success')}</h3>
+          <p className="text-gray-500">{t('jobs.apply_success_desc')}</p>
+        </div>
+      ) : (
+        <form onSubmit={handleApply} className="space-y-6" noValidate>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-3">
+              <div className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">{t('jobs.applicant_info', { defaultValue: 'Ariza beruvchi ma’lumotlari' })}</div>
+              <div className="text-sm text-slate-700">
+                <div className="font-semibold">{profile?.fullName}</div>
+                <div className="text-sm text-slate-500">{profile?.email}</div>
+                <div className="text-sm text-slate-500">{profile?.phoneNumber || t('jobs.no_phone', { defaultValue: 'Telefon yo‘q' })}</div>
+              </div>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-3">
+              <div className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">{t('jobs.job_details', { defaultValue: 'Buyurtma tafsiloti' })}</div>
+              <div className="text-sm text-slate-700">
+                <div className="font-semibold">{job.title}</div>
+                <div className="text-sm text-slate-500">{job.category ? t(`categories.${job.category}`, { defaultValue: job.category }) : t('jobs.general_category')}</div>
+                <div className="text-sm text-slate-500">{job.region}{job.district ? `, ${job.district}` : ''}</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('jobs.cover_letter', { defaultValue: 'Ariza matni' })}</label>
+            <textarea
+              rows={5}
+              value={coverLetter}
+              onChange={(e) => setCoverLetter(e.target.value)}
+              className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm"
+              placeholder={t('jobs.cover_letter_placeholder', { defaultValue: 'Nega bu buyurtmaga mos ekansiz, o‘zingiz haqingizda qisqacha yozing' })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('jobs.expected_salary', { defaultValue: 'Kutgan maosh' })}</label>
+            <input
+              type="text"
+              value={expectedSalary}
+              onChange={(e) => setExpectedSalary(e.target.value)}
+              className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
+              placeholder={t('jobs.expected_salary_placeholder', { defaultValue: 'Misol: 1 500 000 so‘m' })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('jobs.short_message', { defaultValue: 'Qisqacha izoh' })}</label>
+            <textarea
+              rows={3}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm"
+              placeholder={t('jobs.short_message_placeholder', { defaultValue: 'Qo‘shimcha izoh yoki aloqa ma’lumotlari' })}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !coverLetter.trim()}
+            className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl disabled:opacity-50"
+          >
+            {loading ? t('auth.sending') : t('jobs.send_application')}
+          </button>
+        </form>
+      )}
+    </>
+  );
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden"
-          >
-            <div className="p-8">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-black text-gray-900 tracking-tight">{t('jobs.apply_title')}</h2>
-                  <p className="text-gray-500 text-sm mt-1">{job.title}</p>
+          mobile ? (
+          <React.Fragment key="apply-sheet">
+            <motion.button
+              type="button"
+              aria-label="Yopish"
+              className="fixed inset-0 z-[80] bg-black/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-x-0 bottom-0 z-[90] flex flex-col rounded-t-3xl bg-white shadow-2xl"
+              initial={{ y: '100%' }}
+              animate={{ y: 0, height: expanded ? '94vh' : '72vh' }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+            >
+              <motion.div
+                drag="y"
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0.18}
+                onDragEnd={onHandleDragEnd}
+                className="touch-none shrink-0 cursor-grab active:cursor-grabbing"
+              >
+                <div className="flex justify-center pt-3 pb-1">
+                  <div className="h-1.5 w-12 rounded-full bg-slate-300" />
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <X size={24} className="text-gray-400" />
-                </button>
-              </div>
-
-              {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm">
-                  <AlertCircle size={18} />
-                  <p className="font-medium">{error}</p>
-                </div>
-              )}
-
-              {success ? (
-                <div className="py-12 text-center">
-                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
-                    <Send size={40} />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{t('jobs.apply_success')}</h3>
-                  <p className="text-gray-500">{t('jobs.apply_success_desc')}</p>
-                </div>
-              ) : (
-                <form onSubmit={handleApply} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-3">
-                      <div className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">{t('jobs.applicant_info', { defaultValue: 'Ariza beruvchi ma’lumotlari' })}</div>
-                      <div className="text-sm text-slate-700">
-                        <div className="font-semibold">{profile.fullName}</div>
-                        <div className="text-sm text-slate-500">{profile.email}</div>
-                        <div className="text-sm text-slate-500">{profile.phoneNumber || t('jobs.no_phone', { defaultValue: 'Telefon yo‘q' })}</div>
-                      </div>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-3">
-                      <div className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">{t('jobs.job_details', { defaultValue: 'Ish ta’rifi' })}</div>
-                      <div className="text-sm text-slate-700">
-                        <div className="font-semibold">{job.title}</div>
-                        <div className="text-sm text-slate-500">{job.category || t('jobs.general_category')}</div>
-                        <div className="text-sm text-slate-500">{job.region}{job.district ? `, ${job.district}` : ''}</div>
-                      </div>
-                    </div>
-                  </div>
-
+                <div className="flex items-start justify-between px-5 pb-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('jobs.cover_letter', { defaultValue: 'Ariza matni' })}</label>
-                    <textarea
-                      required
-                      rows={5}
-                      value={coverLetter}
-                      onChange={(e) => setCoverLetter(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm"
-                      placeholder={t('jobs.cover_letter_placeholder', { defaultValue: 'Nega bu ishga mos ekansiz, o‘zingiz haqingizda qisqacha yozing' })}
-                    />
+                    <h2 className="text-xl font-black text-gray-900 tracking-tight">{t('jobs.apply_title')}</h2>
+                    <p className="text-gray-500 text-sm mt-1">{job.title}</p>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('jobs.expected_salary', { defaultValue: 'Kutgan maosh' })}</label>
-                    <input
-                      type="text"
-                      value={expectedSalary}
-                      onChange={(e) => setExpectedSalary(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
-                      placeholder={t('jobs.expected_salary_placeholder', { defaultValue: 'Misol: 1 500 000 so‘m' })}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('jobs.short_message', { defaultValue: 'Qisqacha izoh' })}</label>
-                    <textarea
-                      rows={3}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm"
-                      placeholder={t('jobs.short_message_placeholder', { defaultValue: 'Qo‘shimcha izoh yoki aloqa ma’lumotlari' })}
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading || !coverLetter}
-                    className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl disabled:opacity-50"
-                  >
-                    {loading ? t('auth.sending') : t('jobs.send_application')}
+                  <button type="button" onClick={onClose} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-full hover:bg-gray-100">
+                    <X size={22} className="text-gray-400" />
                   </button>
-                </form>
-              )}
-            </div>
-          </motion.div>
-        </div>
+                </div>
+              </motion.div>
+              <div className="flex-1 overflow-y-auto px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+                {formBody}
+              </div>
+            </motion.div>
+          </React.Fragment>
+        ) : (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-[32px] shadow-2xl"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">{t('jobs.apply_title')}</h2>
+                    <p className="text-gray-500 text-sm mt-1">{job.title}</p>
+                  </div>
+                  <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <X size={24} className="text-gray-400" />
+                  </button>
+                </div>
+                {formBody}
+              </div>
+            </motion.div>
+          </div>
+        )
       )}
     </AnimatePresence>
   );

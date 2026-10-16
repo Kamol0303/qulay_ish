@@ -2,6 +2,7 @@ export const CATEGORIES = [
   { id: 'nurse', name: 'Hamshira', icon: '👩‍⚕️' },
   { id: 'pedagogue', name: 'Pedagog', icon: '👨‍🏫' },
   { id: 'educator', name: 'Tarbiyachi', icon: '🧑‍🏫' },
+  { id: 'nanny', name: 'Enaga', icon: '👶' },
   { id: 'preschool_education', name: 'Maktabgacha taʼlim', icon: '🧸' },
   { id: 'music_education', name: 'Musiqa taʼlimi', icon: '🎵' },
   { id: 'physical_education', name: 'Jismoniy tarbiya', icon: '🏃' },

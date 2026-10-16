@@ -1,14 +1,15 @@
 import React from 'react';
 import { api } from '../lib/api';
-import { Profile } from '../types';
+import { Profile, ServicePost } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, MapPin, SlidersHorizontal, X, ArrowLeft, Play, BookOpen } from 'lucide-react';
-import { REGIONS, DISTRICTS } from '../constants/locations';
-import { SKILLS } from '../constants/categories';
+import { Search, SlidersHorizontal, Filter, ChevronDown, ArrowLeft, Play, BookOpen } from 'lucide-react';
+import { CATEGORIES } from '../constants/categories';
+import { pointDistanceKm } from '../constants/districts';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
 import { useAuth } from '../hooks/useAuth';
-import { getDistrictKey, cn, filterWorkersForSamarkand } from '../lib/utils';
+import { cn, filterWorkersForSamarkand } from '../lib/utils';
+import { getCurrentPosition } from '../lib/geolocation';
 import { useNavigate } from 'react-router-dom';
 
 import { useTranslation } from 'react-i18next';
@@ -21,12 +22,11 @@ export default function WorkersPage() {
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
   const [filters, setFilters] = React.useState({
-    region: '',
-    district: '',
     skill: '',
-    category: '',
-    sortBy: 'rating'
+    sortBy: 'price-low',
   });
+  const [origin, setOrigin] = React.useState<{ lat: number; lng: number } | null>(null);
+  const [prices, setPrices] = React.useState<Record<string, number>>({});
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
   const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
 
@@ -68,20 +68,48 @@ export default function WorkersPage() {
 
     const loadWorkers = async () => {
       try {
-        let workersData = await api.users.list({ role: 'worker' });
+        const [listed, posts] = await Promise.all([
+          api.users.list({ role: 'worker' }),
+          api.servicePosts.list({ status: 'active' }).catch(() => [] as ServicePost[]),
+        ]);
         if (cancelled) return;
 
-        workersData = filterWorkersForSamarkand(workersData, {
-          district: filters.district || undefined,
-        });
-
-        if (filters.skill) {
-          workersData = workersData.filter(w => w.skills?.includes(filters.skill));
+        const nextPrices: Record<string, number> = {};
+        for (const post of posts) {
+          const amount = typeof post.price === 'number' ? post.price : post.expectedPrice;
+          if (typeof amount !== 'number' || !post.workerId) continue;
+          if (filters.skill && post.category && post.category !== filters.skill) continue;
+          const prev = nextPrices[post.workerId];
+          if (prev == null || amount < prev) nextPrices[post.workerId] = amount;
         }
-        if (filters.sortBy === 'rating') {
-          workersData.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        } else if (filters.sortBy === 'completed') {
-          workersData.sort((a, b) => (b.completedJobs || 0) - (a.completedJobs || 0));
+        setPrices(nextPrices);
+
+        let workersData = filterWorkersForSamarkand(listed);
+        if (filters.skill) {
+          workersData = workersData.filter(
+            (w) => w.profession === filters.skill || w.skills?.includes(filters.skill),
+          );
+        }
+
+        const distanceOf = (worker: Profile) => {
+          if (!origin) return Number.POSITIVE_INFINITY;
+          const km = pointDistanceKm(origin.lat, origin.lng, worker.district);
+          return km == null ? Number.POSITIVE_INFINITY : km;
+        };
+        const priceOf = (worker: Profile) => nextPrices[worker.uid] ?? Number.POSITIVE_INFINITY;
+
+        if (filters.sortBy === 'price-low') {
+          workersData.sort((a, b) => priceOf(a) - priceOf(b));
+        } else if (filters.sortBy === 'price-high') {
+          workersData.sort((a, b) => {
+            const ap = nextPrices[a.uid] ?? Number.NEGATIVE_INFINITY;
+            const bp = nextPrices[b.uid] ?? Number.NEGATIVE_INFINITY;
+            return bp - ap;
+          });
+        } else if (filters.sortBy === 'nearest') {
+          workersData.sort((a, b) => distanceOf(a) - distanceOf(b));
+        } else if (filters.sortBy === 'farthest') {
+          workersData.sort((a, b) => distanceOf(b) - distanceOf(a));
         }
 
         setWorkers(workersData);
@@ -98,7 +126,7 @@ export default function WorkersPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [filters]);
+  }, [filters, origin]);
 
   const filteredWorkers = workers.filter(worker => 
     worker.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -106,13 +134,19 @@ export default function WorkersPage() {
   );
 
   const clearFilters = () => {
-    setFilters({
-      region: '',
-      district: '',
-      skill: '',
-      category: '',
-      sortBy: 'rating'
-    });
+    setFilters({ skill: '', sortBy: 'price-low' });
+  };
+
+  const onSortChange = async (value: string) => {
+    setFilters((prev) => ({ ...prev, sortBy: value }));
+    if ((value === 'nearest' || value === 'farthest') && !origin) {
+      try {
+        const pos = await getCurrentPosition();
+        setOrigin({ lat: pos.latitude, lng: pos.longitude });
+      } catch {
+        // Distance sort stays in place if location is declined.
+      }
+    }
   };
 
   return (
@@ -190,39 +224,41 @@ export default function WorkersPage() {
               exit={{ opacity: 0, y: -20 }}
               className="bg-card dark:bg-slate-800 rounded-3xl shadow-xl border border-border p-6 mb-8"
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('workers.district')}</label>
-                  <select
-                    value={filters.district}
-                    onChange={(e) => setFilters({ ...filters, district: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="">{t('workers.all')}</option>
-                    {DISTRICTS["Samarqand viloyati"].map(d => <option key={d} value={d}>{t(`districts.${getDistrictKey(d)}`)}</option>)}
-                  </select>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('workers.skill')}</label>
-                  <select
-                    value={filters.skill}
-                    onChange={(e) => setFilters({ ...filters, skill: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="">{t('workers.all')}</option>
-                    {SKILLS.map(s => <option key={s.id} value={s.id}>{t(`skills.${s.id}`)}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={filters.skill}
+                      onChange={(e) => setFilters({ ...filters, skill: e.target.value })}
+                      className="w-full appearance-none px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="">{t('workers.all')}</option>
+                      {CATEGORIES.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {t(`categories.${c.id}`, { defaultValue: c.name })}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700/50 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('workers.sort_by')}</label>
-                  <select
-                    value={filters.sortBy}
-                    onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="rating">{t('workers.by_rating')}</option>
-                    <option value="completed">{t('workers.by_completed')}</option>
-                  </select>
+                  <div className="relative">
+                    <Filter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-400" />
+                    <select
+                      value={filters.sortBy}
+                      onChange={(e) => void onSortChange(e.target.value)}
+                      className="w-full appearance-none pl-11 pr-10 py-3 rounded-xl border border-purple-200 bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="price-low">{t('jobs.price_low')}</option>
+                      <option value="price-high">{t('jobs.price_high')}</option>
+                      <option value="nearest">{t('jobs.nearest')}</option>
+                      <option value="farthest">{t('jobs.farthest', { defaultValue: 'Eng uzoq' })}</option>
+                    </select>
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-700/50 pointer-events-none" />
+                  </div>
                 </div>
               </div>
               <div className="mt-6 flex justify-end">
@@ -284,7 +320,7 @@ export default function WorkersPage() {
         ) : filteredWorkers.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredWorkers.map(worker => (
-              <WorkerCard key={worker.uid} worker={worker} />
+              <WorkerCard key={worker.uid} worker={worker} price={prices[worker.uid]} />
             ))}
           </div>
         ) : (

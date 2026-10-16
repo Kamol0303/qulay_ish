@@ -54,13 +54,13 @@ export function WorkerDashboardMobile() {
           </div>
         )}
         <div className="space-y-2">
-          <Quick to="/jobs" label="Ishlar ro‘yxati" />
+          <Quick to="/jobs" label="Buyurtmalar" />
           <Quick to="/my-work" label="Joriy ishim" />
           <Quick to="/directory" label="Buyurtmachilar" />
           <Quick to="/verification" label="Tasdiqlash" />
-          <Quick to="/saved-jobs" label="Saqlangan ishlar" />
+          <Quick to="/saved-jobs" label="Saqlangan buyurtmalar" />
         </div>
-        <FAB label="Ishlar" onClick={() => navigate('/jobs')} />
+        <FAB label="Buyurtmalar" onClick={() => navigate('/jobs')} />
       </div>
     </PullToRefresh>
   );

@@ -35,15 +35,14 @@ export default function HomeMobile() {
     <PullToRefresh onRefresh={load}>
       <div className="px-4 py-5 space-y-5">
         <section className="rounded-3xl bg-gradient-to-br from-primary to-blue-700 text-primary-foreground p-6 shadow-lg">
-          <p className="text-sm font-semibold opacity-90">Mehrli qo'llar</p>
-          <h1 className="text-2xl font-black mt-1 leading-tight">Samarqandda ish toping</h1>
-          <p className="text-sm mt-2 opacity-90">Ishchi va buyurtmachilar uchun yagona platforma.</p>
+          <h1 className="text-4xl font-black uppercase tracking-tight leading-none">Mehrli qo'llar</h1>
+          <p className="text-sm mt-3 opacity-90">Ishchi va buyurtmachilar uchun platforma.</p>
           <div className="flex gap-2 mt-5">
             <Link
               to="/jobs"
               className="min-h-[44px] inline-flex items-center gap-2 rounded-2xl bg-white text-primary px-4 font-bold text-sm"
             >
-              Ishlar <ArrowRight size={16} />
+              Buyurtmalar <ArrowRight size={16} />
             </Link>
             <Link
               to="/auth"
@@ -61,7 +60,7 @@ export default function HomeMobile() {
             <MobileCard>
               <Briefcase className="text-primary mb-2" size={22} />
               <p className="text-2xl font-black">{stats.jobs}</p>
-              <p className="text-xs text-muted-foreground font-medium">Ish e’lonlari</p>
+              <p className="text-xs text-muted-foreground font-medium">Buyurtmalar</p>
             </MobileCard>
             <MobileCard>
               <Users className="text-primary mb-2" size={22} />

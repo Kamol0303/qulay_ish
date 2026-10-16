@@ -31,10 +31,10 @@ export class SendOtpDto {
   @IsString()
   lastName?: string;
 
-  /** Public registration may only choose worker or employer */
+  /** Public registration is worker-only */
   @IsOptional()
-  @IsIn(['worker', 'employer'], { message: 'Faqat worker yoki employer roli ruxsat etiladi' })
-  role?: 'worker' | 'employer';
+  @IsIn(['worker'], { message: 'Faqat ishchilar roʻyxatdan oʻta oladi' })
+  role?: 'worker';
 
   /** Required when purpose=register — hashed server-side, never stored plaintext */
   @ValidateIf((o: SendOtpDto) => o.purpose === 'register')
@@ -55,8 +55,8 @@ export class SendOtpDto {
 
   /**
    * Samarqand district/city the account belongs to. Required for public
-   * registration (worker AND buyurtmachi) — it fixes exactly where the user is
-   * so we can match nearby workers and jobs.
+   * worker registration — it fixes exactly where the worker is so nearby
+   * sorting can use it.
    */
   @ValidateIf((o: SendOtpDto) => o.purpose === 'register')
   @IsIn(SAMARQAND_DISTRICT_IDS as string[], {

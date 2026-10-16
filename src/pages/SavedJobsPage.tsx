@@ -74,7 +74,7 @@ export default function SavedJobsPage() {
                   <Heart className="text-red-500" size={24} fill="currentColor" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold">Saqlangan ishlar</h1>
+                  <h1 className="text-4xl font-bold">Saqlangan buyurtmalar</h1>
                   <p className="text-foreground/60">Sizning sevimlı ishlaringiz</p>
                 </div>
               </div>
@@ -161,7 +161,7 @@ export default function SavedJobsPage() {
                     onClick={() => navigate('/qulay-ish')}
                     className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
                   >
-                    Ishlarni ko'rish
+                    Buyurtmalarni ko‘rish
                     <ArrowRight size={18} />
                   </motion.button>
                 </motion.div>

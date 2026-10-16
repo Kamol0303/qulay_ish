@@ -43,7 +43,7 @@ export default function ProfileMobile() {
         <LinkRow to="/verification" icon={BadgeCheck} label="Shaxsni tasdiqlash" />
         <LinkRow to={`/resume/${profile.uid}`} icon={FileText} label="Resume" />
         <LinkRow to="/notifications" icon={Bell} label="Bildirishnomalar" />
-        <LinkRow to="/saved-jobs" icon={ShieldCheck} label="Saqlangan ishlar" />
+        <LinkRow to="/saved-jobs" icon={ShieldCheck} label="Saqlangan buyurtmalar" />
       </div>
 
       <button
