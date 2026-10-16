@@ -1,5 +1,6 @@
 import React from 'react';
 import { Briefcase, User, Shield, Crown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface RoleBadgeProps {
   role: 'worker' | 'employer' | 'admin' | 'super_admin';
@@ -8,30 +9,31 @@ interface RoleBadgeProps {
 }
 
 export default function RoleBadge({ role, size = 'md', showIcon = true }: RoleBadgeProps) {
+  const { t } = useTranslation();
   const roleConfig = {
     worker: {
-      label: 'Ishchi',
+      label: t('auth.worker'),
       icon: User,
       bgColor: 'bg-blue-100',
       textColor: 'text-blue-800',
       borderColor: 'border-blue-300',
     },
     employer: {
-      label: 'Buyurtmachi',
+      label: t('auth.employer'),
       icon: Briefcase,
       bgColor: 'bg-green-100',
       textColor: 'text-green-800',
       borderColor: 'border-green-300',
     },
     admin: {
-      label: 'Administrator',
+      label: t('auth.admin'),
       icon: Shield,
       bgColor: 'bg-purple-100',
       textColor: 'text-purple-800',
       borderColor: 'border-purple-300',
     },
     super_admin: {
-      label: 'Super Admin',
+      label: t('auth.super_admin'),
       icon: Crown,
       bgColor: 'bg-yellow-100',
       textColor: 'text-yellow-900',

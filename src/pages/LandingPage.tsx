@@ -37,7 +37,7 @@ export default function LandingPage() {
   return (
     <Layout>
       {/* Hero Section */}
-      <section className="relative h-[600px] flex items-center overflow-hidden">
+      <section className="relative h-[600px] flex items-center overflow-hidden bg-slate-950">
         <div className="absolute inset-0 z-0">
           <img
             src="https://samarkand.uz/templates/dreamzero/img/bodybg.jpg"
@@ -45,7 +45,7 @@ export default function LandingPage() {
             className="w-full h-full object-cover brightness-50"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-900/70 to-transparent"></div>
+          <div className="absolute inset-0 bg-slate-950/75"></div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
@@ -60,7 +60,7 @@ export default function LandingPage() {
               </div>
               <h1 className="text-4xl md:text-6xl font-black text-white leading-tight mb-6 tracking-tight">
                 {t('landing.samarkand')} <br />
-                <span className="text-blue-400 inline-block min-w-[280px]">
+                <span className="text-amber-200 inline-block min-w-[280px]">
                   <motion.span
                     key={currentDistrictIndex}
                     initial={{ opacity: 0, y: 10 }}
@@ -74,7 +74,7 @@ export default function LandingPage() {
                 <br />
                 {t('landing.hero_title_suffix')}
               </h1>
-              <p className="text-xl text-gray-200 mb-10 leading-relaxed font-medium">
+              <p className="text-xl text-white mb-10 leading-relaxed font-medium">
                 {t('landing.hero_subtitle')}
               </p>
 
@@ -100,21 +100,21 @@ export default function LandingPage() {
 
       {/* Search Section */}
       <section className="relative z-20 -mt-12 max-w-5xl mx-auto px-4">
-        <div className="bg-white p-3 rounded-[32px] shadow-2xl border border-gray-100 flex flex-col md:flex-row gap-2">
+        <div className="bg-white text-slate-900 p-3 rounded-[32px] shadow-2xl border border-gray-100 flex flex-col md:flex-row gap-2" style={{ colorScheme: 'light' }}>
           <div className="flex-1 flex items-center px-6 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-            <Search className="text-gray-400 mr-3" size={24} />
+            <Search className="text-slate-500 mr-3" size={24} />
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('landing.search_placeholder')} 
-              className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-medium"
+              className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-medium text-slate-900 placeholder:text-slate-500"
             />
           </div>
           <div className="flex-1 flex items-center px-6 py-4">
-            <MapPin className="text-gray-400 mr-3" size={24} />
+            <MapPin className="text-slate-500 mr-3" size={24} />
             <select 
-              className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-medium appearance-none cursor-pointer"
+              className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-medium text-slate-900 appearance-none cursor-pointer"
               value={selectedDistrict}
               onChange={(e) => setSelectedDistrict(e.target.value)}
             >

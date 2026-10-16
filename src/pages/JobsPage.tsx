@@ -272,7 +272,7 @@ export default function JobsPage() {
               <Search size={48} />
             </div>
             <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
-              Afsuski, ushbu filtrlar bo‘yicha hech qanday buyurtma topilmadi.
+              {t('jobs.no_jobs_found')}
             </h3>
             <p className="text-slate-500 max-w-md mx-auto mb-10 leading-relaxed">{t('jobs.no_jobs_desc')}</p>
             <button

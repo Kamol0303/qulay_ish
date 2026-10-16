@@ -67,7 +67,7 @@ export default function Header({ minimalNav = false }: { minimalNav?: boolean })
                 />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider leading-tight">
+                <span className="text-[10px] font-black text-foreground uppercase tracking-wider leading-tight">
                   {t('common.branding_top')}
                 </span>
               </div>
@@ -80,7 +80,7 @@ export default function Header({ minimalNav = false }: { minimalNav?: boolean })
               <Link
                 key={link.path}
                 to={link.path}
-                className="text-muted-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1"
+                className="text-foreground hover:text-primary font-medium transition-colors flex items-center space-x-1"
               >
                 <link.icon size={18} />
                 <span>{link.name}</span>

@@ -438,15 +438,15 @@ export default function AuthPage() {
   const formattedPhone = authService.normalizePhoneNumber(state.phone);
 
   const title =
-    mode === 'login' ? 'Kirish' : mode === 'forgot' ? 'Parolni tiklash' : 'Roʻyxatdan oʻtish';
+    mode === 'login' ? t('nav.login') : mode === 'forgot' ? t('auth.forgot_title') : t('auth.register_title');
 
   const subtitle = (() => {
-    if (step === 'otp') return 'SMS orqali kelgan OTP kodini kiriting';
-    if (step === 'newPassword') return 'Yangi parol yarating';
-    if (step === 'complete') return 'Tayyor!';
-    if (mode === 'login') return 'Telefon raqam va parol orqali kirish';
-    if (mode === 'forgot') return 'Telefon raqamingizni kiriting — OTP faqat tiklash uchun';
-    return 'Maʼlumotlarni toʻldiring — SMS orqali OTP tasdiqlash majburiy';
+    if (step === 'otp') return t('auth.form_otp_subtitle');
+    if (step === 'newPassword') return t('auth.form_new_password_subtitle');
+    if (step === 'complete') return t('auth.form_complete_subtitle');
+    if (mode === 'login') return t('auth.form_login_subtitle');
+    if (mode === 'forgot') return t('auth.form_forgot_subtitle');
+    return t('auth.form_register_subtitle');
   })();
 
   const showBack = step !== 'form' || mode === 'forgot';
@@ -481,7 +481,7 @@ export default function AuthPage() {
               <form onSubmit={handleLogin} className="space-y-5" noValidate>
                 <div>
                   <label htmlFor="auth-phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefon raqami
+                    {t('auth.phone')}
                   </label>
                   <input
                     id="auth-phone"
@@ -514,7 +514,7 @@ export default function AuthPage() {
 
                 <div>
                   <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Parol
+                    {t('auth.password')}
                   </label>
                   <div className="relative">
                     <input
@@ -576,7 +576,7 @@ export default function AuthPage() {
                       <Loader size={18} className="animate-spin" aria-hidden /> Kirilmoqda...
                     </span>
                   ) : (
-                    'Kirish'
+                    t('nav.login')
                   )}
                 </button>
               </form>
@@ -653,7 +653,7 @@ export default function AuthPage() {
 
                 <div>
                   <label htmlFor="auth-reg-phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefon raqami
+                    {t('auth.phone')}
                   </label>
                   <input
                     id="auth-reg-phone"
@@ -686,7 +686,7 @@ export default function AuthPage() {
 
                 <div>
                   <label htmlFor="auth-reg-password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Parol
+                    {t('auth.password')}
                   </label>
                   <div className="relative">
                     <input
@@ -706,7 +706,7 @@ export default function AuthPage() {
                           },
                         });
                       }}
-                      placeholder="Kamida 8 ta belgi"
+                      placeholder={t('auth.password_hint')}
                       className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
                       disabled={state.loading}
                       minLength={8}
@@ -726,12 +726,12 @@ export default function AuthPage() {
                   {state.fieldErrors.password ? (
                     <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
                   ) : (
-                    <p className="mt-1 text-xs text-gray-500">Kamida 8 ta belgi</p>
+                    <p className="mt-1 text-xs text-gray-500">{t('auth.password_hint')}</p>
                   )}
                 </div>
 
-                <p className="text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-                  Roʻyxatdan o‘tish faqat ishchilar uchun. Buyurtmachilar akkaunt ochmaydi — ishchilarni koʻnikmasi boʻyicha koʻradi.
+                <p className="text-sm text-slate-700 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                  {t('auth.worker_only_notice')}
                 </p>
 
                 <div>
@@ -790,7 +790,7 @@ export default function AuthPage() {
                       <Loader size={18} className="animate-spin" aria-hidden /> Yuborilmoqda...
                     </span>
                   ) : (
-                    'OTP kodini olish'
+                    t('auth.get_otp')
                   )}
                 </button>
               </form>
@@ -801,7 +801,7 @@ export default function AuthPage() {
               <form onSubmit={handleForgotPhone} className="space-y-5" noValidate>
                 <div>
                   <label htmlFor="auth-forgot-phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefon raqami
+                    {t('auth.phone')}
                   </label>
                   <input
                     id="auth-forgot-phone"
@@ -842,7 +842,7 @@ export default function AuthPage() {
                       <Loader size={18} className="animate-spin" /> Yuborilmoqda...
                     </span>
                   ) : (
-                    'OTP kodini olish'
+                    t('auth.get_otp')
                   )}
                 </button>
               </form>
@@ -941,7 +941,7 @@ export default function AuthPage() {
                           },
                         });
                       }}
-                      placeholder="Kamida 8 ta belgi"
+                      placeholder={t('auth.password_hint')}
                       className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
                       disabled={state.loading}
                       minLength={8}
@@ -960,13 +960,13 @@ export default function AuthPage() {
                   {state.fieldErrors.password ? (
                     <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
                   ) : (
-                    <p className="mt-1 text-xs text-gray-500">Kamida 8 ta belgi</p>
+                    <p className="mt-1 text-xs text-gray-500">{t('auth.password_hint')}</p>
                   )}
                 </div>
 
                 <div>
                   <label htmlFor="auth-new-confirm" className="block text-sm font-medium text-gray-700 mb-1">
-                    Parolni tasdiqlang
+                    {t('auth.password_confirm')}
                   </label>
                   <div className="relative">
                     <input
@@ -1023,7 +1023,7 @@ export default function AuthPage() {
                       <Loader size={18} className="animate-spin" /> Saqlanmoqda...
                     </span>
                   ) : (
-                    'Parolni saqlash'
+                    t('auth.password_saved')
                   )}
                 </button>
               </form>
