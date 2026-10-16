@@ -99,6 +99,90 @@
   }
 }
 
+/*
+ * Dark mode still uses many light cards (bg-white) with ink colors (text-gray-900).
+ * Those ink colors disappear on the dark page, and native selects inherit the light
+ * foreground onto a light field, so the chosen value looks blank. Keep ink dark on
+ * light surfaces and light on the page itself.
+ */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: hsl(var(--foreground));
+}
+
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-gray-500,
+.dark .text-slate-500 {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .bg-white:not([class*="dark:bg-"]),
+.dark .bg-gray-50:not([class*="dark:bg-"]),
+.dark .bg-gray-100:not([class*="dark:bg-"]),
+.dark .bg-slate-50:not([class*="dark:bg-"]),
+.dark .bg-slate-100:not([class*="dark:bg-"]) {
+  color: #111827;
+}
+
+.dark .bg-white:not([class*="dark:bg-"]) .text-gray-900,
+.dark .bg-white:not([class*="dark:bg-"]) .text-gray-800,
+.dark .bg-white:not([class*="dark:bg-"]) .text-slate-900,
+.dark .bg-white:not([class*="dark:bg-"]) .text-slate-800,
+.dark .bg-gray-50:not([class*="dark:bg-"]) .text-gray-900,
+.dark .bg-gray-50:not([class*="dark:bg-"]) .text-slate-900,
+.dark .bg-gray-100:not([class*="dark:bg-"]) .text-gray-900,
+.dark .bg-slate-50:not([class*="dark:bg-"]) .text-slate-900,
+.dark .bg-slate-100:not([class*="dark:bg-"]) .text-slate-900,
+.dark .bg-white:not([class*="dark:bg-"]).text-gray-900,
+.dark .bg-white:not([class*="dark:bg-"]).text-slate-900,
+.dark .bg-gray-50:not([class*="dark:bg-"]).text-gray-900 {
+  color: #111827;
+}
+
+.dark .bg-white:not([class*="dark:bg-"]) .text-gray-700,
+.dark .bg-white:not([class*="dark:bg-"]) .text-gray-600,
+.dark .bg-white:not([class*="dark:bg-"]) .text-gray-500,
+.dark .bg-white:not([class*="dark:bg-"]) .text-slate-700,
+.dark .bg-white:not([class*="dark:bg-"]) .text-slate-600,
+.dark .bg-white:not([class*="dark:bg-"]) .text-slate-500,
+.dark .bg-gray-50:not([class*="dark:bg-"]) .text-gray-600,
+.dark .bg-gray-50:not([class*="dark:bg-"]) .text-gray-500,
+.dark .bg-gray-100:not([class*="dark:bg-"]) .text-gray-600,
+.dark .bg-slate-50:not([class*="dark:bg-"]) .text-slate-600 {
+  color: #4b5563;
+}
+
+.dark select.bg-gray-50,
+.dark select.bg-gray-100,
+.dark select.bg-white,
+.dark select.bg-slate-50,
+.dark input.bg-white,
+.dark input.bg-gray-50,
+.dark input.bg-gray-100,
+.dark textarea.bg-white,
+.dark textarea.bg-gray-50,
+.dark .bg-white:not([class*="dark:bg-"]) select,
+.dark .bg-gray-50:not([class*="dark:bg-"]) select,
+.dark .bg-gray-100:not([class*="dark:bg-"]) select {
+  color: #111827;
+  color-scheme: light;
+  background-color: #f9fafb;
+}
+
+.dark select.bg-gray-50 option,
+.dark select.bg-gray-100 option,
+.dark select.bg-white option,
+.dark select.bg-slate-50 option,
+.dark .bg-white:not([class*="dark:bg-"]) select option {
+  color: #111827;
+  background-color: #fff;
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
