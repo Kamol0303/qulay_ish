@@ -8,11 +8,6 @@ import { useAuth } from '../hooks/useAuth';
 import { getRoleRedirectPath } from '../lib/roleRedirect';
 import { CATEGORIES, EDUCATION_LEVELS } from '../constants/categories';
 import {
-  SAMARQAND_DISTRICT_CITIES,
-  SAMARQAND_DISTRICT_TUMANLAR,
-  isValidDistrictId,
-} from '../constants/districts';
-import {
   validatePhoneNumber,
   validateFullName,
   formatPhoneNumber,
@@ -40,7 +35,6 @@ type AuthState = {
   selectedRole: 'worker';
   profession: string;
   educationLevel: string;
-  district: string;
   loading: boolean;
   error: string;
   success: string;
@@ -52,7 +46,6 @@ type AuthState = {
     phone?: string;
     password?: string;
     confirmPassword?: string;
-    district?: string;
     otp?: string;
   };
 };
@@ -68,7 +61,6 @@ const initialState: AuthState = {
   selectedRole: 'worker',
   profession: '',
   educationLevel: '',
-  district: '',
   loading: false,
   error: '',
   success: '',
@@ -217,15 +209,6 @@ export default function AuthPage() {
     if (!passwordValidation.isValid) {
       fieldErrors.password = passwordValidation.error || '';
     }
-    const confirmValidation = validatePasswordConfirm(state.password, state.confirmPassword);
-    if (!confirmValidation.isValid) {
-      fieldErrors.confirmPassword = confirmValidation.error || '';
-    }
-    if (!isValidDistrictId(state.district)) {
-      fieldErrors.district = t('auth.district_required', {
-        defaultValue: 'Tuman yoki shaharni tanlang',
-      });
-    }
     if (Object.keys(fieldErrors).length > 0) {
       setPartialState({
         fieldErrors,
@@ -244,7 +227,6 @@ export default function AuthPage() {
         lastName: state.lastName.trim() || undefined,
         role: 'worker',
         password: state.password,
-        district: state.district,
         profession: state.profession || undefined,
         educationLevel: state.educationLevel || undefined,
       });
@@ -267,12 +249,10 @@ export default function AuthPage() {
   }, [
     state.phone,
     state.password,
-    state.confirmPassword,
     state.firstName,
     state.lastName,
     state.profession,
     state.educationLevel,
-    state.district,
     state.selectedRole,
     setPartialState,
     t,
@@ -718,15 +698,11 @@ export default function AuthPage() {
                         clearMessages();
                         const password = e.target.value;
                         const v = validatePassword(password);
-                        const c = validatePasswordConfirm(password, state.confirmPassword);
                         setPartialState({
                           password,
                           fieldErrors: {
                             ...state.fieldErrors,
                             password: password ? (v.isValid ? undefined : v.error) : undefined,
-                            confirmPassword: state.confirmPassword
-                              ? (c.isValid ? undefined : c.error)
-                              : state.fieldErrors.confirmPassword,
                           },
                         });
                       }}
@@ -754,151 +730,59 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                <div>
-                  <label htmlFor="auth-confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                    Parolni tasdiqlang
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="auth-confirmPassword"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      value={state.confirmPassword}
-                      onChange={(e) => {
-                        clearMessages();
-                        const confirmPassword = e.target.value;
-                        const c = validatePasswordConfirm(state.password, confirmPassword);
-                        setPartialState({
-                          confirmPassword,
-                          fieldErrors: {
-                            ...state.fieldErrors,
-                            confirmPassword: confirmPassword
-                              ? (c.isValid ? undefined : c.error)
-                              : undefined,
-                          },
-                        });
-                      }}
-                      placeholder="Parolni qayta kiriting"
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                      disabled={state.loading}
-                      minLength={8}
-                      maxLength={128}
-                      aria-invalid={Boolean(state.fieldErrors.confirmPassword)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      aria-label={showConfirmPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
-                    >
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {state.fieldErrors.confirmPassword && (
-                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.confirmPassword}</p>
-                  )}
-                </div>
-
                 <p className="text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
                   Roʻyxatdan o‘tish faqat ishchilar uchun. Buyurtmachilar akkaunt ochmaydi — ishchilarni koʻnikmasi boʻyicha koʻradi.
                 </p>
 
                 <div>
-                  <label htmlFor="auth-district" className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('auth.district', { defaultValue: 'Tuman / shahar (Samarqand viloyati)' })}
+                  <label htmlFor="auth-education" className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('auth.education_level', { defaultValue: "Ta'lim darajasi" })}
                   </label>
                   <select
-                    id="auth-district"
-                    value={state.district}
+                    id="auth-education"
+                    value={state.educationLevel}
                     onChange={(e) => {
                       clearMessages();
-                      setPartialState({
-                        district: e.target.value,
-                        fieldErrors: { ...state.fieldErrors, district: undefined },
-                      });
+                      setPartialState({ educationLevel: e.target.value });
                     }}
                     className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
                     disabled={state.loading}
-                    aria-invalid={Boolean(state.fieldErrors.district)}
-                    required
                   >
-                    <option value="">{t('auth.district_placeholder', { defaultValue: 'Tanlang' })}</option>
-                    <optgroup label={t('auth.cities', { defaultValue: 'Shaharlar' })}>
-                      {SAMARQAND_DISTRICT_CITIES.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {t(`districts.${d.id}`, { defaultValue: d.name })}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label={t('auth.districts', { defaultValue: 'Tumanlar' })}>
-                      {SAMARQAND_DISTRICT_TUMANLAR.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {t(`districts.${d.id}`, { defaultValue: d.name })}
-                        </option>
-                      ))}
-                    </optgroup>
+                    <option value="">{t('auth.education_placeholder', { defaultValue: 'Tanlang' })}</option>
+                    {EDUCATION_LEVELS.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {t(`education_levels.${level.id}`, { defaultValue: level.name })}
+                      </option>
+                    ))}
                   </select>
-                  {state.fieldErrors.district && (
-                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.district}</p>
-                  )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="auth-profession" className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('auth.profession', { defaultValue: 'Mutaxassisligingiz' })}
-                      </label>
-                      <select
-                        id="auth-profession"
-                        value={state.profession}
-                        onChange={(e) => {
-                          clearMessages();
-                          setPartialState({ profession: e.target.value });
-                        }}
-                        className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                        disabled={state.loading}
-                      >
-                        <option value="">{t('auth.profession_placeholder', { defaultValue: 'Tanlang' })}</option>
-                        {CATEGORIES.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {t(`categories.${c.id}`, { defaultValue: c.name })}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="auth-education" className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('auth.education_level', { defaultValue: "Ta'lim darajasi" })}
-                      </label>
-                      <select
-                        id="auth-education"
-                        value={state.educationLevel}
-                        onChange={(e) => {
-                          clearMessages();
-                          setPartialState({ educationLevel: e.target.value });
-                        }}
-                        className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                        disabled={state.loading}
-                      >
-                        <option value="">{t('auth.education_placeholder', { defaultValue: 'Tanlang' })}</option>
-                        {EDUCATION_LEVELS.map((e) => (
-                          <option key={e.id} value={e.id}>
-                            {t(`education_levels.${e.id}`, { defaultValue: e.name })}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                <div>
+                  <label htmlFor="auth-profession" className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('auth.profession', { defaultValue: 'Mutaxassisligingiz' })}
+                  </label>
+                  <select
+                    id="auth-profession"
+                    value={state.profession}
+                    onChange={(e) => {
+                      clearMessages();
+                      setPartialState({ profession: e.target.value });
+                    }}
+                    className="w-full min-h-[44px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
+                    disabled={state.loading}
+                  >
+                    <option value="">{t('auth.profession_placeholder', { defaultValue: 'Tanlang' })}</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {t(`categories.${c.id}`, { defaultValue: c.name })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <button
                   type="submit"
-                  disabled={
-                    state.loading ||
-                    state.password.length < 8 ||
-                    state.password !== state.confirmPassword ||
-                    !isValidDistrictId(state.district)
-                  }
+                  disabled={state.loading || state.password.length < 8}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 >
                   {state.loading ? (

@@ -2,8 +2,7 @@ import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
 import { api } from '../lib/api';
 import { Job } from '../types';
-import { motion, AnimatePresence } from 'motion/react';
-import { Search, MapPin, Filter, ChevronDown, SlidersHorizontal, ArrowLeft } from 'lucide-react';
+import { Search, MapPin, SlidersHorizontal, ArrowLeft } from 'lucide-react';
 import Layout from '../components/Layout';
 import JobCard from '../components/JobCard';
 import { useAuth } from '../context/AuthContext';
@@ -197,31 +196,32 @@ export default function JobsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 pb-20">
-        <AnimatePresence>
-          {isFilterOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.98 }}
-              className="bg-white rounded-[40px] shadow-2xl border border-slate-100 p-8 mb-12 relative z-20"
-            >
-              <div className="grid grid-cols-1 gap-8">
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{t('jobs.sort_by')}</label>
-                  <div className="relative">
-                    <Filter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <select
-                      value={sortBy}
-                      onChange={(e) => void onSortChange(e.target.value)}
-                      className="w-full pl-11 pr-4 py-4 rounded-2xl border border-purple-200 bg-purple-50 focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-bold text-purple-900"
+        {isFilterOpen && (
+            <div className="bg-white rounded-[40px] shadow-2xl border border-slate-100 p-8 mb-12 relative z-20">
+              <div className="space-y-2">
+                <p className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{t('jobs.sort_by')}</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {(
+                    [
+                      ['price-low', t('jobs.price_low')],
+                      ['price-high', t('jobs.price_high')],
+                      ['nearest', t('jobs.nearest', { defaultValue: 'Eng yaqin' })],
+                      ['farthest', t('jobs.farthest', { defaultValue: 'Eng uzoq' })],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => void onSortChange(value)}
+                      className={`min-h-[48px] w-full rounded-2xl border px-4 py-3 text-left font-bold ${
+                        sortBy === value
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-slate-200 bg-slate-50 text-slate-800'
+                      }`}
                     >
-                      <option value="price-low">{t('jobs.price_low')}</option>
-                      <option value="price-high">{t('jobs.price_high')}</option>
-                      <option value="nearest">{t('jobs.nearest', { defaultValue: 'Eng yaqin' })}</option>
-                      <option value="farthest">{t('jobs.farthest', { defaultValue: 'Eng uzoq' })}</option>
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-                  </div>
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="mt-8 pt-8 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -238,9 +238,8 @@ export default function JobsPage() {
                   {t('jobs.clear_filters')}
                 </button>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+        )}
 
         <div className="flex flex-col sm:flex-row items-center justify-between mb-10 gap-4">
           <div className="flex items-center gap-4">

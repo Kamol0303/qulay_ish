@@ -1,8 +1,8 @@
 import React from 'react';
 import { api } from '../lib/api';
 import { Profile, ServicePost } from '../types';
-import { motion, AnimatePresence } from 'motion/react';
-import { Search, SlidersHorizontal, Filter, ChevronDown, ArrowLeft, Play, BookOpen } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Search, SlidersHorizontal, ArrowLeft, Play, BookOpen } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import { pointDistanceKm } from '../constants/districts';
 import Layout from '../components/Layout';
@@ -216,48 +216,63 @@ export default function WorkersPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20">
-        <AnimatePresence>
-          {isFilterOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="bg-card dark:bg-slate-800 rounded-3xl shadow-xl border border-border p-6 mb-8"
-            >
+        {isFilterOpen && (
+            <div className="bg-card dark:bg-slate-800 rounded-3xl shadow-xl border border-border p-6 mb-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('workers.skill')}</label>
-                  <div className="relative">
-                    <select
-                      value={filters.skill}
-                      onChange={(e) => setFilters({ ...filters, skill: e.target.value })}
-                      className="w-full appearance-none px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                  <p className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('workers.skill')}</p>
+                  <div className="max-h-64 overflow-y-auto grid grid-cols-1 gap-2 pr-1">
+                    <button
+                      type="button"
+                      onClick={() => setFilters({ ...filters, skill: '' })}
+                      className={`min-h-[44px] w-full rounded-xl border px-4 py-2 text-left font-bold ${
+                        filters.skill === ''
+                          ? 'border-emerald-600 bg-emerald-600 text-white'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                      }`}
                     >
-                      <option value="">{t('workers.all')}</option>
-                      {CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {t(`categories.${c.id}`, { defaultValue: c.name })}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700/50 pointer-events-none" />
+                      {t('workers.all')}
+                    </button>
+                    {CATEGORIES.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setFilters({ ...filters, skill: c.id })}
+                        className={`min-h-[44px] w-full rounded-xl border px-4 py-2 text-left font-bold ${
+                          filters.skill === c.id
+                            ? 'border-emerald-600 bg-emerald-600 text-white'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                        }`}
+                      >
+                        {t(`categories.${c.id}`, { defaultValue: c.name })}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('workers.sort_by')}</label>
-                  <div className="relative">
-                    <Filter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-400" />
-                    <select
-                      value={filters.sortBy}
-                      onChange={(e) => void onSortChange(e.target.value)}
-                      className="w-full appearance-none pl-11 pr-10 py-3 rounded-xl border border-purple-200 bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                      <option value="price-low">{t('jobs.price_low')}</option>
-                      <option value="price-high">{t('jobs.price_high')}</option>
-                      <option value="nearest">{t('jobs.nearest')}</option>
-                      <option value="farthest">{t('jobs.farthest', { defaultValue: 'Eng uzoq' })}</option>
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-700/50 pointer-events-none" />
+                  <p className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('workers.sort_by')}</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {(
+                      [
+                        ['price-low', t('jobs.price_low')],
+                        ['price-high', t('jobs.price_high')],
+                        ['nearest', t('jobs.nearest')],
+                        ['farthest', t('jobs.farthest', { defaultValue: 'Eng uzoq' })],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => void onSortChange(value)}
+                        className={`min-h-[44px] w-full rounded-xl border px-4 py-2 text-left font-bold ${
+                          filters.sortBy === value
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-purple-200 bg-purple-50 text-purple-900'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -269,9 +284,8 @@ export default function WorkersPage() {
                   {t('workers.clear_filters')}
                 </button>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+        )}
 
         <div className="flex items-center justify-between mb-8">
           <div className="text-gray-500 font-medium">

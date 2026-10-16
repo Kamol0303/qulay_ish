@@ -53,14 +53,10 @@ export class SendOtpDto {
   @IsIn(['none', 'secondary', 'vocational', 'other'])
   educationLevel?: string;
 
-  /**
-   * Samarqand district/city the account belongs to. Required for public
-   * worker registration — it fixes exactly where the worker is so nearby
-   * sorting can use it.
-   */
-  @ValidateIf((o: SendOtpDto) => o.purpose === 'register')
+  /** Optional. Public registration no longer asks for a district. */
+  @IsOptional()
   @IsIn(SAMARQAND_DISTRICT_IDS as string[], {
-    message: 'Tuman/shaharni roʻyxatdan tanlang',
+    message: 'Tuman/shahar notoʻgʻri',
   })
   district?: string;
 }

@@ -140,15 +140,11 @@ export class OtpService {
       if (!dto.password || dto.password.length < 8) {
         throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
       }
-      if (!isValidDistrictId(dto.district)) {
-        throw new BadRequestException('Tuman/shaharni roʻyxatdan tanlang');
-      }
       existingMeta = {
         passwordHash: await bcrypt.hash(dto.password, 10),
         firstName: registerName.firstName,
         lastName: registerName.lastName,
-        // Both workers and buyurtmachilar pin their Samarqand district at sign-up
-        district: dto.district,
+        ...(isValidDistrictId(dto.district) ? { district: dto.district } : {}),
         // Workers may share their specialty + education level at sign-up
         ...(safeRole === UserRole.worker && dto.profession?.trim()
           ? { profession: dto.profession.trim().slice(0, 80) }
