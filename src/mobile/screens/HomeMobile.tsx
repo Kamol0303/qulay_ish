@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Briefcase, Users, FileText, ArrowRight } from 'lucide-react';
+import { Briefcase, Users, ArrowRight } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import MobileCard from '../components/Card';
@@ -10,7 +10,7 @@ import PullToRefresh from '../components/PullToRefresh';
 export default function HomeMobile() {
   const { profile, userRole, loading } = useAuth();
   const role = userRole || profile?.role;
-  const [stats, setStats] = useState({ users: 0, jobs: 0, applications: 0, contracts: 0 });
+  const [stats, setStats] = useState({ users: 0, jobs: 0 });
   const [busy, setBusy] = useState(true);
 
   const load = async () => {
@@ -66,16 +66,6 @@ export default function HomeMobile() {
               <Users className="text-primary mb-2" size={22} />
               <p className="text-2xl font-black">{stats.users}</p>
               <p className="text-xs text-muted-foreground font-medium">Foydalanuvchilar</p>
-            </MobileCard>
-            <MobileCard>
-              <FileText className="text-primary mb-2" size={22} />
-              <p className="text-2xl font-black">{stats.applications}</p>
-              <p className="text-xs text-muted-foreground font-medium">Arizalar</p>
-            </MobileCard>
-            <MobileCard>
-              <FileText className="text-primary mb-2" size={22} />
-              <p className="text-2xl font-black">{stats.contracts}</p>
-              <p className="text-xs text-muted-foreground font-medium">Shartnomalar</p>
             </MobileCard>
           </div>
         )}

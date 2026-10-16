@@ -859,10 +859,10 @@
     "searchPlaceholder": "Search jobs, workers or contracts..."
   },
   "superAdmin": {
-    "title": "Super Admin Control Center",
+    "title": "Control panel",
     "subtitle": "Full Platform Management & Monitoring",
-    "loading": "Loading Super Admin Dashboard...",
-    "accessBadge": "Super Admin Access",
+    "loading": "Loading control panel...",
+    "accessBadge": "Control panel",
     "quickActions": "Quick Actions",
     "systemStatus": "System Status",
     "platformMetrics": "Platform Metrics",

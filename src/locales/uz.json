@@ -859,10 +859,10 @@
     "searchPlaceholder": "Buyurtmalar, ishchilar yoki shartnomalarni qidirish..."
   },
   "superAdmin": {
-    "title": "Super Admin Boshqaruv Markazi",
+    "title": "Boshqaruv paneli",
     "subtitle": "To'liq platforma boshqaruvi va monitoringi",
-    "loading": "Super Admin paneli yuklanmoqda...",
-    "accessBadge": "Super Admin Kirish",
+    "loading": "Boshqaruv paneli yuklanmoqda...",
+    "accessBadge": "Boshqaruv paneli",
     "quickActions": "Tezkor harakatlar",
     "systemStatus": "Tizim holati",
     "platformMetrics": "Platforma ko'rsatkichlari",

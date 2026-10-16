@@ -859,10 +859,10 @@
     "searchPlaceholder": "Поиск работ, работников или контрактов..."
   },
   "superAdmin": {
-    "title": "Центр управления Super Admin",
+    "title": "Панель управления",
     "subtitle": "Полное управление и мониторинг платформы",
-    "loading": "Загрузка панели Super Admin...",
-    "accessBadge": "Доступ Super Admin",
+    "loading": "Панель управления загружается...",
+    "accessBadge": "Панель управления",
     "quickActions": "Быстрые действия",
     "systemStatus": "Статус системы",
     "platformMetrics": "Метрики платформы",
