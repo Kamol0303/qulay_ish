@@ -1,143 +1,102 @@
 # Mehrli qo'llar
 
-Ish platformasi: **Vite/React + NestJS + PostgreSQL + Capacitor**.  
-Sayt, APK va iOS — bitta API: `https://ishliayol.uz/api`.
+Samarqanddagi ishchi va buyurtmachilar uchun platforma. Sayt: [ishliayol.uz](https://ishliayol.uz). Telefon ilovasi ham shu serverga ulanadi: `https://ishliayol.uz/api`.
 
----
+Ish bitta joyda turadi: GitHub dagi `main` branch. Boshqa branch ishlatilmaydi.
 
-## Tezkor yo‘l (Kali)
+## Saytda nima bor
 
-```bash
-# 1) Java 21
-sudo apt update && sudo apt install -y openjdk-21-jdk git curl wget unzip
-source scripts/env-kali.sh   # yoki: export JAVA_HOME=... (pastda)
+- Kirish telefon raqami va SMS kod bilan. Ro'yxatdan o'tish faqat ishchi uchun.
+- Buyurtmalar sahifasida e'lon emas, ishchilar chiqadi.
+- Buyurtmachi e'lon qo'ya olmaydi. Ishchini ko'radi, qo'ng'iroq qiladi yoki chat yozadi.
+- Qo'ng'iroq tugmasi odam ro'yxatdan o'tgan raqamga qo'ng'iroq qiladi.
+- Tasdiqlash markazi hali tasdiqlamagan bo'lsa ham ishchi ishlayveradi.
+- Qidiruvdagi joy faqat Samarqand.
+- Bosh sahifadagi raqamlar admin paneldagi haqiqiy sanoq: jami odam, ishchi, buyurtmachi, faol buyurtma, ariza, shartnoma.
+- Rezyume yo'q.
 
-# 2) Kod
-cd ~/Desktop/qulay_ish
-git remote set-url origin https://github.com/Kamol0303/qulay_ish.git
-git fetch origin main && git reset --hard origin/main
-chmod +x scripts/*.sh
+## Telefon raqami chiqmasa
 
-# 3) Env + paketlar
-./scripts/write-local-envs.sh
-npm install && (cd api && npm install)
+Tugma to'g'ri yozilgan. Raqam chiqmasa, telefonga yangi ilova emas, serverdagi eski API sabab. Eski API telefonni yashiradi, shuning uchun kartada «Telefon ko'rsatilmagan» turadi va tugma o'chiq qoladi.
 
-# 4) Android SDK (bir marta)
-./scripts/setup-android-sdk.sh
-source scripts/env-kali.sh
+Serverni yangilang (pastdagi «Saytni yangilash»). Shundan keyin kim qaysi raqam bilan yozilgan bo'lsa, kartada o'sha raqam chiqadi va tugma shu raqamga qo'ng'iroq qiladi.
 
-# 5) APK
-./scripts/build-apk.sh debug
-ls -lh artifacts/mexrliqollar-debug-latest.apk
-```
+## Telefon ilovasini yig'ish
 
-Release: `./scripts/build-apk.sh release`
-
----
-
-## Env fayllar
-
-| Fayl | Nima uchun |
-|------|------------|
-| `.env` | Lokal sayt → `/api` |
-| `.env.capacitor` | APK → `https://ishliayol.uz/api` |
-| `api/.env` | Nest + **SMS token** (`DEVSMS_*`) |
-
-Yaratish: `./scripts/write-local-envs.sh` (barcha env fayllarni yozadi).  
-Sirlar (`DEVSMS_TOKEN`, `PAYMENT_CARD_NUMBER`, `OWNER_OTP_PHONE`, AI kalitlari) faqat lokal `api/.env` da — gitga push qilinmaydi.
-
-`api/.env` SMS (majburiy):
-
-```env
-DEVSMS_TOKEN=...
-DEVSMS_BASE_URL=https://devsms.uz/api
-DEVSMS_SERVICE_NAME=Mexrli Qollar
-DEVSMS_DEV_MODE=false
-```
-
-Tekshiruv: `./scripts/check-otp.sh`
-
----
-
-## Lokal sayt
+O'z kompyuteringizda, loyiha papkasida (`~/ishliayol1`):
 
 ```bash
-source scripts/env-kali.sh
-npm run db:up
-# terminal 1
-cd api && npm run start:dev
-# terminal 2
-npm run dev:web
+cd ~/ishliayol1
+git pull origin main
+./run.sh apk
 ```
 
-- http://localhost:3000  
-- http://localhost:4000/api  
-- Super Admin: `/super-admin-login` (`api/.env` → `SUPER_ADMIN_*`)
+Tayyor fayl:
 
----
+`~/ishliayol1/artifacts/mexrliqollar-release-latest.apk`
 
-## OTP SMS (APK)
+Eski ilovani telefondan o'chirib, keyin yangisini o'rnating. Telefon kompyuterga ulanmasa, APK ni Telegramdagi «Saqlangan xabarlar» orqali yuboring.
 
-APK SMS yubormaydi. Server (`ishliayol.uz`) dagi Nest `api/.env` ishlashi shart.
+`npm run apk:debug` ishlatmang. `bash run.shj` ham xato yozilgan buyruq.
+
+## Saytni yangilash
+
+Bu buyruqlar kompyuteringizda emas, serverda ishlaydi.
 
 ```bash
-ssh USER@185.203.237.57
-cd /LOYIHA_PAPKA
-git fetch origin main && git reset --hard origin/main
-# api/.env ga DEVSMS_TOKEN + DEVSMS_SERVICE_NAME=Mexrli Qollar
-FORCE_PROD_REDEPLOY=1 ./scripts/redeploy-api-production.sh
-curl -s https://ishliayol.uz/api/auth/sms-status   # configured:true
+ssh root@185.203.237.57
+cd /var/www/qulay-ish
+git pull origin main
+./scripts/redeploy-api-production.sh
 ```
 
-Keyin: `./scripts/build-apk.sh release`
+Papka boshqa joyda bo'lsa, serverda `qulay-ish` yoki `qulay_ish` nomli papkani toping. Shu skript API ni yangilaydi: telefon raqami, hisoblar, SMS.
 
----
+Saytning ko'rinishi (bosh sahifa, tugmalar) o'zgargan bo'lsa, o'sha papkada yana `npm run build` qiling va tayyor `dist` ni sayt ochadigan joyga qo'ying.
 
-## iOS
+`api/.env` serverda turadi. Uni gitga solmang. Ichida SMS token (`DEVSMS_TOKEN`) va admin paroli bor. Token bo'sh bo'lsa, SMS ketmaydi.
+
+## Kompyuterda sinab ko'rish
 
 ```bash
-./scripts/build-ios.sh sync     # Kali/Linux — faqat loyiha
-./scripts/build-ios.sh open     # faqat macOS + Xcode
+cd ~/ishliayol1
+git pull origin main
+npm run dev
 ```
 
-IPA Telegram orqali o‘rnatilmaydi (TestFlight/App Store).
+Sayt: http://localhost:3000  
+API: http://localhost:4000/api
 
----
+`npm run dev:web` faqat sahifani ochadi, API yo'q. SMS va ro'yxat shu rejimda ishlamaydi.
 
-## Skriptlar
+Birinchi marta baza ochilmasa:
 
-| Buyruq | Vazifa |
-|--------|--------|
-| `scripts/env-kali.sh` | `JAVA_HOME` + `ANDROID_HOME` |
-| `scripts/write-local-envs.sh` | 3 ta env yozish |
-| `scripts/check-otp.sh` | SMS/env diagnostika |
-| `scripts/setup-android-sdk.sh` | Android SDK |
-| `scripts/build-apk.sh` | `debug` / `release` |
-| `scripts/build-ios.sh` | `sync` / `open` / `archive` |
-| `scripts/redeploy-api-production.sh` | VPS API |
-
----
-
-## Papkalar
-
-```
-src/          frontend (+ src/mobile/)
-api/          NestJS + prisma + uploads/
-android/      Capacitor Android
-ios/          Capacitor iOS
-scripts/      build / env / deploy
-artifacts/    tayyor APK chiqishi
-public/       statik assetlar
-plugins/      Vite Nest proxy
+```bash
+sudo -u postgres psql -d postgres -c "ALTER DATABASE postgres REFRESH COLLATION VERSION;"
+sudo -u postgres psql -d postgres -c "ALTER DATABASE template1 REFRESH COLLATION VERSION;"
+sudo -u postgres psql -d postgres -c "ALTER USER qulay_ish WITH CREATEDB;"
+sudo -u postgres psql -d postgres -c "CREATE DATABASE qulay_ish OWNER qulay_ish;"
+npm run dev
 ```
 
----
+## Tez-tez uchraydigan holat
 
-## Xatolar
+| Nima ko'rinyapti | Nima qilish |
+|---|---|
+| Tugmada raqam yo'q | Serverda `git pull` va `./scripts/redeploy-api-production.sh` |
+| SMS ketmayapti | Serverdagi `api/.env` da `DEVSMS_TOKEN` bor-yo'qligini tekshiring, keyin skriptni qayta ishga tushiring |
+| `permission denied to create database` | Yuqoridagi postgres buyruqlarini bajaring |
+| APK yig'ishda `javac` yo'q | `sudo apt install -y openjdk-21-jdk`, keyin `./run.sh apk` |
+| Ilova o'rnatilmayapti | Eski ilovani o'chirib, yangi APK ni qayta o'rnating |
+| `Some chunks are larger than 500 kB` | Bu xato emas, APK baribir tayyor |
 
-| Muammo | Yechim |
-|--------|--------|
-| `javac` yo‘q | `openjdk-21-jdk` + `source scripts/env-kali.sh` |
-| SDK yo‘q | `./scripts/setup-android-sdk.sh` |
-| APK OTP yo‘q | VPS `api/.env` + redeploy; `sms-status` → true |
-| Git SSH xato | `git remote set-url origin https://github.com/Kamol0303/qulay_ish.git` |
+## Orqaga qaytarish
+
+Serverdagi papkada eski holatga qaytish kerak bo'lsa, oldingi `git pull` dan keyin chiqqan commit raqamini yozib qo'ying. Qaytarish:
+
+```bash
+git checkout <eski-commit>
+./scripts/redeploy-api-production.sh
+```
+
+Ish tugagach yana `main` ga qayting: `git checkout main`.
