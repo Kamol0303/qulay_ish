@@ -10,7 +10,6 @@ import { getDistrictKey } from '../lib/utils';
 import { SKILLS } from '../constants/categories';
 import { mediaUrl, avatarFallback } from '../lib/mediaUrl';
 import { downloadResumePdf } from '../lib/resumePdf';
-import { VerificationStatusCard } from '../components/verification/VerificationStatusCard';
 import { CoreIndicatorsCard } from '../components/profile/CoreIndicatorsCard';
 import { phoneTelHref } from '../lib/phoneLink';
 
@@ -117,10 +116,6 @@ export default function ProfilePage() {
                   <span className="flex items-center"><MapPin size={18} className="mr-1.5 text-gray-400" /> {t('common.region_name', { defaultValue: 'Samarqand viloyati' })}, {t(`districts.${getDistrictKey(worker.district)}`)}</span>
                   <span className="flex items-center"><Star size={18} className="mr-1.5 text-yellow-500 fill-current" /> {worker.rating || t('worker_profile.new')} ({worker.reviewCount || 0} {t('worker_profile.ratings')})</span>
                   <span className="flex items-center"><Briefcase size={18} className="mr-1.5 text-gray-400" /> {worker.completedJobs || 0} {t('worker_profile.completed_jobs')}</span>
-                </div>
-
-                <div className="mb-8">
-                  <VerificationStatusCard profile={worker} showAction={false} />
                 </div>
 
                 <div className="mb-8">
