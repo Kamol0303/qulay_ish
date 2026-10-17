@@ -306,7 +306,9 @@
     "view_profile": "Profilni koʻrish",
     "skills": "Koʻnikmalar",
     "completed_jobs": "Bajarilgan buyurtmalar",
-    "busy": "Band"
+    "busy": "Band",
+    "training_videos": "Oʻquv videolari",
+    "close": "Yopish"
   },
   "employer": {
     "dashboard": {
@@ -676,6 +678,22 @@
     "search_error": "Qidiruvda xatolik",
     "no_geo": "Qurilma lokatsiyani qoʻllab-quvvatlamaydi.",
     "no_location": "Lokatsiya olinmadi"
+  },
+  "nearby_workers": {
+    "title": "Yaqin atrofdagi ishchilar",
+    "search_label": "Qidiruv (ism/familiya)",
+    "search_placeholder": "Ism yoki familiya",
+    "skill": "Kasb / koʻnikma",
+    "region": "Hudud",
+    "near_me": "Yaqinimdagi ishchilar",
+    "radius": "Radius",
+    "empty": "Natija yoʻq. “Qidirish” yoki “Yaqinimdagi ishchilar” tugmasini bosing.",
+    "result_note": "~{{radius}} km radiusdagi, lokatsiyani ulashgan ishchilar (taxminiy masofa).",
+    "search_error": "Qidiruvda xatolik",
+    "no_geo": "Qurilma lokatsiyani qoʻllab-quvvatlamaydi. Hudud boʻyicha qidiring.",
+    "no_location": "Lokatsiya olinmadi",
+    "prev": "Oldingi",
+    "worker_fallback": "Ishchi"
   },
   "districts": {
     "samarkand_city": "Samarqand shahri",

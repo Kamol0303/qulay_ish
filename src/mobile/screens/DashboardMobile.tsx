@@ -9,10 +9,12 @@ import FAB from '../components/FAB';
 import { SkeletonList } from '../components/SkeletonCard';
 import PullToRefresh from '../components/PullToRefresh';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export function WorkerDashboardMobile() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ contracts: 0, done: 0, earnings: 0 });
 
@@ -42,7 +44,7 @@ export function WorkerDashboardMobile() {
       <div className="px-4 py-5 space-y-4">
         <div>
           <p className="text-sm text-muted-foreground">Salom</p>
-          <h1 className="text-xl font-black">{profile?.fullName || 'Ishchi'}</h1>
+          <h1 className="text-xl font-black">{profile?.fullName || t('directory.worker')}</h1>
         </div>
         {loading ? (
           <SkeletonList count={2} />
@@ -69,6 +71,7 @@ export function WorkerDashboardMobile() {
 export function EmployerDashboardMobile() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ jobs: 0, contracts: 0 });
 
@@ -109,7 +112,7 @@ export function EmployerDashboardMobile() {
           </div>
         )}
         <div className="space-y-2">
-          <Quick to="/directory" label="Ishchilar" />
+          <Quick to="/directory" label={t('directory.workers_title')} />
           <Quick to="/employer/jobs" label="E’lonlarim" />
           <Quick to="/verification" label="Tasdiqlash" />
         </div>

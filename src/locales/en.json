@@ -306,7 +306,9 @@
     "view_profile": "View Profile",
     "skills": "Skills",
     "completed_jobs": "Completed Jobs",
-    "busy": "Busy"
+    "busy": "Busy",
+    "training_videos": "Training videos",
+    "close": "Close"
   },
   "employer": {
     "dashboard": {
@@ -676,6 +678,22 @@
     "search_error": "Search error",
     "no_geo": "This device does not support location.",
     "no_location": "Could not get location"
+  },
+  "nearby_workers": {
+    "title": "Nearby workers",
+    "search_label": "Search (first/last name)",
+    "search_placeholder": "First or last name",
+    "skill": "Profession / skill",
+    "region": "Region",
+    "near_me": "Workers near me",
+    "radius": "Radius",
+    "empty": "No results. Tap Search or Workers near me.",
+    "result_note": "Workers within ~{{radius}} km who shared their location (approximate distance).",
+    "search_error": "Search error",
+    "no_geo": "This device does not support location. Search by region instead.",
+    "no_location": "Could not get location",
+    "prev": "Previous",
+    "worker_fallback": "Worker"
   },
   "districts": {
     "samarkand_city": "Samarkand city",

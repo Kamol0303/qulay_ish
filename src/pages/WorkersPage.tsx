@@ -8,7 +8,7 @@ import { pointDistanceKm } from '../constants/districts';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
 import { useAuth } from '../hooks/useAuth';
-import { cn, filterWorkersForSamarkand } from '../lib/utils';
+import { cn, filterWorkersForSamarkand, normalizeLanguageCode } from '../lib/utils';
 import { getCurrentPosition } from '../lib/geolocation';
 import { useNavigate } from 'react-router-dom';
 
@@ -56,7 +56,7 @@ export default function WorkersPage() {
   ];
 
   const getVideoTitle = (video: typeof workerVideos[0]) => {
-    switch (i18n.language) {
+    switch (normalizeLanguageCode(i18n.resolvedLanguage || i18n.language)) {
       case 'ru': return video.titleRu;
       case 'en': return video.titleEn;
       default: return video.titleUz;
@@ -189,13 +189,14 @@ export default function WorkersPage() {
               className="flex flex-col md:flex-row gap-4"
             >
               <div className="flex-1 relative group">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-blue-700" size={20} />
                 <input
                   type="text"
                   placeholder={t('workers.search_placeholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-14 pr-6 py-5 rounded-[2rem] bg-blue-500/20 border border-blue-400/30 text-white placeholder:text-blue-200/70 focus:ring-4 focus:ring-blue-500/40 focus:border-blue-400 outline-none transition-all text-lg font-bold backdrop-blur-xl"
+                  className="w-full pl-14 pr-6 py-5 rounded-[2rem] bg-white border border-white text-slate-900 placeholder:text-slate-500 focus:ring-4 focus:ring-blue-500/40 focus:border-blue-400 outline-none transition-all text-lg font-bold shadow-2xl"
+                  style={{ colorScheme: 'light' }}
                 />
               </div>
               <button
@@ -298,8 +299,8 @@ export default function WorkersPage() {
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-6">
               <BookOpen className="text-blue-600" size={28} />
-              <h2 className="text-2xl font-black text-gray-900">
-                {i18n.language === 'ru' ? 'Обучающие видео' : i18n.language === 'en' ? 'Training Videos' : 'O\'quv videolari'}
+              <h2 className="text-2xl font-black text-foreground">
+                {t('workers.training_videos')}
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -372,7 +373,7 @@ export default function WorkersPage() {
                   onClick={() => setSelectedVideo(null)}
                   className="px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-gray-700 transition-all"
                 >
-                  {i18n.language === 'ru' ? 'Закрыть' : i18n.language === 'en' ? 'Close' : 'Yopish'}
+                  {t('workers.close')}
                 </button>
               </div>
             </motion.div>

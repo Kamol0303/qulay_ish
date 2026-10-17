@@ -80,7 +80,7 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
             </div>
             {typeof price === 'number' && (
               <div className="text-xs font-bold text-emerald-600">
-                {price.toLocaleString()} so‘m
+                {price.toLocaleString()} {t('common.uzs')}
               </div>
             )}
           </div>

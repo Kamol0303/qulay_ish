@@ -16,7 +16,7 @@ function WorkerCardItem({ w }: { w: EmployerWorker }) {
   const { t } = useTranslation();
   const skillLabel = (id: string): string =>
     t(`skills.${id}`, { defaultValue: SKILLS.find((s) => s.id === id)?.name || id });
-  const name = `${w.firstName ?? ''} ${w.lastName ?? ''}`.trim() || w.fullName || 'Ishchi';
+  const name = `${w.firstName ?? ''} ${w.lastName ?? ''}`.trim() || w.fullName || t('nearby_workers.worker_fallback');
   return (
     <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
       <div className="flex items-center gap-3">
@@ -107,12 +107,12 @@ export default function NearbyWorkers() {
         setTotalPages(res.totalPages || 1);
         setMode('nearby');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Qidiruvda xatolik');
+        setError(e instanceof Error ? e.message : t('nearby_workers.search_error'));
       } finally {
         setLoading(false);
       }
     },
-    [radiusKm, skill, region],
+    [radiusKm, skill, region, t],
   );
 
   const runAll = useCallback(
@@ -133,18 +133,18 @@ export default function NearbyWorkers() {
         setTotalPages(res.totalPages || 1);
         setMode('all');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Qidiruvda xatolik');
+        setError(e instanceof Error ? e.message : t('nearby_workers.search_error'));
       } finally {
         setLoading(false);
       }
     },
-    [search, skill, region, profile?.district],
+    [search, skill, region, profile?.district, t],
   );
 
   const useMyLocation = useCallback(async () => {
     setError('');
     if (!isGeolocationAvailable()) {
-      setError('Qurilma lokatsiyani qoʻllab-quvvatlamaydi. Hudud boʻyicha qidiring.');
+      setError(t('nearby_workers.no_geo'));
       return;
     }
     setLoading(true);
@@ -153,10 +153,10 @@ export default function NearbyWorkers() {
       setCoords({ lat: pos.latitude, lng: pos.longitude });
       await runNearby(pos.latitude, pos.longitude, 1, radiusKm);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Lokatsiya olinmadi');
+      setError(e instanceof Error ? e.message : t('nearby_workers.no_location'));
       setLoading(false);
     }
-  }, [radiusKm, runNearby]);
+  }, [radiusKm, runNearby, t]);
 
   const changeRadius = (r: number) => {
     setRadiusKm(r);
@@ -169,44 +169,44 @@ export default function NearbyWorkers() {
   };
 
   return (
-    <DashboardLayout title="Yaqin atrofdagi ishchilar">
+    <DashboardLayout title={t('nearby_workers.title')}>
       <div className="space-y-5">
         <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Qidiruv (ism/familiya)</label>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t('nearby_workers.search_label')}</label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && runAll(1)}
-                  placeholder="Ism yoki familiya"
-                  className="w-full min-h-[44px] rounded-xl border border-border pl-9 pr-3 text-sm"
+                  placeholder={t('nearby_workers.search_placeholder')}
+                  className="w-full min-h-[44px] rounded-xl border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground"
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Kasb / koʻnikma</label>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t('nearby_workers.skill')}</label>
               <select
                 value={skill}
                 onChange={(e) => setSkill(e.target.value)}
-                className="w-full min-h-[44px] rounded-xl border border-border px-3 text-sm sm:w-48"
+                className="w-full min-h-[44px] rounded-xl border border-border bg-background px-3 text-sm text-foreground sm:w-48"
               >
-                <option value="">Barchasi</option>
+                <option value="">{t('common.all')}</option>
                 {SKILLS.map((s) => (
                   <option key={s.id} value={s.id}>{t(`skills.${s.id}`, { defaultValue: s.name })}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Hudud</label>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t('nearby_workers.region')}</label>
               <select
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
-                className="w-full min-h-[44px] rounded-xl border border-border px-3 text-sm sm:w-48"
+                className="w-full min-h-[44px] rounded-xl border border-border bg-background px-3 text-sm text-foreground sm:w-48"
               >
-                <option value="">Barchasi</option>
+                <option value="">{t('common.all')}</option>
                 {REGIONS.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
@@ -217,7 +217,7 @@ export default function NearbyWorkers() {
               onClick={() => void runAll(1)}
               className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
             >
-              <Search className="h-4 w-4" /> Qidirish
+              <Search className="h-4 w-4" /> {t('common.search')}
             </button>
           </div>
 
@@ -227,9 +227,9 @@ export default function NearbyWorkers() {
               onClick={() => void useMyLocation()}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white"
             >
-              <Navigation className="h-4 w-4" /> Yaqinimdagi ishchilar
+              <Navigation className="h-4 w-4" /> {t('nearby_workers.near_me')}
             </button>
-            <span className="text-xs text-muted-foreground">Radius:</span>
+            <span className="text-xs text-muted-foreground">{t('nearby_workers.radius')}:</span>
             {RADIUS_OPTIONS.map((r) => (
               <button
                 key={r}
@@ -253,18 +253,18 @@ export default function NearbyWorkers() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Yuklanmoqda…
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('common.loading')}
           </div>
         ) : workers.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
             <MapPin className="h-8 w-8" />
-            <p>Natija yoʻq. “Qidirish” yoki “Yaqinimdagi ishchilar” tugmasini bosing.</p>
+            <p>{t('nearby_workers.empty')}</p>
           </div>
         ) : (
           <>
             {mode === 'nearby' && (
               <p className="text-xs text-muted-foreground">
-                ~{radiusKm} km radiusdagi, lokatsiyani ulashgan ishchilar (taxminiy masofa).
+                {t('nearby_workers.result_note', { radius: radiusKm })}
               </p>
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -280,7 +280,7 @@ export default function NearbyWorkers() {
                   onClick={() => goPage(page - 1)}
                   className="min-h-[44px] rounded-xl bg-secondary px-4 text-sm font-semibold disabled:opacity-50"
                 >
-                  Oldingi
+                  {t('nearby_workers.prev')}
                 </button>
                 <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
                 <button
@@ -289,7 +289,7 @@ export default function NearbyWorkers() {
                   onClick={() => goPage(page + 1)}
                   className="min-h-[44px] rounded-xl bg-secondary px-4 text-sm font-semibold disabled:opacity-50"
                 >
-                  Keyingi
+                  {t('common.next')}
                 </button>
               </div>
             )}
