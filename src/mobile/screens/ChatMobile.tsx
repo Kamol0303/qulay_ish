@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,9 +12,13 @@ import { hapticLight } from '../haptics';
 
 export default function ChatMobile() {
   const { profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const withId = searchParams.get('with');
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [peerName, setPeerName] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadInbox = async () => {
@@ -41,30 +46,67 @@ export default function ChatMobile() {
   }, []);
 
   useEffect(() => {
+    if (!profile?.uid) return;
+    if (!withId || withId === profile.uid) {
+      setActiveId(null);
+      if (withId && withId === profile.uid) setSearchParams({}, { replace: true });
+      return;
+    }
+    setActiveId(withId);
+    setSendError(null);
+  }, [withId, profile?.uid, setSearchParams]);
+
+  useEffect(() => {
     if (!activeId) return;
     void loadThread(activeId);
     const id = setInterval(() => void loadThread(activeId), 5000);
     return () => clearInterval(id);
   }, [activeId, profile?.uid]);
 
+  useEffect(() => {
+    if (!activeId) return;
+    const known = threads.find((t) => t.peerId === activeId)?.peerName;
+    if (known) {
+      setPeerName(known);
+      return;
+    }
+    let cancelled = false;
+    void api.users.get(activeId).then((user) => {
+      if (!cancelled) setPeerName(user.fullName || 'Chat');
+    }).catch(() => {
+      if (!cancelled) setPeerName('Chat');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId, threads]);
+
+  const closeThread = () => {
+    void hapticLight();
+    setActiveId(null);
+    setMessages([]);
+    setSendError(null);
+    setSearchParams({}, { replace: true });
+  };
+
   if (activeId) {
     const peer = threads.find((t) => t.peerId === activeId);
     return (
-      <div className="flex flex-col h-[calc(100vh-3.5rem-env(safe-area-inset-top))]">
+      <div className="flex flex-col h-[calc(100dvh-52px-env(safe-area-inset-top))]">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
           <button
             type="button"
             className="min-h-[44px] min-w-[44px] font-bold text-primary"
-            onClick={() => {
-              void hapticLight();
-              setActiveId(null);
-            }}
+            onClick={closeThread}
           >
             ←
           </button>
-          <h1 className="font-bold truncate">{peer?.peerName || 'Chat'}</h1>
+          <h1 className="font-bold truncate">{peer?.peerName || peerName || 'Chat'}</h1>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2 bg-secondary/30">
+          {messages.length === 0 && (
+            <p className="pt-16 text-center text-sm text-muted-foreground">Birinchi xabarni shu yerga yozing</p>
+          )}
           {messages.map((m) => {
             const mine = m.senderId === profile?.uid;
             const body = m.content || m.text || m.message || '';
@@ -84,14 +126,22 @@ export default function ChatMobile() {
         <div className="border-t border-border bg-card p-2 pb-[env(safe-area-inset-bottom)]">
           <ChatComposer
             placeholder="Xabar yozing..."
+            moderationError={sendError}
             onSend={async (text) => {
               if (!profile?.uid || !activeId) return;
-              await api.chatMessages.create({
-                senderId: profile.uid,
-                receiverId: activeId,
-                content: text,
-              });
-              await loadThread(activeId);
+              setSendError(null);
+              try {
+                await api.chatMessages.create({
+                  senderId: profile.uid,
+                  receiverId: activeId,
+                  content: text,
+                });
+                await loadThread(activeId);
+                void loadInbox();
+              } catch (err) {
+                setSendError(err instanceof Error ? err.message : 'Xabar yuborilmadi');
+                throw err;
+              }
             }}
           />
         </div>
@@ -117,7 +167,7 @@ export default function ChatMobile() {
                 key={t.peerId}
                 onClick={() => {
                   void hapticLight();
-                  setActiveId(t.peerId);
+                  setSearchParams({ with: t.peerId });
                 }}
               >
                 <p className="font-bold text-sm">{t.peerName || 'Foydalanuvchi'}</p>

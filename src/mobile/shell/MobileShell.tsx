@@ -22,7 +22,8 @@ export default function MobileShell({ children }: { children: React.ReactNode })
     location.pathname.startsWith('/contracts/') ||
     location.pathname.startsWith('/employer/create') ||
     location.pathname.startsWith('/worker/create') ||
-    location.pathname.startsWith('/worker/edit');
+    location.pathname.startsWith('/worker/edit') ||
+    (location.pathname === '/chat' && new URLSearchParams(location.search).has('with'));
 
   const hideTopBar =
     location.pathname.startsWith('/auth') ||
