@@ -1,11 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as dotenv from 'dotenv';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
-import { User, UserRole } from '@prisma/client';
+import { Prisma, User, UserRole } from '@prisma/client';
 
 const SUPER_ADMIN_ENV_KEYS = [
   'SUPER_ADMIN_EMAIL',
@@ -224,5 +224,57 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
     return this.signToken(user);
+  }
+
+  async revokeSession(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { sessionValidAfter: new Date() },
+    });
+    return { success: true };
+  }
+
+  /**
+   * Closes a worker or employer account without deleting the row, so platform
+   * counts stay stable. The phone number is released for a later signup.
+   */
+  async deleteOwnAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    if (user.role === 'admin' || user.role === 'super_admin') {
+      throw new ForbiddenException('Xodim hisobini shu yerdan oʻchirib boʻlmaydi');
+    }
+    const now = new Date();
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: null,
+        phoneNumber: null,
+        passwordHash: null,
+        fullName: "O'chirilgan hisob",
+        firstName: null,
+        lastName: null,
+        bio: null,
+        photoUrl: null,
+        coverUrl: null,
+        telegram: null,
+        personalInfo: Prisma.DbNull,
+        companyDocuments: Prisma.DbNull,
+        recruiterContacts: Prisma.DbNull,
+        tin: null,
+        registrationNumber: null,
+        website: null,
+        officeAddress: null,
+        latitude: null,
+        longitude: null,
+        locationSharingEnabled: false,
+        lookingForWork: false,
+        isBlocked: true,
+        blockReason: 'account_deleted',
+        blockedAt: now,
+        sessionValidAfter: now,
+      },
+    });
+    return { success: true };
   }
 }

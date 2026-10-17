@@ -112,6 +112,8 @@
     "national_platform": "National Job Platform",
     "unknown": "Unknown",
     "logout": "Logout",
+    "delete_account": "Delete account",
+    "delete_account_confirm": "Your account will be closed and the phone number released. Continue?",
     "login": "Login",
     "register": "Register",
     "profile": "Profile",

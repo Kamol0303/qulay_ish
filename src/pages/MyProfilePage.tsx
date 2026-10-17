@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../lib/api';
+import { appConfirm } from '../lib/appDialog';
 import { useProfileEditor } from '../hooks/useProfileEditor';
 import { WorkerProfileView } from '../components/profile/WorkerProfileView';
 import { EmployerProfileView } from '../components/profile/EmployerProfileView';
@@ -10,7 +12,7 @@ import { EmployerProfileView } from '../components/profile/EmployerProfileView';
 export default function MyProfilePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { profile, loading, refreshProfile } = useAuth();
+  const { profile, loading, refreshProfile, signOut } = useAuth();
   const editor = useProfileEditor(profile, refreshProfile);
 
   if (loading || !profile || !editor.draft) {
@@ -62,6 +64,24 @@ export default function MyProfilePage() {
             error={editor.error}
             success={editor.success}
           />
+        )}
+        {(profile.role === 'worker' || profile.role === 'employer') && (
+          <button
+            type="button"
+            className="mt-8 min-h-[44px] rounded-2xl border border-border px-5 text-sm font-bold text-foreground"
+            onClick={async () => {
+              if (!(await appConfirm(t('common.delete_account_confirm')))) return;
+              try {
+                await api.auth.deleteAccount();
+              } catch {
+                return;
+              }
+              await signOut();
+              navigate('/auth');
+            }}
+          >
+            {t('common.delete_account')}
+          </button>
         )}
       </div>
     </Layout>

@@ -153,6 +153,8 @@ model User {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
   lastActive         DateTime?          @map("last_active")
+  /** Tokens issued before this moment are rejected. Null keeps existing sessions. */
+  sessionValidAfter  DateTime?          @map("session_valid_after")
   telegramVerified   Boolean            @default(false) @map("telegram_verified")
 
   jobsAsEmployer           Job[]                 @relation("EmployerJobs")

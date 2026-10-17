@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { isSessionCurrent } from '../common/session.util';
 import { JwtPayload } from './auth.service';
 
 function resolveJwtSecret(): string {
@@ -28,6 +29,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException('User not found');
+
+    const iat = (payload as JwtPayload & { iat?: number }).iat;
+    if (!isSessionCurrent(iat, user.sessionValidAfter)) {
+      throw new UnauthorizedException('Session expired');
+    }
 
     if (user.isBlocked) {
       if (user.blockUntil && user.blockUntil > new Date()) {

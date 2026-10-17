@@ -21,5 +21,9 @@ ENV NODE_ENV=production
 ENV API_PORT=4000
 EXPOSE 4000
 
+RUN mkdir -p /app/uploads/public /app/uploads/private \
+  && chown -R node:node /app
+USER node
+
 # Apply DB migrations on boot, then start the API
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]

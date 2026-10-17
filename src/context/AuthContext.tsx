@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     clearLegacyDemoStorage();
-    api.auth.logout();
+    await api.auth.logout();
     setUser(null);
     setProfile(null);
     setLoading(false);

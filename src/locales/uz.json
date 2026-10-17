@@ -112,6 +112,8 @@
     "national_platform": "Milliy ish platformasi",
     "unknown": "Nomaʼlum",
     "logout": "Chiqish",
+    "delete_account": "Hisobni oʻchirish",
+    "delete_account_confirm": "Hisobingiz yopiladi va telefon raqamingiz boʻshaydi. Davom etasizmi?",
     "login": "Kirish",
     "register": "Roʻyxatdan oʻtish",
     "profile": "Profil",

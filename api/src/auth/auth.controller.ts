@@ -79,4 +79,16 @@ export class AuthController {
   async refresh(@Req() req: { user: { userId: string } }) {
     return this.auth.refreshToken(req.user.userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  async logout(@Req() req: { user: { userId: string } }) {
+    return this.auth.revokeSession(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('delete-account')
+  async deleteAccount(@Req() req: { user: { userId: string } }) {
+    return this.auth.deleteOwnAccount(req.user.userId);
+  }
 }

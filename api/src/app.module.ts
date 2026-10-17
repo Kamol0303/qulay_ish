@@ -10,6 +10,7 @@ import { EmployerModule } from './employer/employer.module';
 import { AdminModule } from './admin/admin.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { AiModule } from './ai/ai.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -32,5 +33,6 @@ import { AiModule } from './ai/ai.module';
     SubscriptionModule,
     AiModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

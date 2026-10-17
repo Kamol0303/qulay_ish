@@ -2,13 +2,18 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Bell, LogOut, BadgeCheck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from 'react-i18next';
+import { api } from '../../lib/api';
+import { appConfirm } from '../../lib/appDialog';
 import MobileCard from '../components/Card';
 import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
 import { hapticMedium } from '../haptics';
 
 export default function ProfileMobile() {
+  const { t } = useTranslation();
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const canDelete = profile?.role === 'worker' || profile?.role === 'employer';
 
   if (!profile) {
     return (
@@ -45,6 +50,24 @@ export default function ProfileMobile() {
         <LinkRow to="/saved-jobs" icon={ShieldCheck} label="Saqlangan buyurtmalar" />
       </div>
 
+      {canDelete && (
+        <button
+          type="button"
+          className="w-full min-h-[48px] rounded-2xl border border-border text-foreground font-bold"
+          onClick={async () => {
+            if (!(await appConfirm(t('common.delete_account_confirm')))) return;
+            try {
+              await api.auth.deleteAccount();
+            } catch {
+              return;
+            }
+            await signOut();
+            navigate('/auth');
+          }}
+        >
+          {t('common.delete_account')}
+        </button>
+      )}
       <button
         type="button"
         className="w-full min-h-[48px] rounded-2xl border border-destructive/30 text-destructive font-bold inline-flex items-center justify-center gap-2"

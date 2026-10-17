@@ -4,6 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { decideRateLimit, pruneBuckets, type RateBucket } from './common/rate-limit.util';
 
 async function bootstrap() {
   if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET?.trim()) {
@@ -11,6 +12,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', 1);
   app.setGlobalPrefix('api');
   const fromEnv = (process.env.CORS_ORIGIN || '')
     .split(',')
@@ -48,11 +50,29 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  // Basic hardening for static/upload responses
-  app.use((_req, res, next) => {
+  const rateBuckets = new Map<string, RateBucket>();
+  app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    res.setHeader('Permissions-Policy', 'interest-cohort=()');
+    const forwarded = String(req.headers['x-forwarded-proto'] || '');
+    if (process.env.NODE_ENV === 'production' && (req.secure || forwarded.includes('https'))) {
+      res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+    }
+    const path = (req.originalUrl || req.url || '').split('?')[0];
+    if (path === '/api/health') {
+      next();
+      return;
+    }
+    const decision = decideRateLimit(rateBuckets, path, req.ip || 'unknown', Date.now());
+    pruneBuckets(rateBuckets, Date.now());
+    if (!decision.ok) {
+      res.setHeader('Retry-After', String(decision.retryAfterSec));
+      res.status(429).json({ message: 'Juda koʻp soʻrov. Birozdan keyin urinib koʻring.' });
+      return;
+    }
     next();
   });
 

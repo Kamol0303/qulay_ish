@@ -17,6 +17,7 @@ import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
 import { registrationPhone } from '../common/registration-phone.util';
 import { isSafeAppPath } from '../common/safe-path.util';
+import { moderateText } from '../common/moderation.util';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
 type AuthUser = { userId: string; role: string };
@@ -1508,6 +1509,19 @@ export class ChatMessagesController {
     const id = (body.id as string) || randomUUID();
     const content = String(body.content || body.message || body.text || '').trim();
     if (!content) throw new BadRequestException('Xabar bo\'sh');
+    const moderation = moderateText(content);
+    if (!moderation.allowed) {
+      await this.prisma.violation.create({
+        data: {
+          id: randomUUID(),
+          userId: req.user.userId,
+          violationType: moderation.violationType || 'profanity',
+          message: content.slice(0, 500),
+          action: 'blocked',
+        },
+      }).catch(() => undefined);
+      throw new BadRequestException(moderation.reason || 'Xabar rad etildi');
+    }
     const senderId = req.user.userId;
     const receiverId = String(body.receiverId || '');
     if (!receiverId) throw new BadRequestException('receiverId majburiy');

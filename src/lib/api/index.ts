@@ -1,4 +1,5 @@
 import { apiRequest, setAccessToken, clearAccessToken, toQuery, API_BASE, getAccessToken } from './client';
+import { normalizePublicStats } from '../statsCounts';
 import { ensureArray } from './errors';
 import type { Profile, Job, Application, Contract, Notification, ChatMessage, ChatThread, Dispute, VerificationRequest, Review, ServicePost, WorkerPersonalInfo, WorkerCoreIndicators } from '../../types';
 
@@ -258,8 +259,18 @@ export const api = {
       const user = res.user ? mapUser(res.user as unknown as Record<string, unknown>) : null;
       return user;
     },
-    logout() {
+    async logout() {
+      if (getAccessToken()) {
+        try {
+          await apiRequest('/auth/logout', { method: 'POST' });
+        } catch {
+          /* Eski server yoki tarmoq xatosi lokal chiqishni to'xtatmaydi. */
+        }
+      }
       clearAccessToken();
+    },
+    deleteAccount() {
+      return apiRequest<{ success: true }>('/auth/delete-account', { method: 'POST' });
     },
     async sendOtp(params: {
       phone: string;
@@ -837,18 +848,7 @@ export const api = {
         '/stats/counts',
         {},
         false,
-      ).then((data) => ({
-        users: Number(data?.users ?? 0),
-        jobs: Number(data?.jobs ?? 0),
-        applications: Number(data?.applications ?? 0),
-        contracts: Number(data?.contracts ?? 0),
-        workers: data?.workers == null ? null : Number(data.workers),
-        employers: data?.employers == null ? null : Number(data.employers),
-        activeJobs: data?.activeJobs == null ? Number(data?.jobs ?? 0) : Number(data.activeJobs),
-        pendingApplications: data?.pendingApplications == null ? null : Number(data.pendingApplications),
-        activeContracts: data?.activeContracts == null ? Number(data?.contracts ?? 0) : Number(data.activeContracts),
-        completedContracts: data?.completedContracts == null ? null : Number(data.completedContracts),
-      }));
+      ).then((data) => normalizePublicStats(data));
     },
   },
 };
