@@ -14,6 +14,7 @@ import {
   validatePassword,
   validatePasswordConfirm,
 } from '../lib/validation';
+import SafeSelect from '../components/SafeSelect';
 
 const debugError = (label: string, error?: unknown) => {
   if (import.meta.env.DEV) {
@@ -635,7 +636,7 @@ export default function AuthPage() {
                   <label htmlFor="auth-education" className="block text-sm font-medium text-gray-700 mb-1">
                     {t('auth.education_level', { defaultValue: "Ta'lim darajasi" })}
                   </label>
-                  <select
+                  <SafeSelect
                     id="auth-education"
                     value={state.educationLevel}
                     onChange={(e) => {
@@ -651,14 +652,14 @@ export default function AuthPage() {
                         {t(`education_levels.${level.id}`, { defaultValue: level.name })}
                       </option>
                     ))}
-                  </select>
+                  </SafeSelect>
                 </div>
 
                 <div>
                   <label htmlFor="auth-profession" className="block text-sm font-medium text-gray-700 mb-1">
                     {t('auth.profession', { defaultValue: 'Mutaxassisligingiz' })}
                   </label>
-                  <select
+                  <SafeSelect
                     id="auth-profession"
                     value={state.profession}
                     onChange={(e) => {
@@ -674,7 +675,7 @@ export default function AuthPage() {
                         {t(`categories.${c.id}`, { defaultValue: c.name })}
                       </option>
                     ))}
-                  </select>
+                  </SafeSelect>
                 </div>
 
                 <button

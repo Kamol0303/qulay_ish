@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { jobService } from '../../services/jobService';
 import { isIdentityVerified } from '../../lib/verificationGate';
 import { Link } from 'react-router-dom';
+import SafeSelect from '../../components/SafeSelect';
 
 export default function CreateJob() {
   const { t, i18n } = useTranslation();
@@ -185,7 +186,7 @@ export default function CreateJob() {
 
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('jobs.category')}</label>
-                    <select
+                    <SafeSelect
                       required
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -193,7 +194,7 @@ export default function CreateJob() {
                     >
                       <option value="">{t('common.select')}...</option>
                       {CATEGORIES.map(c => <option key={c.id} value={c.id}>{t(`categories.${c.id}`)}</option>)}
-                    </select>
+                    </SafeSelect>
                   </div>
 
                   <div>
@@ -277,7 +278,7 @@ export default function CreateJob() {
 
                     <div>
                       <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('employer.dashboard.job_type')}</label>
-                      <select
+                      <SafeSelect
                         value={formData.workType}
                         onChange={(e) => setFormData({ ...formData, workType: e.target.value })}
                         className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
@@ -285,7 +286,7 @@ export default function CreateJob() {
                         <option value="one_time">{t('jobs.one_time')}</option>
                         <option value="daily">{t('jobs.daily')}</option>
                         <option value="permanent">{t('jobs.permanent')}</option>
-                      </select>
+                      </SafeSelect>
                     </div>
                   </div>
                 </div>

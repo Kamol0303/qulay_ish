@@ -8,6 +8,7 @@ import { SKILLS } from '../../constants/categories';
 import { REGIONS } from '../../constants/locations';
 import { MapPin, Search, Phone, BadgeCheck, Loader2, User, Navigation } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import SafeSelect from '../../components/SafeSelect';
 
 const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
 const PAGE_SIZE = 12;
@@ -188,7 +189,7 @@ export default function NearbyWorkers() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t('nearby_workers.skill')}</label>
-              <select
+              <SafeSelect
                 value={skill}
                 onChange={(e) => setSkill(e.target.value)}
                 className="w-full min-h-[44px] rounded-xl border border-border bg-background px-3 text-sm text-foreground sm:w-48"
@@ -197,11 +198,11 @@ export default function NearbyWorkers() {
                 {SKILLS.map((s) => (
                   <option key={s.id} value={s.id}>{t(`skills.${s.id}`, { defaultValue: s.name })}</option>
                 ))}
-              </select>
+              </SafeSelect>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-muted-foreground">{t('nearby_workers.region')}</label>
-              <select
+              <SafeSelect
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
                 className="w-full min-h-[44px] rounded-xl border border-border bg-background px-3 text-sm text-foreground sm:w-48"
@@ -210,7 +211,7 @@ export default function NearbyWorkers() {
                 {REGIONS.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
-              </select>
+              </SafeSelect>
             </div>
             <button
               type="button"

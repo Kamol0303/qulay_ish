@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
+import { goBack } from '../../lib/goBack';
 
 export default function CreateContract() {
   const { t } = useTranslation();
@@ -114,7 +115,7 @@ export default function CreateContract() {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-8">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-bold transition-colors">
+        <button onClick={() => goBack(navigate)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-bold transition-colors">
           <ChevronLeft size={20} />
           {t('common.back')}
         </button>

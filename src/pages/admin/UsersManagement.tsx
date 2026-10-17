@@ -8,6 +8,7 @@ import {
   Clock, AlertTriangle, Eye, ShieldCheck, ShieldOff,
   X, Trash2, MapPin, Calendar, Loader, Download
 } from 'lucide-react';
+import SafeSelect from '../../components/SafeSelect';
 import { format, type Locale } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
@@ -481,7 +482,7 @@ export default function UsersManagement() {
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <select
+            <SafeSelect
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium"
@@ -491,8 +492,8 @@ export default function UsersManagement() {
               <option value="employer">{t('auth.employer')}</option>
               <option value="admin">{t('auth.admin')}</option>
               <option value="super_admin">{t('auth.super_admin')}</option>
-            </select>
-            <select
+            </SafeSelect>
+            <SafeSelect
               value={verificationFilter}
               onChange={(e) => setVerificationFilter(e.target.value)}
               className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium"
@@ -500,7 +501,7 @@ export default function UsersManagement() {
               <option value="all">{t('admin.users.all')}</option>
               <option value="verified">{t('admin.users.verified')}</option>
               <option value="unverified">{t('admin.users.unverified')}</option>
-            </select>
+            </SafeSelect>
           </div>
         </div>
 

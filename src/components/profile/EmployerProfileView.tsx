@@ -11,6 +11,7 @@ import {
   Send,
   Users,
 } from 'lucide-react';
+import SafeSelect from '../SafeSelect';
 import type { Profile, ProfileTab, PortfolioItem, RecruiterContact } from '../../types';
 import { getEmployerCompletion } from '../../lib/profileCompletion';
 import { mediaUrl } from '../../lib/mediaUrl';
@@ -159,7 +160,7 @@ export function EmployerProfileView({
                 <Input label="Ofis manzili" value={draft.officeAddress} editable={editable} onChange={(officeAddress) => patch({ officeAddress })} className="sm:col-span-2" />
                 <label className="text-sm">
                   <span className="mb-1 block text-muted-foreground">Viloyat</span>
-                  <select
+                  <SafeSelect
                     disabled={!editable}
                     value={draft.region}
                     onChange={(e) => patch({ region: e.target.value, district: '' })}
@@ -167,11 +168,11 @@ export function EmployerProfileView({
                   >
                     <option value="">Tanlang</option>
                     {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                  </SafeSelect>
                 </label>
                 <label className="text-sm">
                   <span className="mb-1 block text-muted-foreground">Tuman</span>
-                  <select
+                  <SafeSelect
                     disabled={!editable}
                     value={draft.district || ''}
                     onChange={(e) => patch({ district: e.target.value })}
@@ -179,7 +180,7 @@ export function EmployerProfileView({
                   >
                     <option value="">Tanlang</option>
                     {districts.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  </SafeSelect>
                 </label>
               </div>
             </ProfileCard>

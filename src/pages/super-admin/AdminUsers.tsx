@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
+import SafeSelect from '../../components/SafeSelect';
 import { useAuth } from '../../hooks/useAuth';
 import { api, type AdminStaffUser } from '../../lib/api';
 
@@ -218,7 +219,7 @@ export default function AdminUsers() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-semibold">{t('admin_users.field_role')}</label>
-              <select
+              <SafeSelect
                 value={form.role}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, role: e.target.value as 'admin' | 'super_admin' }))
@@ -227,7 +228,7 @@ export default function AdminUsers() {
               >
                 <option value="admin">{t('admin_users.role_admin')}</option>
                 <option value="super_admin">{t('admin_users.role_super_admin')}</option>
-              </select>
+              </SafeSelect>
             </div>
           </div>
 

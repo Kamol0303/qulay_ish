@@ -25,12 +25,9 @@ export async function initNativeShell(onOfflineChange?: (offline: boolean) => vo
     /* ignore */
   }
 
-  App.addListener('backButton', ({ canGoBack }) => {
-    if (canGoBack) {
-      window.history.back();
-    } else {
-      App.exitApp();
-    }
+  App.addListener('backButton', () => {
+    // Never finish the activity. An empty WebView history closes the APK.
+    window.dispatchEvent(new Event('app:back'));
   });
 
   if (onOfflineChange) {

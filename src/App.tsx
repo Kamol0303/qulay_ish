@@ -1,4 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { goBack } from './lib/goBack';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import SuperAdminLogin from './pages/SuperAdminLogin';
@@ -225,12 +227,23 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
   );
 }
 
+function NativeBackHandler() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const onBack = () => goBack(navigate);
+    window.addEventListener('app:back', onBack);
+    return () => window.removeEventListener('app:back', onBack);
+  }, [navigate]);
+  return null;
+}
+
 function AppShell() {
   const mobile = useIsMobileUi();
   const Shell = mobile ? MobileShell : DesktopShell;
   return (
     <Shell>
       <div className="min-h-screen overflow-x-hidden bg-background text-foreground transition-colors duration-300">
+        <NativeBackHandler />
         <AppRoutes mobile={mobile} />
         <OfflineBanner />
         {!mobile && <ChatAssistant />}

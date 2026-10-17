@@ -9,6 +9,7 @@ import {
   Briefcase, Search, Trash2, Clock, MapPin, DollarSign,
   X, AlertTriangle, CheckCircle, Eye
 } from 'lucide-react';
+import SafeSelect from '../../components/SafeSelect';
 import { format, type Locale } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
@@ -231,7 +232,7 @@ export default function JobsManagement() {
               className="flex-1 bg-transparent outline-none text-gray-900 placeholder-gray-400"
             />
           </div>
-          <select
+          <SafeSelect
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium"
@@ -242,7 +243,7 @@ export default function JobsManagement() {
             <option value="in-progress">{t('admin.jobs.in_progress')}</option>
             <option value="completed">{t('admin.jobs.completed')}</option>
             <option value="closed">{t('admin.jobs.closed')}</option>
-          </select>
+          </SafeSelect>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
@@ -295,7 +296,7 @@ export default function JobsManagement() {
                       >
                         <Eye size={16} />
                       </button>
-                      <select
+                      <SafeSelect
                         value={job.status || 'open'}
                         onChange={(e) => updateJobStatus(job.id, e.target.value)}
                         className="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium outline-none"
@@ -305,7 +306,7 @@ export default function JobsManagement() {
                         <option value="in-progress">{t('admin.jobs.in_progress')}</option>
                         <option value="completed">{t('admin.jobs.completed')}</option>
                         <option value="closed">{t('admin.jobs.closed')}</option>
-                      </select>
+                      </SafeSelect>
                       <button
                         onClick={() => setConfirm({
                           message: t('admin.jobs.delete_confirm'),

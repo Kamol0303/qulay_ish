@@ -8,6 +8,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
+import SafeSelect from '../components/SafeSelect';
 
 export default function LandingPage() {
   const { user, profile } = useAuth();
@@ -113,14 +114,14 @@ export default function LandingPage() {
           </div>
           <div className="flex-1 flex items-center px-6 py-4">
             <MapPin className="text-slate-500 mr-3" size={24} />
-            <select 
+            <SafeSelect 
               className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-medium text-slate-900 appearance-none cursor-pointer"
               value={selectedDistrict}
               onChange={(e) => setSelectedDistrict(e.target.value)}
             >
               <option value="">{t('landing.all_districts')}</option>
               {samarkandDistricts.map(d => <option key={d} value={d}>{t(`districts.${getDistrictKey(d)}`)}</option>)}
-            </select>
+            </SafeSelect>
           </div>
           <button 
             onClick={() => {

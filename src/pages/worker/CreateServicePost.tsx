@@ -10,6 +10,8 @@ import { Briefcase, MapPin, CheckCircle, ArrowRight, ArrowLeft, Plus, Trash2, Im
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
+import SafeSelect from '../../components/SafeSelect';
+import { goBack } from '../../lib/goBack';
 
 export default function CreateServicePost() {
   const { t } = useTranslation();
@@ -84,7 +86,7 @@ export default function CreateServicePost() {
             <p className="text-muted-foreground mt-2">{t('worker.dashboard.post_service_desc')}</p>
           </div>
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => goBack(navigate)}
             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-2xl text-gray-900 dark:text-white font-bold transition-all shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -109,7 +111,7 @@ export default function CreateServicePost() {
 
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('jobs.category')}</label>
-                <select
+                <SafeSelect
                   required
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -119,7 +121,7 @@ export default function CreateServicePost() {
                   {SKILLS.map(skill => (
                     <option key={skill.id} value={skill.id}>{t(`skills.${skill.id}`)}</option>
                   ))}
-                </select>
+                </SafeSelect>
               </div>
 
               <div>
@@ -156,7 +158,7 @@ export default function CreateServicePost() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('profile.region')}</label>
-                <select
+                <SafeSelect
                   required
                   value={formData.region}
                   onChange={(e) => setFormData({ ...formData, region: e.target.value, district: '' })}
@@ -166,12 +168,12 @@ export default function CreateServicePost() {
                   {REGIONS.map(r => (
                     <option key={r} value={r}>{t('common.region_name', { defaultValue: r })}</option>
                   ))}
-                </select>
+                </SafeSelect>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('profile.district')}</label>
-                <select
+                <SafeSelect
                   required
                   disabled={!formData.region}
                   value={formData.district}
@@ -182,7 +184,7 @@ export default function CreateServicePost() {
                   {formData.region && DISTRICTS[formData.region as keyof typeof DISTRICTS]?.map(d => (
                     <option key={d} value={d}>{t(`districts.${getDistrictKey(d)}`)}</option>
                   ))}
-                </select>
+                </SafeSelect>
               </div>
 
               <div>
@@ -247,7 +249,7 @@ export default function CreateServicePost() {
           <div className="flex justify-end gap-4">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => goBack(navigate)}
               className="px-8 py-4 text-muted-foreground font-bold hover:text-foreground transition-all"
             >
               {t('common.cancel')}

@@ -8,6 +8,7 @@ import {
   ShieldCheck, CheckCircle, XCircle, Clock, AlertTriangle,
   Calendar, X, ZoomIn, Image, Search, Download, RefreshCw, FileText, Eye,
 } from 'lucide-react';
+import SafeSelect from '../../components/SafeSelect';
 import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
@@ -416,7 +417,7 @@ export default function VerificationManagement() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <select
+          <SafeSelect
             className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
             value={accountType}
             onChange={(e) => setAccountType(e.target.value as typeof accountType)}
@@ -424,21 +425,21 @@ export default function VerificationManagement() {
             <option value="all">Barcha tur</option>
             <option value="worker">Ishchi</option>
             <option value="employer">Buyurtmachi</option>
-          </select>
+          </SafeSelect>
           <input
             className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none"
             placeholder="Viloyat"
             value={region}
             onChange={(e) => setRegion(e.target.value)}
           />
-          <select
+          <SafeSelect
             className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
             value={sort}
             onChange={(e) => setSort(e.target.value as typeof sort)}
           >
             <option value="newest">Yangi yuklanganlar</option>
             <option value="oldest">Eski yuklanganlar</option>
-          </select>
+          </SafeSelect>
         </div>
 
         <div className="flex flex-wrap gap-2">

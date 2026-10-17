@@ -10,6 +10,7 @@ import {
   Share2,
   Send,
 } from 'lucide-react';
+import SafeSelect from '../SafeSelect';
 import type { Profile, ProfileTab, CertificateRecord, PortfolioItem } from '../../types';
 import { getWorkerCompletion } from '../../lib/profileCompletion';
 import { downloadResumePdf, RESUME_TEMPLATES } from '../../lib/resumePdf';
@@ -206,7 +207,7 @@ export function WorkerProfileView({
                 <Field icon={<Send className="h-4 w-4" />} label="Telegram" value={draft.telegram} editable={editable} onChange={(telegram) => patch({ telegram })} />
                 <label className="text-sm">
                   <span className="mb-1 block text-muted-foreground">Afzal aloqa</span>
-                  <select
+                  <SafeSelect
                     disabled={!editable}
                     value={draft.preferredContact || 'phone'}
                     onChange={(e) => patch({ preferredContact: e.target.value })}
@@ -215,7 +216,7 @@ export function WorkerProfileView({
                     <option value="phone">Telefon</option>
                     <option value="email">Email</option>
                     <option value="telegram">Telegram</option>
-                  </select>
+                  </SafeSelect>
                 </label>
               </div>
             </ProfileCard>
@@ -232,7 +233,7 @@ export function WorkerProfileView({
                 </label>
                 <label className="text-sm">
                   <span className="mb-1 block text-muted-foreground">Viloyat</span>
-                  <select
+                  <SafeSelect
                     disabled={!editable}
                     value={draft.region}
                     onChange={(e) => patch({ region: e.target.value, district: '' })}
@@ -242,11 +243,11 @@ export function WorkerProfileView({
                     {REGIONS.map((r) => (
                       <option key={r} value={r}>{r}</option>
                     ))}
-                  </select>
+                  </SafeSelect>
                 </label>
                 <label className="text-sm">
                   <span className="mb-1 block text-muted-foreground">Tuman</span>
-                  <select
+                  <SafeSelect
                     disabled={!editable}
                     value={draft.district || ''}
                     onChange={(e) => patch({ district: e.target.value })}
@@ -256,7 +257,7 @@ export function WorkerProfileView({
                     {districts.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
-                  </select>
+                  </SafeSelect>
                 </label>
                 <label className="text-sm">
                   <span className="mb-1 block text-muted-foreground">Tillar (vergul bilan)</span>
@@ -273,7 +274,7 @@ export function WorkerProfileView({
                 </label>
                 <label className="text-sm">
                   <span className="mb-1 block text-muted-foreground">Holat</span>
-                  <select
+                  <SafeSelect
                     disabled={!editable}
                     value={draft.availability || 'available'}
                     onChange={(e) => patch({ availability: e.target.value })}
@@ -282,7 +283,7 @@ export function WorkerProfileView({
                     <option value="available">Available</option>
                     <option value="busy">Busy</option>
                     <option value="offline">Offline</option>
-                  </select>
+                  </SafeSelect>
                 </label>
                 {editable && (
                   <label className="flex items-center gap-2 text-sm sm:col-span-2">

@@ -9,6 +9,7 @@ import Layout from '../components/Layout';
 import { DISTRICTS } from '../constants/locations';
 import { getDistrictKey, filterWorkersForSamarkand } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { goBack } from '../lib/goBack';
 
 interface DistrictStat {
   id: string;
@@ -60,7 +61,7 @@ export default function StatisticsPage() {
     <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => goBack(navigate)}
           className="mb-6 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-2xl text-gray-900 dark:text-white font-bold transition-all shadow-sm"
         >
           <ArrowLeft size={18} />

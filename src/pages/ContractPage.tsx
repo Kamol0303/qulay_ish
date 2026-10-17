@@ -30,6 +30,7 @@ import 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
 import DisputeModal from '../components/DisputeModal';
 import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../lib/verificationGate';
+import { goBack } from '../lib/goBack';
 
 export default function ContractPage() {
   const { t, i18n } = useTranslation();
@@ -260,7 +261,7 @@ export default function ContractPage() {
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-8">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => goBack(navigate)}
           className="mb-4 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-2xl text-gray-900 dark:text-white font-bold transition-all shadow-sm"
         >
           <ArrowLeft size={18} />

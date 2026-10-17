@@ -9,6 +9,7 @@ import {
   riskTone,
 } from '../../types/coreIndicators';
 import { ProfileCard } from './ProfileCard';
+import SafeSelect from '../SafeSelect';
 
 function emptyIndicators(): WorkerCoreIndicators {
   return {
@@ -137,7 +138,7 @@ export function CoreIndicatorsCard({
                 <div className="mb-1.5 text-xs font-medium text-slate-500">{field.label}</div>
                 {editable ? (
                   field.kind === 'select_risk' ? (
-                    <select
+                    <SafeSelect
                       value={(data[field.key] as string) || ''}
                       onChange={(e) => setField(field.key, e.target.value)}
                       className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -148,7 +149,7 @@ export function CoreIndicatorsCard({
                           {o.label}
                         </option>
                       ))}
-                    </select>
+                    </SafeSelect>
                   ) : (
                     <input
                       type="text"
@@ -177,7 +178,7 @@ export function CoreIndicatorsCard({
                   Ҳар бир қиз учун хавф индекси аниқланади.
                 </p>
                 {editable ? (
-                  <select
+                  <SafeSelect
                     value={data.riskAssessment || ''}
                     onChange={(e) => setField('riskAssessment', e.target.value)}
                     className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 sm:w-auto"
@@ -188,7 +189,7 @@ export function CoreIndicatorsCard({
                         {o.label}
                       </option>
                     ))}
-                  </select>
+                  </SafeSelect>
                 ) : (
                   <div className="mt-2">
                     {RISK_LEVEL_OPTIONS.some((o) => o.value === data.riskAssessment) ? (

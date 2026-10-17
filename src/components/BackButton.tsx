@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { goBack } from '../lib/goBack';
 import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +17,7 @@ export default function BackButton({ to, className = '' }: BackButtonProps) {
     if (to) {
       navigate(to);
     } else {
-      navigate(-1);
+      goBack(navigate);
     }
   };
 

@@ -10,6 +10,7 @@ import { REGIONS } from '../../constants/locations';
 import { SKILLS } from '../../constants/categories';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
+import SafeSelect from '../../components/SafeSelect';
 
 export default function WorkerServices() {
   const { t } = useTranslation();
@@ -87,26 +88,26 @@ export default function WorkerServices() {
 
           <div className="w-full sm:w-48">
             <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('jobs.category')}</label>
-            <select
+            <SafeSelect
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
               className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-primary outline-none transition-all"
             >
               <option value="">{t('common.all')}</option>
               {SKILLS.map(s => <option key={s.id} value={s.id}>{t(`skills.${s.id}`)}</option>)}
-            </select>
+            </SafeSelect>
           </div>
 
           <div className="w-full sm:w-48">
             <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{t('profile.region')}</label>
-            <select
+            <SafeSelect
               value={filters.region}
               onChange={(e) => setFilters({ ...filters, region: e.target.value })}
               className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-primary outline-none transition-all"
             >
               <option value="">{t('common.all')}</option>
               {REGIONS.map(r => <option key={r} value={r}>{t('common.region_name', { defaultValue: r })}</option>)}
-            </select>
+            </SafeSelect>
           </div>
         </div>
 

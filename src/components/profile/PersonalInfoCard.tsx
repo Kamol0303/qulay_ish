@@ -9,6 +9,7 @@ import {
   PERSONAL_INFO_REQUIRED,
   type WorkerPersonalInfo,
 } from '../../types/personalInfo';
+import SafeSelect from '../SafeSelect';
 import { validateEmail, validatePhoneNumber, formatPhoneNumber } from '../../lib/validation';
 import { ProfileCard } from './ProfileCard';
 
@@ -237,7 +238,7 @@ export function PersonalInfoCard({
 
         <label>
           <FieldLabel label="Jinsi" required />
-          <select
+          <SafeSelect
             disabled={!editable}
             value={info.gender || ''}
             onChange={(e) => patch({ gender: e.target.value as WorkerPersonalInfo['gender'] })}
@@ -247,13 +248,13 @@ export function PersonalInfoCard({
             {GENDER_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </select>
+          </SafeSelect>
           {fieldErrors.gender && <p className="mt-1 text-xs text-rose-600">{fieldErrors.gender}</p>}
         </label>
 
         <label>
           <FieldLabel label="Oilaviy holati" required />
-          <select
+          <SafeSelect
             disabled={!editable}
             value={info.maritalStatus || ''}
             onChange={(e) => patch({ maritalStatus: e.target.value as WorkerPersonalInfo['maritalStatus'] })}
@@ -263,13 +264,13 @@ export function PersonalInfoCard({
             {MARITAL_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </select>
+          </SafeSelect>
           {fieldErrors.maritalStatus && <p className="mt-1 text-xs text-rose-600">{fieldErrors.maritalStatus}</p>}
         </label>
 
         <label>
           <FieldLabel label="Farzandlari holati" required />
-          <select
+          <SafeSelect
             disabled={!editable}
             value={info.childrenStatus || ''}
             onChange={(e) =>
@@ -284,7 +285,7 @@ export function PersonalInfoCard({
             {CHILDREN_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </select>
+          </SafeSelect>
           {fieldErrors.childrenStatus && <p className="mt-1 text-xs text-rose-600">{fieldErrors.childrenStatus}</p>}
         </label>
 

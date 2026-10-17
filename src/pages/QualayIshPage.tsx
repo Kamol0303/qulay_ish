@@ -12,6 +12,7 @@ import { jobRecommendationService, RecommendationScore } from '../services/qulay
 import JobCard from '../components/JobCard';
 import ApplyModal from '../components/ApplyModal';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
+import SafeSelect from '../components/SafeSelect';
 
 export default function QualayIshPage() {
   const { profile, isDemo } = useAuth();
@@ -132,7 +133,7 @@ export default function QualayIshPage() {
               </div>
               <div className="relative">
                 <Briefcase className="absolute left-4 top-3.5 text-foreground/40" size={20} />
-                <select
+                <SafeSelect
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
                   className="w-full pl-12 pr-4 py-2.5 bg-card border border-border rounded-xl focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
@@ -143,7 +144,7 @@ export default function QualayIshPage() {
                   <option value="childcare">Bolalarni paqo'y olish</option>
                   <option value="elderly_care">Keksa odam paqo'y olish</option>
                   <option value="tutoring">O'quv mashgulotlari</option>
-                </select>
+                </SafeSelect>
               </div>
             </div>
           </motion.div>

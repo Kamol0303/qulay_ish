@@ -12,6 +12,7 @@ import { CATEGORIES } from '../constants/categories';
 import { REGIONS, DISTRICTS } from '../constants/locations';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
+import SafeSelect from '../components/SafeSelect';
 
 export default function EmployerDashboard() {
   const { t } = useTranslation();
@@ -231,7 +232,7 @@ export default function EmployerDashboard() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{t('common.category')}</label>
-                    <select
+                    <SafeSelect
                       required
                       value={newJob.category}
                       onChange={(e) => setNewJob({ ...newJob, category: e.target.value })}
@@ -239,7 +240,7 @@ export default function EmployerDashboard() {
                     >
                       <option value="">{t('common.select')}...</option>
                       {CATEGORIES.map(c => <option key={c.id} value={c.id}>{t(`categories.${c.id}`)}</option>)}
-                    </select>
+                    </SafeSelect>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{t('employer.dashboard.offered_price')} ({t('common.uzs')})</label>
@@ -254,7 +255,7 @@ export default function EmployerDashboard() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{t('common.region')}</label>
-                    <select
+                    <SafeSelect
                       required
                       value={newJob.region}
                       onChange={(e) => setNewJob({ ...newJob, region: e.target.value, district: '' })}
@@ -262,11 +263,11 @@ export default function EmployerDashboard() {
                     >
                       <option value="">{t('common.select')}...</option>
                       {REGIONS.map(r => <option key={r} value={r}>{r === 'Samarqand viloyati' ? t('common.region_name') : r}</option>)}
-                    </select>
+                    </SafeSelect>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{t('common.district')}</label>
-                    <select
+                    <SafeSelect
                       required
                       disabled={!newJob.region}
                       value={newJob.district}
@@ -275,7 +276,7 @@ export default function EmployerDashboard() {
                     >
                       <option value="">{t('common.select')}...</option>
                       {newJob.region && DISTRICTS[newJob.region]?.map(d => <option key={d} value={d}>{t(`districts.${getDistrictKey(d)}`)}</option>)}
-                    </select>
+                    </SafeSelect>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{t('common.description')}</label>

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, ArrowLeft, Home } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
+import { goBack } from '../lib/goBack';
 
 export default function ForbiddenPage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function ForbiddenPage() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => goBack(navigate)}
             className="inline-flex items-center justify-center px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />

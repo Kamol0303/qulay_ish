@@ -12,6 +12,7 @@ import { REGIONS } from '../../constants/locations';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../../lib/verificationGate';
 import ApplyModal from '../../components/ApplyModal';
 import { MapPin, Search, Banknote, Loader2, Navigation, Briefcase } from 'lucide-react';
+import SafeSelect from '../../components/SafeSelect';
 
 const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
 const PAGE_SIZE = 12;
@@ -110,7 +111,7 @@ export default function NearbyJobs() {
               </label>
               <div className="relative">
                 <Briefcase className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <select
+                <SafeSelect
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full min-h-[44px] rounded-xl border border-border pl-9 pr-3 text-sm"
@@ -119,14 +120,14 @@ export default function NearbyJobs() {
                   {CATEGORIES.map((c) => (
                     <option key={c.id} value={c.id}>{t(`categories.${c.id}`, { defaultValue: c.name })}</option>
                   ))}
-                </select>
+                </SafeSelect>
               </div>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-muted-foreground">
                 {t('jobs.region', { defaultValue: 'Hudud' })}
               </label>
-              <select
+              <SafeSelect
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
                 className="w-full min-h-[44px] rounded-xl border border-border px-3 text-sm sm:w-48"
@@ -135,7 +136,7 @@ export default function NearbyJobs() {
                 {REGIONS.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
-              </select>
+              </SafeSelect>
             </div>
           </div>
 

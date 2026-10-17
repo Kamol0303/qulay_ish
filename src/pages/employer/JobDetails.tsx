@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
 import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
 import ReviewModal from '../../components/ReviewModal';
+import { goBack } from '../../lib/goBack';
 
 export default function EmployerJobDetails() {
   const { t, i18n } = useTranslation();
@@ -142,7 +143,7 @@ export default function EmployerJobDetails() {
       <div className="space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-bold transition-colors">
+          <button onClick={() => goBack(navigate)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-bold transition-colors">
             <ChevronLeft size={20} />
             {t('common.back')}
           </button>

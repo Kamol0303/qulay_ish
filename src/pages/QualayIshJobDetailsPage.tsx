@@ -29,6 +29,7 @@ import {
 } from '../services/qulay-ish';
 import ApplyModal from '../components/ApplyModal';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
+import { goBack } from '../lib/goBack';
 
 export default function QualayIshJobDetailsPage() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -137,7 +138,7 @@ export default function QualayIshJobDetailsPage() {
             className="mb-8"
           >
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => goBack(navigate)}
               className="flex items-center gap-2 text-foreground/60 hover:text-foreground mb-6 transition-colors"
             >
               <ArrowLeft size={20} />

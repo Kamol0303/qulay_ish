@@ -13,6 +13,7 @@ import { getCurrentPosition } from '../lib/geolocation';
 import { useNavigate } from 'react-router-dom';
 
 import { useTranslation } from 'react-i18next';
+import { goBack } from '../lib/goBack';
 
 export default function WorkersPage() {
   const { profile: myProfile } = useAuth();
@@ -161,7 +162,7 @@ export default function WorkersPage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => goBack(navigate)}
             className="mb-6 flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl text-white font-bold transition-all"
           >
             <ArrowLeft size={18} />
