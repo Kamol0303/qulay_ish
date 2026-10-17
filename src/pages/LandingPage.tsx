@@ -8,14 +8,20 @@ import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import SafeSelect from '../components/SafeSelect';
+import { api } from '../lib/api';
 
 export default function LandingPage() {
   const { user, profile } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [selectedDirection, setSelectedDirection] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
   const [currentDistrictIndex, setCurrentDistrictIndex] = React.useState(0);
+  const [liveStats, setLiveStats] = useState<{
+    activeJobs: number;
+    workers: number;
+    employers: number;
+    districts: number;
+  } | null>(null);
   const samarkandDistricts = SAMARQAND_DISTRICTS;
 
   useEffect(() => {
@@ -33,6 +39,27 @@ export default function LandingPage() {
     }, 2000);
     return () => clearInterval(interval);
   }, [samarkandDistricts.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.stats
+      .counts()
+      .then((data) => {
+        if (cancelled) return;
+        setLiveStats({
+          activeJobs: data.activeJobs,
+          workers: data.workers,
+          employers: data.employers,
+          districts: data.districts,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setLiveStats({ activeJobs: 0, workers: 0, employers: 0, districts: 0 });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <Layout>
@@ -120,15 +147,12 @@ export default function LandingPage() {
           </div>
           <div className="flex-1 flex items-center px-6 py-4">
             <MapPin className="text-slate-500 mr-3" size={24} />
-            <SafeSelect 
+            <SafeSelect
               className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-medium text-slate-900 appearance-none cursor-pointer"
-              value={selectedDistrict}
-              onChange={(e) => setSelectedDistrict(e.target.value)}
+              value="samarqand"
+              onChange={() => undefined}
             >
-              <option value="">{t('landing.all_districts')}</option>
-              {samarkandDistricts.map((d) => (
-                <option key={d.id} value={d.id}>{t(`districts.${d.id}`, { defaultValue: d.name })}</option>
-              ))}
+              <option value="samarqand">Samarqand</option>
             </SafeSelect>
           </div>
           <button
@@ -136,7 +160,6 @@ export default function LandingPage() {
             onClick={() => {
               const params = new URLSearchParams();
               if (selectedDirection) params.set('direction', selectedDirection);
-              if (selectedDistrict) params.set('district', selectedDistrict);
               navigate(`/jobs${params.toString() ? `?${params.toString()}` : ''}`);
             }}
             className="bg-blue-500 text-white px-10 py-5 rounded-[24px] font-black text-lg hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
@@ -161,7 +184,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
             <div className="p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
               <div className="w-14 h-14 rounded-3xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-6">
                 <Search size={24} />
@@ -207,19 +230,19 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 mb-1">1,240+</div>
+              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.activeJobs.toLocaleString('uz-UZ') : '—'}</div>
               <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.active_jobs')}</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 mb-1">820+</div>
+              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.workers.toLocaleString('uz-UZ') : '—'}</div>
               <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.workers')}</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 mb-1">560+</div>
+              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.employers.toLocaleString('uz-UZ') : '—'}</div>
               <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.employers')}</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 mb-1">{samarkandDistricts.length}</div>
+              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.districts.toLocaleString('uz-UZ') : '—'}</div>
               <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.districts')}</div>
             </div>
           </div>

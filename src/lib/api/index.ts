@@ -822,7 +822,16 @@ export const api = {
 
   stats: {
     counts() {
-      return apiRequest<{ users: number; jobs: number; applications: number; contracts: number }>(
+      return apiRequest<{
+        users: number;
+        jobs: number;
+        applications: number;
+        contracts: number;
+        workers?: number;
+        employers?: number;
+        activeJobs?: number;
+        districts?: number;
+      }>(
         '/stats/counts',
         {},
         false,
@@ -831,6 +840,10 @@ export const api = {
         jobs: Number(data?.jobs ?? 0),
         applications: Number(data?.applications ?? 0),
         contracts: Number(data?.contracts ?? 0),
+        workers: Number(data?.workers ?? 0),
+        employers: Number(data?.employers ?? 0),
+        activeJobs: Number(data?.activeJobs ?? data?.jobs ?? 0),
+        districts: Number(data?.districts ?? 0),
       }));
     },
   },
