@@ -15,6 +15,7 @@ import { isValidDistrictId } from '../common/samarqand-districts';
 import { DevSmsService } from '../auth/devsms.service';
 import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
+import { registrationPhone } from '../common/registration-phone.util';
 
 type AuthUser = { userId: string; role: string };
 
@@ -50,13 +51,18 @@ function toPublicUser(
     ...rest
   } = user;
   const out: Record<string, unknown> = { ...rest };
-  // Workers publish the phone they registered with so clients can call them.
-  if (user.role === 'worker' && phoneNumber) {
-    out.phoneNumber = phoneNumber;
+  // The number used at signup. Workers publish it so a client can call them.
+  const signupPhone = registrationPhone({
+    phoneNumber,
+    email: user.email,
+    personalInfo,
+  });
+  if (String(user.role) === 'worker' && signupPhone) {
+    out.phoneNumber = signupPhone;
   }
   if (opts?.includePrivateDocs) {
     out.companyDocuments = companyDocuments;
-    if (phoneNumber) out.phoneNumber = phoneNumber;
+    if (signupPhone) out.phoneNumber = signupPhone;
   }
   if (opts?.includePersonalInfo) {
     out.personalInfo = personalInfo ?? null;
