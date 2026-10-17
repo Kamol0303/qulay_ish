@@ -32,6 +32,30 @@ start_with_docker() {
   wait_pg
 }
 
+psql_as_postgres() {
+  sudo -u postgres psql -v ON_ERROR_STOP=1 -d postgres "$@"
+}
+
+# libc yangilanganda template1 kollatsiyasi eskiradi va CREATE DATABASE yiqiladi.
+refresh_collation() {
+  psql_as_postgres -c "ALTER DATABASE postgres REFRESH COLLATION VERSION;" || true
+  psql_as_postgres -c "ALTER DATABASE template1 REFRESH COLLATION VERSION;" || true
+}
+
+ensure_local_database() {
+  if ! command -v sudo >/dev/null 2>&1 || ! id postgres >/dev/null 2>&1; then
+    return 0
+  fi
+  refresh_collation
+  psql_as_postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='qulay_ish'" | grep -q 1 || \
+    psql_as_postgres -c "CREATE USER qulay_ish WITH PASSWORD 'qulay_ish_dev' CREATEDB;"
+  psql_as_postgres -c "ALTER USER qulay_ish WITH PASSWORD 'qulay_ish_dev' CREATEDB;"
+  if ! psql_as_postgres -tc "SELECT 1 FROM pg_database WHERE datname='qulay_ish'" | grep -q 1; then
+    psql_as_postgres -c "CREATE DATABASE qulay_ish OWNER qulay_ish;"
+  fi
+  psql_as_postgres -c "GRANT ALL PRIVILEGES ON DATABASE qulay_ish TO qulay_ish;"
+}
+
 start_with_apt() {
   if ! command -v apt-get >/dev/null 2>&1; then
     return 1
@@ -41,13 +65,6 @@ start_with_apt() {
   sudo apt-get install -y postgresql postgresql-contrib
   sudo systemctl start postgresql
   sudo systemctl enable postgresql
-
-  sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='qulay_ish'" | grep -q 1 || \
-    sudo -u postgres psql -c "CREATE USER qulay_ish WITH PASSWORD 'qulay_ish_dev';"
-  sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='qulay_ish'" | grep -q 1 || \
-    sudo -u postgres psql -c "CREATE DATABASE qulay_ish OWNER qulay_ish;"
-  sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE qulay_ish TO qulay_ish;" 2>/dev/null || true
-
   wait_pg
 }
 
@@ -65,6 +82,8 @@ else
     exit 1
   fi
 fi
+
+ensure_local_database
 
 if [[ ! -f api/.env ]]; then
   ./scripts/write-local-envs.sh
