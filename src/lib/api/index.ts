@@ -830,7 +830,9 @@ export const api = {
         workers?: number;
         employers?: number;
         activeJobs?: number;
-        districts?: number;
+        pendingApplications?: number;
+        activeContracts?: number;
+        completedContracts?: number;
       }>(
         '/stats/counts',
         {},
@@ -840,10 +842,12 @@ export const api = {
         jobs: Number(data?.jobs ?? 0),
         applications: Number(data?.applications ?? 0),
         contracts: Number(data?.contracts ?? 0),
-        workers: Number(data?.workers ?? 0),
-        employers: Number(data?.employers ?? 0),
-        activeJobs: Number(data?.activeJobs ?? data?.jobs ?? 0),
-        districts: Number(data?.districts ?? 0),
+        workers: data?.workers == null ? null : Number(data.workers),
+        employers: data?.employers == null ? null : Number(data.employers),
+        activeJobs: data?.activeJobs == null ? Number(data?.jobs ?? 0) : Number(data.activeJobs),
+        pendingApplications: data?.pendingApplications == null ? null : Number(data.pendingApplications),
+        activeContracts: data?.activeContracts == null ? Number(data?.contracts ?? 0) : Number(data.activeContracts),
+        completedContracts: data?.completedContracts == null ? null : Number(data.completedContracts),
       }));
     },
   },

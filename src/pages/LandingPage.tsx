@@ -17,10 +17,15 @@ export default function LandingPage() {
   const [selectedDirection, setSelectedDirection] = useState('');
   const [currentDistrictIndex, setCurrentDistrictIndex] = React.useState(0);
   const [liveStats, setLiveStats] = useState<{
+    users: number;
+    workers: number | null;
+    employers: number | null;
     activeJobs: number;
-    workers: number;
-    employers: number;
-    districts: number;
+    jobs: number;
+    applications: number;
+    pendingApplications: number | null;
+    activeContracts: number;
+    completedContracts: number | null;
   } | null>(null);
   const samarkandDistricts = SAMARQAND_DISTRICTS;
 
@@ -47,14 +52,31 @@ export default function LandingPage() {
       .then((data) => {
         if (cancelled) return;
         setLiveStats({
-          activeJobs: data.activeJobs,
+          users: data.users,
           workers: data.workers,
           employers: data.employers,
-          districts: data.districts,
+          activeJobs: data.activeJobs,
+          jobs: data.jobs,
+          applications: data.applications,
+          pendingApplications: data.pendingApplications,
+          activeContracts: data.activeContracts,
+          completedContracts: data.completedContracts,
         });
       })
       .catch(() => {
-        if (!cancelled) setLiveStats({ activeJobs: 0, workers: 0, employers: 0, districts: 0 });
+        if (!cancelled) {
+          setLiveStats({
+            users: 0,
+            workers: 0,
+            employers: 0,
+            activeJobs: 0,
+            jobs: 0,
+            applications: 0,
+            pendingApplications: 0,
+            activeContracts: 0,
+            completedContracts: 0,
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -230,20 +252,38 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="text-center">
+              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.users.toLocaleString('uz-UZ') : '—'}</div>
+              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('superAdmin.stats.totalUsers')}</div>
+              <div className="mt-1 text-xs text-gray-400">
+                {liveStats && liveStats.workers != null && liveStats.employers != null
+                  ? `${liveStats.workers.toLocaleString('uz-UZ')} ${t('superAdmin.stats.workers').toLowerCase()}, ${liveStats.employers.toLocaleString('uz-UZ')} ${t('superAdmin.stats.employers').toLowerCase()}`
+                  : ''}
+              </div>
+            </div>
+            <div className="text-center">
               <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.activeJobs.toLocaleString('uz-UZ') : '—'}</div>
-              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.active_jobs')}</div>
+              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('superAdmin.stats.activeJobs')}</div>
+              <div className="mt-1 text-xs text-gray-400">
+                {liveStats ? `${liveStats.jobs.toLocaleString('uz-UZ')} ${t('superAdmin.stats.totalJobs').toLowerCase()}` : ''}
+              </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.workers.toLocaleString('uz-UZ') : '—'}</div>
-              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.workers')}</div>
+              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.applications.toLocaleString('uz-UZ') : '—'}</div>
+              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('superAdmin.stats.applications')}</div>
+              <div className="mt-1 text-xs text-gray-400">
+                {liveStats && liveStats.pendingApplications != null
+                  ? `${liveStats.pendingApplications.toLocaleString('uz-UZ')} ${t('superAdmin.stats.pending').toLowerCase()}`
+                  : ''}
+              </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.employers.toLocaleString('uz-UZ') : '—'}</div>
-              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.employers')}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.districts.toLocaleString('uz-UZ') : '—'}</div>
-              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('stats.districts')}</div>
+              <div className="text-3xl font-black text-blue-600 mb-1">{liveStats ? liveStats.activeContracts.toLocaleString('uz-UZ') : '—'}</div>
+              <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">{t('superAdmin.stats.activeContracts')}</div>
+              <div className="mt-1 text-xs text-gray-400">
+                {liveStats && liveStats.completedContracts != null
+                  ? `${liveStats.completedContracts.toLocaleString('uz-UZ')} ${t('superAdmin.stats.completed').toLowerCase()}`
+                  : ''}
+              </div>
             </div>
           </div>
         </div>

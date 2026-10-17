@@ -11,7 +11,7 @@ import { normalizeNameInput } from '../common/name.util';
 import { isValidLatLng, boundingBox, haversineKm, approxDistanceLabel } from '../common/geo.util';
 import { clampStars, foldRating } from '../common/rating.util';
 import { districtProximityKey } from '../common/district.util';
-import { isValidDistrictId, SAMARQAND_DISTRICT_IDS } from '../common/samarqand-districts';
+import { isValidDistrictId } from '../common/samarqand-districts';
 import { DevSmsService } from '../auth/devsms.service';
 import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
@@ -1769,29 +1769,40 @@ export class StatsController {
 
   @Get('counts')
   async counts() {
-    const knownDistricts = new Set<string>(SAMARQAND_DISTRICT_IDS);
-    const [users, jobs, applications, contracts, workers, employers, activeJobs, districtRows] =
-      await Promise.all([
-        this.prisma.user.count(),
-        this.prisma.job.count(),
-        this.prisma.application.count(),
-        this.prisma.contract.count(),
-        this.prisma.user.count({ where: { role: 'worker', isBlocked: false } }),
-        this.prisma.user.count({ where: { role: 'employer', isBlocked: false } }),
-        this.prisma.job.count({ where: { status: { in: ['active', 'open'] } } }),
-        this.prisma.user.findMany({
-          where: {
-            isBlocked: false,
-            role: { in: ['worker', 'employer'] },
-            district: { not: null },
-          },
-          select: { district: true },
-          distinct: ['district'],
-        }),
-      ]);
-    const districts = districtRows.filter(
-      (row) => row.district != null && knownDistricts.has(row.district),
-    ).length;
-    return { users, jobs, applications, contracts, workers, employers, activeJobs, districts };
+    const [
+      users,
+      jobs,
+      applications,
+      contracts,
+      workers,
+      employers,
+      activeJobs,
+      pendingApplications,
+      activeContracts,
+      completedContracts,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.job.count(),
+      this.prisma.application.count(),
+      this.prisma.contract.count(),
+      this.prisma.user.count({ where: { role: 'worker' } }),
+      this.prisma.user.count({ where: { role: 'employer' } }),
+      this.prisma.job.count({ where: { status: { in: ['active', 'open'] } } }),
+      this.prisma.application.count({ where: { status: 'pending' } }),
+      this.prisma.contract.count({ where: { status: 'active' } }),
+      this.prisma.contract.count({ where: { status: 'completed' } }),
+    ]);
+    return {
+      users,
+      jobs,
+      applications,
+      contracts,
+      workers,
+      employers,
+      activeJobs,
+      pendingApplications,
+      activeContracts,
+      completedContracts,
+    };
   }
 }
