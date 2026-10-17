@@ -104,8 +104,9 @@ export class OtpService {
     await this.assertRateLimit(phone);
 
     const purpose = dto.purpose || 'login';
+    const requestedRole = (dto as { role?: string }).role;
 
-    if (purpose === 'register' && dto.role === 'employer') {
+    if (purpose === 'register' && requestedRole && requestedRole !== 'worker') {
       throw new BadRequestException('Faqat ishchilar roʻyxatdan oʻta oladi');
     }
     // Public registration is worker-only. Buyurtmachilar do not create accounts.

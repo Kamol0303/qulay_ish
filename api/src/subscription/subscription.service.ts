@@ -16,6 +16,7 @@ import {
   monthlyPrice,
   snapPrice,
   describePeriod,
+  SUBSCRIPTION_FREE_DAYS,
   SUBSCRIPTION_PERIOD_DAYS,
   SubscriptionStatus,
 } from './subscription.config';

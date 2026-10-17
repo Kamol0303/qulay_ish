@@ -633,6 +633,11 @@ export class ApplicationsController {
       );
     }
 
+    const worker = await this.prisma.user.findUnique({
+      where: { id: workerId },
+      select: { fullName: true, email: true },
+    });
+
     const coverLetter = String(body.coverLetter || '');
     const message = String(body.message || coverLetter || '');
     const id = (body.id as string) || randomUUID();
