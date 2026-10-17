@@ -16,6 +16,7 @@ import { DevSmsService } from '../auth/devsms.service';
 import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
 import { registrationPhone } from '../common/registration-phone.util';
+import { isSafeAppPath } from '../common/safe-path.util';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
 type AuthUser = { userId: string; role: string };
@@ -331,7 +332,7 @@ export class UsersController {
     }
 
     const allowed = [
-      'fullName', 'firstName', 'lastName', 'email', 'phoneNumber', 'region', 'district', 'neighborhood',
+      'fullName', 'firstName', 'lastName', 'region', 'district', 'neighborhood',
       'bio', 'skills', 'profession', 'educationLevel', 'photoUrl', 'coverUrl', 'telegram', 'languages',
       'availability', 'lookingForWork', 'professionalSummary', 'preferredContact',
       'experienceLevel', 'education', 'experience', 'certificates', 'portfolio',
@@ -343,7 +344,7 @@ export class UsersController {
     // Moderators/admins may block users, but only Super Admin can change verification flags
     const adminOnly = [
       'isBlocked', 'blockUntil', 'blockReason', 'blockedAt', 'trustScore', 'riskScore',
-      'isPremium',
+      'isPremium', 'email', 'phoneNumber',
     ] as const;
     const superOnly = ['isVerified', 'verificationStatus', 'role'] as const;
 
@@ -401,12 +402,21 @@ export class UsersController {
 export class JobsController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get()
-  async list(@Query() query: Record<string, string>) {
+  async list(@Query() query: Record<string, string>, @Req() req?: { user?: AuthUser | null }) {
     const where: Record<string, unknown> = {};
     if (query.employerId) where.employerId = query.employerId;
-    if (query.status) where.status = query.status;
     if (query.region) where.region = query.region;
+    const staff = isStaff(req?.user?.role || '');
+    const ownsQuery = Boolean(query.employerId && query.employerId === req?.user?.userId);
+    if (staff || ownsQuery) {
+      if (query.status) where.status = query.status;
+    } else if (query.status === 'active' || query.status === 'open') {
+      where.status = query.status;
+    } else {
+      where.status = { in: ['active', 'open'] };
+    }
 
     // When a worker's district is known, recommend the nearest jobs first. A
     // job's location is taken from its employer's fixed registration district.
@@ -1328,21 +1338,68 @@ export class NotificationsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
-    const id = (body.id as string) || randomUUID();
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
     const userId = String(body.userId || '');
     if (!userId) throw new BadRequestException('userId majburiy');
+    const types = ['application', 'contract', 'message', 'dispute', 'system'] as const;
+    const requested = String(body.type || 'system');
+    const type = types.includes(requested as (typeof types)[number])
+      ? (requested as (typeof types)[number])
+      : 'system';
+    const staff = isStaff(req.user.role);
+    if (!staff) {
+      if (type === 'system') throw new ForbiddenException();
+      if (userId !== req.user.userId) {
+        const related = await this.callerMayNotify(req.user.userId, userId);
+        if (!related) throw new ForbiddenException();
+      }
+    }
+    const rawLink = body.link != null ? String(body.link) : '';
+    const link = rawLink && isSafeAppPath(rawLink) ? rawLink : null;
     return this.prisma.notification.create({
       data: {
-        id,
+        id: randomUUID(),
         userId,
         title: String(body.title || '').slice(0, 200),
         message: String(body.message || '').slice(0, 2000),
-        type: (body.type as string) || 'system',
-        link: body.link != null ? String(body.link).slice(0, 500) : null,
-        read: Boolean(body.read),
+        type,
+        link,
+        read: false,
       } as any,
     });
+  }
+
+  private async callerMayNotify(me: string, target: string) {
+    const [contract, application, chat] = await Promise.all([
+      this.prisma.contract.findFirst({
+        where: {
+          OR: [
+            { workerId: me, employerId: target },
+            { workerId: target, employerId: me },
+          ],
+        },
+        select: { id: true },
+      }),
+      this.prisma.application.findFirst({
+        where: {
+          OR: [
+            { workerId: me, employerId: target },
+            { workerId: target, employerId: me },
+          ],
+        },
+        select: { id: true },
+      }),
+      this.prisma.chatMessage.findFirst({
+        where: {
+          OR: [
+            { senderId: me, receiverId: target },
+            { senderId: target, receiverId: me },
+          ],
+        },
+        select: { id: true },
+      }),
+    ]);
+    return Boolean(contract || application || chat);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -1519,8 +1576,10 @@ export class ChatMessagesController {
     }
     const data: { read?: boolean; status?: string; delivered?: boolean } = {};
     if (body.read === true && (staff || msg.receiverId === req.user.userId)) data.read = true;
-    if (typeof body.status === 'string') data.status = body.status.slice(0, 20);
-    if (body.delivered === true) data.delivered = true;
+    if (body.status === 'sent' || body.status === 'delivered' || body.status === 'read') {
+      data.status = body.status;
+    }
+    if (body.delivered === true && (staff || msg.receiverId === req.user.userId)) data.delivered = true;
     return this.prisma.chatMessage.update({ where: { id }, data });
   }
 }
@@ -1602,9 +1661,11 @@ export class ReviewsController {
   @Get()
   async list(@Query('revieweeId') revieweeId?: string, @Query('workerId') workerId?: string) {
     const id = revieweeId || workerId;
+    if (!id) return [];
     return this.prisma.review.findMany({
-      where: id ? { revieweeId: id } : undefined,
+      where: { revieweeId: id },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 
@@ -1721,8 +1782,11 @@ export class SavedJobsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('delete')
-  async remove(@Body() body: { userId: string; jobId: string }) {
-    await this.prisma.savedJob.deleteMany({ where: { userId: body.userId, jobId: body.jobId } });
+  async remove(@Body() body: { userId?: string; jobId?: string }, @Req() req: { user: AuthUser }) {
+    const jobId = String(body.jobId || '');
+    if (!jobId) throw new BadRequestException('jobId majburiy');
+    const userId = isStaff(req.user.role) && body.userId ? body.userId : req.user.userId;
+    await this.prisma.savedJob.deleteMany({ where: { userId, jobId } });
     return { success: true };
   }
 }
@@ -1741,15 +1805,74 @@ export class ServicePostsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
-    const id = (body.id as string) || randomUUID();
-    return this.prisma.servicePost.create({ data: { id, ...body } as any });
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
+    if (!isStaff(req.user.role) && req.user.role !== 'worker') {
+      throw new ForbiddenException('Xizmat eʼlonini faqat ishchi yaratadi');
+    }
+    const title = String(body.title || '').trim();
+    if (!title) throw new BadRequestException('Sarlavha majburiy');
+    const workerId =
+      isStaff(req.user.role) && typeof body.workerId === 'string' ? body.workerId : req.user.userId;
+    const fields = this.servicePostFields(body, title);
+    return this.prisma.servicePost.create({
+      data: {
+        id: randomUUID(),
+        workerId,
+        title: fields.title || title.slice(0, 200),
+        description: fields.description,
+        category: fields.category,
+        workerName: fields.workerName,
+        region: fields.region,
+        district: fields.district,
+        priceType: fields.priceType,
+        expectedPrice: fields.expectedPrice,
+        price: fields.price,
+        images: fields.images,
+        status: fields.status,
+        isActive: fields.isActive,
+      },
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.servicePost.update({ where: { id }, data: body as any });
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    const post = await this.prisma.servicePost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException('Eʼlon topilmadi');
+    if (!isStaff(req.user.role) && post.workerId !== req.user.userId) {
+      throw new ForbiddenException();
+    }
+    return this.prisma.servicePost.update({
+      where: { id },
+      data: this.servicePostFields(body),
+    });
+  }
+
+  private servicePostFields(body: Record<string, unknown>, title?: string) {
+    const statuses = ['active', 'inactive', 'pending'] as const;
+    const status = statuses.includes(body.status as (typeof statuses)[number])
+      ? (body.status as (typeof statuses)[number])
+      : undefined;
+    const images = Array.isArray(body.images)
+      ? body.images.filter((item) => typeof item === 'string').slice(0, 8).map((item) => item.slice(0, 500))
+      : undefined;
+    const price = Number(body.expectedPrice ?? body.price);
+    return {
+      ...(title ? { title: title.slice(0, 200) } : typeof body.title === 'string' ? { title: body.title.trim().slice(0, 200) } : {}),
+      ...(typeof body.description === 'string' ? { description: body.description.slice(0, 4000) } : {}),
+      ...(typeof body.category === 'string' ? { category: body.category.slice(0, 80) } : {}),
+      ...(typeof body.workerName === 'string' ? { workerName: body.workerName.slice(0, 120) } : {}),
+      ...(typeof body.region === 'string' ? { region: body.region.slice(0, 80) } : {}),
+      ...(typeof body.district === 'string' ? { district: body.district.slice(0, 80) } : {}),
+      ...(typeof body.priceType === 'string' ? { priceType: body.priceType.slice(0, 40) } : {}),
+      ...(Number.isFinite(price) ? { expectedPrice: price, price } : {}),
+      ...(images ? { images } : {}),
+      ...(status ? { status, isActive: status === 'active' } : {}),
+    };
   }
 }
 
@@ -1877,15 +2000,17 @@ export class SystemLogsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
-    const id = (body.id as string) || randomUUID();
+    const staffTypes = ['info', 'warn', 'error'] as const;
+    const type = isStaff(req.user.role) && staffTypes.includes(body.type as (typeof staffTypes)[number])
+      ? (body.type as (typeof staffTypes)[number])
+      : 'info';
     return this.prisma.systemLog.create({
       data: {
-        id,
+        id: randomUUID(),
         action: String(body.action || 'ACTION').slice(0, 120),
         userId: req.user.userId,
-        userEmail: body.userEmail != null ? String(body.userEmail) : undefined,
-        details: (body.details as object) || {},
-        type: (body.type as string) || 'info',
+        details: body.details && typeof body.details === 'object' ? (body.details as object) : {},
+        type,
       } as any,
     });
   }
@@ -1906,11 +2031,23 @@ export class SettingsController {
   @Roles('super_admin')
   @RequiresSubscription()
   @Patch('global')
-  async updateGlobal(@Body() body: Record<string, unknown>) {
+  async updateGlobal(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
+    const keys = [
+      'maxJobPostsPerWeek',
+      'maxServicePostsPerWeek',
+      'maxApplicationsPerDay',
+      'enableNotifications',
+      'enableModeration',
+      'maintenanceMode',
+    ] as const;
+    const data: Record<string, unknown> = { updatedBy: req.user.userId };
+    for (const key of keys) {
+      if (key in body) data[key] = body[key];
+    }
     return this.prisma.globalSettings.upsert({
       where: { id: 'global_config' },
-      create: { id: 'global_config', ...body } as any,
-      update: body as any,
+      create: { id: 'global_config', ...data } as any,
+      update: data as any,
     });
   }
 }

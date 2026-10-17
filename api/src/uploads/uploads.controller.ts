@@ -50,6 +50,8 @@ const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const ALLOWED_MIMES = new Set([
   ...IMAGE_MIMES,
+  'image/jpg',
+  'image/pjpeg',
   'application/pdf',
   'video/mp4',
   'video/webm',
@@ -92,7 +94,7 @@ export class UploadsController {
         const ext = extname(file.originalname || '').toLowerCase();
         const mime = (file.mimetype || '').toLowerCase();
         const kind = String((req.body as { kind?: string })?.kind || 'file');
-        if (!ALLOWED.has(ext) || (mime && !ALLOWED_MIMES.has(mime) && !mime.startsWith('image/'))) {
+        if (!ALLOWED.has(ext) || (mime && !ALLOWED_MIMES.has(mime))) {
           cb(new BadRequestException('Fayl turi qo\'llab-quvvatlanmaydi') as unknown as Error, false);
           return;
         }
@@ -200,12 +202,11 @@ export class UploadsController {
     @Body() body: { kind?: string },
     @Query('scope') scope?: string,
   ) {
-    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
     const root = scope === 'private' || isVerificationKind(body.kind || '')
-      ? join(PRIVATE_ROOT, req.user.userId)
-      : join(PUBLIC_ROOT, req.user.userId);
-    const full = join(root, safe);
-    if (existsSync(full)) {
+      ? PRIVATE_ROOT
+      : PUBLIC_ROOT;
+    const full = safeChildPath(root, req.user.userId, filename);
+    if (full && existsSync(full)) {
       try {
         unlinkSync(full);
       } catch {
