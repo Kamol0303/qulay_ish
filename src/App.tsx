@@ -22,7 +22,6 @@ import MyWorkPage from './pages/worker/MyWorkPage';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminContracts from './pages/admin/Contracts';
 import AdminApplications from './pages/admin/Applications';
-import ResumeView from './components/ResumeView';
 import AdminDisputes from './pages/admin/Disputes';
 import SuperAdminDashboard from './pages/super-admin/Dashboard';
 import SuperAdminAnalytics from './pages/super-admin/Analytics';
@@ -70,6 +69,11 @@ import SavedJobsMobile from './mobile/screens/SavedJobsMobile';
 function ContractsRedirect() {
   const { contractId } = useParams<{ contractId: string }>();
   return <Navigate to={`/contracts/${contractId}`} replace />;
+}
+
+function ResumeGone() {
+  const { userId } = useParams<{ userId: string }>();
+  return <Navigate to={userId ? `/worker/${userId}` : '/'} replace />;
 }
 
 function AppRoutes({ mobile }: { mobile: boolean }) {
@@ -216,7 +220,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       <Route path="/super-admin/revenue" element={<Navigate to="/super-admin/analytics" replace />} />
       <Route path="/super-admin/service-posts" element={<Navigate to="/super-admin/jobs" replace />} />
       <Route path="/super-admin/applications" element={<RoleProtectedRoute allowedRoles={['super_admin']}><AdminApplications /></RoleProtectedRoute>} />
-      <Route path="/resume/:userId" element={<ProtectedRoute><ResumeView /></ProtectedRoute>} />
+      <Route path="/resume/:userId" element={<ResumeGone />} />
       <Route path="/super-admin/*" element={<Navigate to="/super-admin/dashboard" replace />} />
       <Route path="/admin/logs" element={<RoleProtectedRoute allowedRoles={['super_admin', 'admin']}><SystemLogs /></RoleProtectedRoute>} />
       <Route path="/admin/settings" element={<RoleProtectedRoute allowedRoles={['super_admin', 'admin']}><SystemSettings /></RoleProtectedRoute>} />

@@ -3,13 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Profile } from '../types';
-import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Briefcase, Download } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Briefcase } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { getDistrictKey } from '../lib/utils';
 import { SKILLS } from '../constants/categories';
 import { mediaUrl, avatarFallback } from '../lib/mediaUrl';
-import { downloadResumePdf } from '../lib/resumePdf';
 import { CoreIndicatorsCard } from '../components/profile/CoreIndicatorsCard';
 import { phoneTelHref } from '../lib/phoneLink';
 
@@ -164,20 +163,6 @@ export default function ProfilePage() {
                     className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-600 transition-all shadow-lg mb-3 disabled:opacity-40"
                   >
                     <MessageSquare size={20} className="mr-2" /> {t('worker_profile.start_chat')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadResumePdf(worker)}
-                    className="w-full bg-white text-gray-900 border border-gray-200 py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-gray-50 transition-all mb-3"
-                  >
-                    <Download size={20} className="mr-2" /> Rezyume PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/resume/${worker.uid}`)}
-                    className="w-full text-sm font-semibold text-blue-600 hover:underline mb-3"
-                  >
-                    Online rezyume →
                   </button>
                   {phoneTelHref(worker.phoneNumber) ? (
                     <a

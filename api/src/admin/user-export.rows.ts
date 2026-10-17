@@ -31,7 +31,6 @@ export const USER_EXPORT_COLUMNS: ExportColumn[] = [
   { header: 'Tajriba', key: 'experience', width: 28 },
   { header: 'Sertifikatlar', key: 'certificates', width: 24 },
   { header: 'Portfolio', key: 'portfolio', width: 24 },
-  { header: 'Rezyume shablon', key: 'resumeTemplate', width: 16 },
   { header: 'Tashkilot', key: 'companyName', width: 22 },
   { header: 'Biznes turi', key: 'businessType', width: 16 },
   { header: 'Soha', key: 'industry', width: 16 },

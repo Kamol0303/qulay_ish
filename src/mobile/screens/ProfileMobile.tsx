@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, FileText, Bell, LogOut, BadgeCheck } from 'lucide-react';
+import { ShieldCheck, Bell, LogOut, BadgeCheck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import MobileCard from '../components/Card';
 import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
@@ -41,7 +41,6 @@ export default function ProfileMobile() {
 
       <div className="space-y-2">
         <LinkRow to="/verification" icon={BadgeCheck} label="Shaxsni tasdiqlash" />
-        <LinkRow to={`/resume/${profile.uid}`} icon={FileText} label="Resume" />
         <LinkRow to="/notifications" icon={Bell} label="Bildirishnomalar" />
         <LinkRow to="/saved-jobs" icon={ShieldCheck} label="Saqlangan buyurtmalar" />
       </div>

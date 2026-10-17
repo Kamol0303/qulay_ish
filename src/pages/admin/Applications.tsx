@@ -129,7 +129,7 @@ export default function AdminApplications() {
                         </>
                       )}
                       <Link
-                        to={`/resume/${app.workerId}`}
+                        to={`/worker/${app.workerId}`}
                         className="rounded-xl bg-blue-50 px-4 py-2 text-center text-sm font-bold text-blue-700"
                       >
                         Profil

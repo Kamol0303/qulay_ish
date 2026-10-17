@@ -137,15 +137,6 @@ export default function Header({ minimalNav = false }: { minimalNav?: boolean })
                 <Link to="/chat" className="text-muted-foreground hover:text-primary transition-colors relative">
                   <MessageSquare size={20} />
                 </Link>
-                {!minimalNav && profile?.role === 'worker' && (
-                  <Link
-                    to="/my-profile"
-                    className="flex items-center space-x-2 bg-primary/5 text-primary px-3 py-1.5 rounded-full border border-primary/20 hover:bg-primary/10 transition-colors"
-                  >
-                    <Briefcase size={18} />
-                    <span className="text-sm font-medium">{t('nav.resume')}</span>
-                  </Link>
-                )}
                 <Link
                   to={minimalNav ? profilePath : profile?.role === 'worker' ? '/my-profile' : profileHome}
                   className="flex items-center space-x-2 bg-secondary px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors"
@@ -253,16 +244,6 @@ export default function Header({ minimalNav = false }: { minimalNav?: boolean })
                     <MessageSquare size={20} className="text-muted-foreground" />
                     <span>{t('nav.chat')}</span>
                   </Link>
-                  {!minimalNav && profile?.role === 'worker' && (
-                    <Link
-                      to="/my-profile"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block px-3 py-3 text-base font-medium text-foreground hover:bg-secondary rounded-lg flex items-center space-x-3"
-                    >
-                      <Briefcase size={20} className="text-muted-foreground" />
-                      <span>{t('nav.resume')}</span>
-                    </Link>
-                  )}
                   <Link
                     to={minimalNav ? profilePath : profile?.role === 'worker' ? '/my-profile' : profileHome}
                     onClick={() => setIsMenuOpen(false)}

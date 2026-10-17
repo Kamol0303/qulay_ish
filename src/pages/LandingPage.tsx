@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Search, MapPin, Briefcase, Users, TrendingUp, ShieldCheck, ArrowRight, FileText, ClipboardCheck, Edit3 } from 'lucide-react';
+import { Search, MapPin, Briefcase, Users, TrendingUp, ShieldCheck, ArrowRight, ClipboardCheck } from 'lucide-react';
 import { CATEGORIES, SERVICE_DIRECTIONS } from '../constants/categories';
 import { SAMARQAND_DISTRICTS } from '../constants/districts';
 import Layout from '../components/Layout';
@@ -161,7 +161,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2">
             <div className="p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
               <div className="w-14 h-14 rounded-3xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-6">
                 <Search size={24} />
@@ -195,20 +195,6 @@ export default function LandingPage() {
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-all"
               >
                 {t('landing.submit_application')}
-                <ArrowRight size={18} />
-              </button>
-            </div>
-            <div className="p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-lg transition-all">
-              <div className="w-14 h-14 rounded-3xl bg-pink-500/10 text-pink-600 flex items-center justify-center mb-6">
-                <FileText size={24} />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">{t('landing.step_resume')}</h3>
-              <p className="text-gray-500 mb-6">{t('landing.step_resume_desc')}</p>
-              <button
-                onClick={() => navigate(profile?.role === 'worker' ? '/my-profile' : '/auth?mode=login')}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-pink-600 text-white font-semibold hover:bg-pink-700 transition-all"
-              >
-                {t('landing.write_resume')}
                 <ArrowRight size={18} />
               </button>
             </div>

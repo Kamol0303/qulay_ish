@@ -173,7 +173,7 @@ export default function EmployerApplications() {
                           </div>
                           <div className="flex items-center gap-2 mt-3">
                               <Link 
-                                to={`/resume/${app.workerId}`}
+                                to={`/worker/${app.workerId}`}
                                 className="text-xs font-bold text-primary hover:underline"
                               >
                                 {t('profile.view_profile')}

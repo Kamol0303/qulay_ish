@@ -195,7 +195,7 @@ export function PersonalInfoCard({
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
         <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <p>
-          Bu ma'lumotlar rezyume PDF, buyurtmachi paneli, qidiruv va ommaviy profilga
+          Bu ma'lumotlar buyurtmachi paneli, qidiruv va ommaviy profilga
           kiritilmaydi.
         </p>
       </div>

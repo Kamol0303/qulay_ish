@@ -2,7 +2,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import {
   BadgeCheck,
-  Download,
   Mail,
   MapPin,
   Phone,
@@ -13,9 +12,7 @@ import {
 import SafeSelect from '../SafeSelect';
 import type { Profile, ProfileTab, CertificateRecord, PortfolioItem } from '../../types';
 import { getWorkerCompletion } from '../../lib/profileCompletion';
-import { downloadResumePdf, RESUME_TEMPLATES } from '../../lib/resumePdf';
 import { mediaUrl } from '../../lib/mediaUrl';
-import { PremiumResume } from '../resume/PremiumResume';
 import { Link } from 'react-router-dom';
 import { REGIONS, DISTRICTS } from '../../constants/locations';
 import { getDistrictKey } from '../../lib/utils';
@@ -28,7 +25,6 @@ import { EducationEditor, ExperienceEditor } from './TimelineEditors';
 import { VerificationStatusCard } from '../verification/VerificationStatusCard';
 import { PersonalInfoCard } from './PersonalInfoCard';
 import { LocationSharingCard } from './LocationSharingCard';
-import { ResumeAiCard } from './ResumeAiCard';
 const WORKER_TABS_BASE = [
   { id: 'overview' as const, label: 'Umumiy' },
   { id: 'experience' as const, label: 'Tajriba' },
@@ -36,7 +32,6 @@ const WORKER_TABS_BASE = [
   { id: 'skills' as const, label: 'Ko\'nikmalar' },
   { id: 'portfolio' as const, label: 'Portfolio' },
   { id: 'certificates' as const, label: 'Sertifikatlar' },
-  { id: 'resume' as const, label: 'Rezyume' },
   { id: 'settings' as const, label: 'Sozlamalar' },
 ];
 
@@ -69,9 +64,9 @@ export function WorkerProfileView({
     () =>
       editable
         ? [
-            ...WORKER_TABS_BASE.slice(0, 7),
+            ...WORKER_TABS_BASE.slice(0, 6),
             { id: 'personal' as const, label: "Shaxsiy ma'lumotlar" },
-            ...WORKER_TABS_BASE.slice(7),
+            ...WORKER_TABS_BASE.slice(6),
           ]
         : WORKER_TABS_BASE,
     [editable],
@@ -139,13 +134,6 @@ export function WorkerProfileView({
             {saving ? 'Saqlanmoqda...' : 'Saqlash'}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => void downloadResumePdf(draft)}
-          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium"
-        >
-          <Download className="h-4 w-4" /> Rezyume
-        </button>
         <button
           type="button"
           onClick={() => void share()}
@@ -444,55 +432,6 @@ export function WorkerProfileView({
             )}
           </ProfileCard>
         )}
-        {tab === 'resume' && (
-          <div className="space-y-5">
-            {editable && (
-              <PersonalInfoCard
-                userId={draft.uid}
-                editable={editable}
-                seedFullName={draft.fullName}
-                seedPhone={draft.phoneNumber}
-                seedEmail={draft.email}
-              />
-            )}
-            <ProfileCard title="Rezyume shabloni" description="Profil ma'lumotlari + yuklangan fayllar avtomatik chiqadi">
-              <div className="mb-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {RESUME_TEMPLATES.map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    disabled={!editable}
-                    onClick={() => patch({ resumeTemplate: tpl.id })}
-                    className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                      draft.resumeTemplate === tpl.id
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
-                        : 'border-border hover:border-primary/40'
-                    }`}
-                  >
-                    <p className="font-semibold">{tpl.name}</p>
-                    <p className="text-xs text-muted-foreground">A4 · ATS-friendly · 2-column</p>
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void downloadResumePdf(draft)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground"
-                >
-                  <Download className="h-4 w-4" /> PDF yuklab olish
-                </button>
-                <Link
-                  to={`/resume/${draft.uid}`}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium"
-                >
-                  To\'liq sahifa
-                </Link>
-              </div>
-            </ProfileCard>
-            <PremiumResume profile={draft} />
-          </div>
-        )}
         {tab === 'personal' && editable && (
           <div className="space-y-5">
             <PersonalInfoCard
@@ -530,7 +469,6 @@ export function WorkerProfileView({
                 updatedAt={draft.locationUpdatedAt}
               />
             )}
-            {editable && <ResumeAiCard userId={draft.uid} />}
           </div>
         )}
       </motion.div>

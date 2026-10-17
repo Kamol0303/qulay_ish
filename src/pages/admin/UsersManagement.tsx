@@ -15,7 +15,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { performanceUtils } from '../../lib/performance';
 import { getWorkerCompletion, getEmployerCompletion } from '../../lib/profileCompletion';
-import { downloadResumePdf } from '../../lib/resumePdf';
 import { mediaUrl, avatarFallback } from '../../lib/mediaUrl';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -194,24 +193,6 @@ function UserModal({ user, onClose, onVerify, onBlock, onUnblock, onDelete, acti
             >
               Profilni ochish
             </Link>
-            {user.role === 'worker' && (
-              <>
-                <Link
-                  to={`/resume/${user.uid}`}
-                  className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                  onClick={onClose}
-                >
-                  Rezyume
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => void downloadResumePdf(user)}
-                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700"
-                >
-                  PDF yuklash
-                </button>
-              </>
-            )}
           </div>
 
           {showPersonal && (
