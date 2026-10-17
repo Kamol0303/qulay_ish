@@ -16,6 +16,7 @@ import { DevSmsService } from '../auth/devsms.service';
 import { SubscriptionGuard } from '../subscription/subscription.guard';
 import { RequiresSubscription } from '../subscription/requires-subscription.decorator';
 import { registrationPhone } from '../common/registration-phone.util';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
 type AuthUser = { userId: string; role: string };
 
@@ -48,6 +49,19 @@ function toPublicUser(
     // Precise worker location never leaves the server in a public payload.
     latitude: _lat,
     longitude: _lng,
+    tin,
+    registrationNumber,
+    recruiterContacts,
+    riskScore,
+    trustScore,
+    behaviorFlags,
+    violationCount,
+    lastViolation,
+    blockReason,
+    blockUntil,
+    blockedAt,
+    isBlocked,
+    telegram,
     ...rest
   } = user;
   const out: Record<string, unknown> = { ...rest };
@@ -62,6 +76,19 @@ function toPublicUser(
   }
   if (opts?.includePrivateDocs) {
     out.companyDocuments = companyDocuments;
+    out.tin = tin;
+    out.registrationNumber = registrationNumber;
+    out.recruiterContacts = recruiterContacts;
+    out.riskScore = riskScore;
+    out.trustScore = trustScore;
+    out.behaviorFlags = behaviorFlags;
+    out.violationCount = violationCount;
+    out.lastViolation = lastViolation;
+    out.blockReason = blockReason;
+    out.blockUntil = blockUntil;
+    out.blockedAt = blockedAt;
+    out.isBlocked = isBlocked;
+    out.telegram = telegram;
     if (signupPhone) out.phoneNumber = signupPhone;
   }
   if (opts?.includePersonalInfo) {
@@ -78,21 +105,34 @@ function toPublicUser(
 export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get()
   async list(
     @Query('role') role?: string,
     @Query('region') region?: string,
     @Query('district') district?: string,
+    @Req() req?: { user?: AuthUser | null },
   ) {
+    const staff = isStaff(req?.user?.role || '');
+    if (!staff && role && role !== 'worker' && role !== 'employer') return [];
     const rows = await this.prisma.user.findMany({
       where: {
-        ...(role ? { role: role as any } : {}),
+        ...(staff
+          ? role
+            ? { role: role as any }
+            : {}
+          : { role: (role as any) || { in: ['worker', 'employer'] }, isBlocked: false }),
         ...(region ? { region } : {}),
         ...(district ? { district } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((u) => toPublicUser(u as unknown as Record<string, unknown>));
+    return rows.map((u) =>
+      toPublicUser(u as unknown as Record<string, unknown>, {
+        includePrivateDocs: staff,
+        includeCoreIndicators: req?.user?.role === 'super_admin',
+      }),
+    );
   }
 
   /** Confidential personal info — worker self or super_admin only */
@@ -266,12 +306,21 @@ export class UsersController {
     return { locationSharingEnabled: false };
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
-  async get(@Param('id') id: string) {
+  async get(@Param('id') id: string, @Req() req?: { user?: AuthUser | null }) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id } });
-    // Public profiles never expose company docs, confidential personalInfo,
-    // core/risk indicators, or precise location.
-    return toPublicUser(user as unknown as Record<string, unknown>);
+    const staff = isStaff(req?.user?.role || '');
+    const isSelf = req?.user?.userId === id;
+    if (user.isBlocked && !staff && !isSelf) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (!staff && !isSelf && user.role !== 'worker' && user.role !== 'employer') {
+      throw new NotFoundException('Foydalanuvchi topilmadi');
+    }
+    return toPublicUser(user as unknown as Record<string, unknown>, {
+      includePrivateDocs: staff || isSelf,
+      includePersonalInfo: isSelf && canAccessPersonalInfo(req!.user!, id, user.role),
+      includeCoreIndicators: req?.user?.role === 'super_admin',
+    });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -1457,8 +1506,22 @@ export class ChatMessagesController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.chatMessage.update({ where: { id }, data: body as any });
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    const msg = await this.prisma.chatMessage.findUnique({ where: { id } });
+    if (!msg) throw new NotFoundException('Xabar topilmadi');
+    const staff = isStaff(req.user.role);
+    if (!staff && msg.senderId !== req.user.userId && msg.receiverId !== req.user.userId) {
+      throw new ForbiddenException();
+    }
+    const data: { read?: boolean; status?: string; delivered?: boolean } = {};
+    if (body.read === true && (staff || msg.receiverId === req.user.userId)) data.read = true;
+    if (typeof body.status === 'string') data.status = body.status.slice(0, 20);
+    if (body.delivered === true) data.delivered = true;
+    return this.prisma.chatMessage.update({ where: { id }, data });
   }
 }
 
@@ -1466,29 +1529,69 @@ export class ChatMessagesController {
 export class DisputesController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async list() {
-    return this.prisma.dispute.findMany({ orderBy: { createdAt: 'desc' } });
+  async list(@Req() req: { user: AuthUser }) {
+    if (isStaff(req.user.role)) {
+      return this.prisma.dispute.findMany({ orderBy: { createdAt: 'desc' } });
+    }
+    return this.prisma.dispute.findMany({
+      where: {
+        OR: [
+          { openedById: req.user.userId },
+          { contract: { workerId: req.user.userId } },
+          { contract: { employerId: req.user.userId } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
-    const id = (body.id as string) || randomUUID();
-    const dispute = await this.prisma.dispute.create({ data: { id, ...body } as any });
-    if (body.contractId) {
-      await this.prisma.contract.update({
-        where: { id: String(body.contractId) },
-        data: { status: 'disputed' },
-      });
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
+    const contractId = String(body.contractId || '');
+    const reason = String(body.reason || '').trim();
+    if (!contractId || reason.length < 3) {
+      throw new BadRequestException('Shartnoma va nizo sababi majburiy');
     }
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!contract) throw new NotFoundException('Shartnoma topilmadi');
+    const party =
+      isStaff(req.user.role) ||
+      contract.workerId === req.user.userId ||
+      contract.employerId === req.user.userId;
+    if (!party) throw new ForbiddenException();
+    const dispute = await this.prisma.dispute.create({
+      data: {
+        id: randomUUID(),
+        contractId,
+        openedById: req.user.userId,
+        reason: reason.slice(0, 2000),
+        status: 'pending',
+      },
+    });
+    await this.prisma.contract.update({
+      where: { id: contractId },
+      data: { status: 'disputed' },
+    });
     return dispute;
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.dispute.update({ where: { id }, data: body as any });
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    if (!isStaff(req.user.role)) throw new ForbiddenException();
+    const data: { status?: 'pending' | 'resolved' | 'rejected'; resolution?: string } = {};
+    if (body.status === 'pending' || body.status === 'resolved' || body.status === 'rejected') {
+      data.status = body.status;
+    }
+    if (typeof body.resolution === 'string') data.resolution = body.resolution.slice(0, 2000);
+    return this.prisma.dispute.update({ where: { id }, data });
   }
 }
 
@@ -1651,28 +1754,60 @@ export class ServicePostsController {
 }
 
 @Controller('payments')
+@UseGuards(JwtAuthGuard)
 export class PaymentsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  async list(@Query('userId') userId?: string) {
+  async list(@Req() req: { user: AuthUser }, @Query('userId') userId?: string) {
+    const staff = isStaff(req.user.role);
+    if (!staff && userId && userId !== req.user.userId) throw new ForbiddenException();
     return this.prisma.payment.findMany({
-      where: userId ? { userId } : undefined,
+      where: staff && !userId ? undefined : { userId: staff ? userId : req.user.userId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
-    const id = (body.id as string) || randomUUID();
-    return this.prisma.payment.create({ data: { id, ...body } as any });
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
+    const staff = isStaff(req.user.role);
+    const amount = Number(body.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) {
+      throw new BadRequestException('To‘lov summasi noto‘g‘ri');
+    }
+    const statuses = ['pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled'] as const;
+    const status = staff && statuses.includes(body.status as (typeof statuses)[number])
+      ? (body.status as (typeof statuses)[number])
+      : 'pending';
+    return this.prisma.payment.create({
+      data: {
+        id: randomUUID(),
+        userId: staff && typeof body.userId === 'string' ? body.userId : req.user.userId,
+        amount,
+        currency: typeof body.currency === 'string' ? body.currency.slice(0, 8) : 'UZS',
+        type: String(body.type || 'other').slice(0, 40),
+        provider: String(body.provider || 'manual').slice(0, 40),
+        status,
+        metadata:
+          body.metadata && typeof body.metadata === 'object' ? (body.metadata as object) : undefined,
+      },
+    });
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return this.prisma.payment.update({ where: { id }, data: body as any });
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    if (!isStaff(req.user.role)) throw new ForbiddenException();
+    const statuses = ['pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled'] as const;
+    const data: { status?: (typeof statuses)[number]; transactionId?: string } = {};
+    if (statuses.includes(body.status as (typeof statuses)[number])) {
+      data.status = body.status as (typeof statuses)[number];
+    }
+    if (typeof body.transactionId === 'string') data.transactionId = body.transactionId.slice(0, 120);
+    return this.prisma.payment.update({ where: { id }, data });
   }
 }
 
@@ -1680,11 +1815,22 @@ export class PaymentsController {
 export class ViolationsController {
   constructor(private readonly prisma: PrismaService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
   @Post()
   async create(@Body() body: Record<string, unknown>) {
-    const id = (body.id as string) || randomUUID();
-    return this.prisma.violation.create({ data: { id, ...body } as any });
+    const userId = String(body.userId || '');
+    const violationType = String(body.violationType || '').trim();
+    if (!userId || !violationType) throw new BadRequestException('userId va violationType majburiy');
+    return this.prisma.violation.create({
+      data: {
+        id: randomUUID(),
+        userId,
+        violationType: violationType.slice(0, 80),
+        message: typeof body.message === 'string' ? body.message.slice(0, 500) : undefined,
+        action: typeof body.action === 'string' ? body.action.slice(0, 80) : 'recorded',
+      },
+    });
   }
 }
 
@@ -1705,9 +1851,15 @@ export class ActivityLogsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
-    const id = (body.id as string) || randomUUID();
-    return this.prisma.activityLog.create({ data: { id, ...body } as any });
+  async create(@Body() body: Record<string, unknown>, @Req() req: { user: AuthUser }) {
+    return this.prisma.activityLog.create({
+      data: {
+        id: randomUUID(),
+        userId: req.user.userId,
+        action: String(body.action || 'ACTION').slice(0, 120),
+        details: body.details && typeof body.details === 'object' ? (body.details as object) : {},
+      },
+    });
   }
 }
 

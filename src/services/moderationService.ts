@@ -42,7 +42,11 @@ class ModerationService {
   private containsExternalContact(text: string) { return this.contactPatterns.some((p) => p.test(text)); }
 
   async recordViolation(userId: string, violationType: string, message: string) {
-    await api.violations.create({ userId, violationType, message, action: 'recorded' });
+    try {
+      await api.violations.create({ userId, violationType, message, action: 'recorded' });
+    } catch (e) {
+      debugLogger.error('recordViolation', e);
+    }
     try {
       const user = await api.users.get(userId);
       await api.users.update(userId, {

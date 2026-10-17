@@ -24,6 +24,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateIdentityDocumentFile } from '../verification/document-validation.util';
+import { safeChildPath } from '../common/safe-path.util';
 
 type UploadedMulterFile = {
   fieldname: string;
@@ -171,9 +172,9 @@ export class UploadsController {
     const isSuper = req.user.role === 'super_admin';
     if (!isOwner && !isSuper) throw new ForbiddenException('Ruxsat yo\'q');
 
-    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '');
-    const full = join(PRIVATE_ROOT, userId, safeName);
-    if (!existsSync(full)) throw new NotFoundException('Fayl topilmadi');
+    const full = safeChildPath(PRIVATE_ROOT, userId, filename);
+    if (!full || !existsSync(full)) throw new NotFoundException('Fayl topilmadi');
+    const safeName = filename;
 
     const mimeByExt: Record<string, string> = {
       '.jpg': 'image/jpeg',
