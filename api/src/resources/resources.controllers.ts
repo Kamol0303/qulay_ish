@@ -40,7 +40,7 @@ function toPublicUser(
   const {
     passwordHash: _p,
     email: _email,
-    phoneNumber: _phone,
+    phoneNumber,
     companyDocuments,
     personalInfo,
     coreIndicators,
@@ -50,8 +50,13 @@ function toPublicUser(
     ...rest
   } = user;
   const out: Record<string, unknown> = { ...rest };
+  // Workers publish the phone they registered with so clients can call them.
+  if (user.role === 'worker' && phoneNumber) {
+    out.phoneNumber = phoneNumber;
+  }
   if (opts?.includePrivateDocs) {
     out.companyDocuments = companyDocuments;
+    if (phoneNumber) out.phoneNumber = phoneNumber;
   }
   if (opts?.includePersonalInfo) {
     out.personalInfo = personalInfo ?? null;
@@ -469,16 +474,9 @@ export class JobsController {
     if (!employer) throw new NotFoundException('Buyurtmachi topilmadi');
 
     if (!isStaff(req.user.role)) {
-      if (!employer?.isVerified && employer?.verificationStatus !== 'verified') {
-        throw new ForbiddenException(
-          'Iltimos, ish e\'lonidan oldin shaxsingizni tasdiqlang va pasport ma\'lumotlaringizni to\'ldiring.',
-        );
-      }
-      if (!isValidDistrictId(employer.district)) {
-        throw new BadRequestException(
-          'Profilingizda Samarqand tumani yoki shahri tanlanmagan',
-        );
-      }
+      throw new ForbiddenException(
+        'Buyurtmachilar eʼlon joylamaydi. Ishchilar roʻyxatidan tanlang va telefon orqali bogʻlaning.',
+      );
     }
     const scheduledAt = parseOptionalDate(body.scheduledAt);
     if (!isStaff(req.user.role) && !scheduledAt) {
@@ -612,15 +610,6 @@ export class ApplicationsController {
     const workerId = req.user.userId;
     if (req.user.role !== 'worker' && req.user.role !== 'super_admin') {
       throw new ForbiddenException('Faqat ishchi ariza yubora oladi');
-    }
-
-    const worker = await this.prisma.user.findUnique({ where: { id: workerId } });
-    if (req.user.role === 'worker') {
-      if (!worker?.isVerified && worker?.verificationStatus !== 'verified') {
-        throw new ForbiddenException(
-          'Iltimos, ishga ariza yuborishdan oldin shaxsingizni tasdiqlang va pasport ma\'lumotlaringizni to\'ldiring.',
-        );
-      }
     }
 
     const existing = await this.prisma.application.findFirst({

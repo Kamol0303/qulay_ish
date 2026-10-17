@@ -28,10 +28,9 @@ import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
-import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
 import ReviewModal from '../../components/ReviewModal';
 import { goBack } from '../../lib/goBack';
-import { appAlert, appConfirm } from '../../lib/appDialog';
+import { appConfirm } from '../../lib/appDialog';
 
 export default function EmployerJobDetails() {
   const { t, i18n } = useTranslation();
@@ -44,7 +43,6 @@ export default function EmployerJobDetails() {
   const [loading, setLoading] = useState(true);
   const [showOptions, setShowOptions] = useState(false);
   const [reviewRow, setReviewRow] = useState<(Application & { worker?: Profile }) | null>(null);
-  const verified = isIdentityVerified(profile);
 
   useEffect(() => {
     async function fetchJobAndApplicants() {
@@ -105,20 +103,12 @@ export default function EmployerJobDetails() {
     }
   };
 
-  const requireVerified = async () => {
-    if (isIdentityVerified(profile)) return true;
-    await appAlert(VERIFICATION_REQUIRED_MESSAGE);
-    navigate('/verification');
-    return false;
-  };
-
-  const handleEditJob = async () => {
-    if (!(await requireVerified()) || !jobId) return;
-    navigate(`/employer/create-job?edit=${jobId}`);
+  const handleEditJob = () => {
+    navigate('/jobs');
   };
 
   const handleActivateJob = async () => {
-    if (!(await requireVerified()) || !jobId) return;
+    if (!jobId) return;
     try {
       await jobService.markAsInProgress(jobId);
       setJob((prev) => (prev ? { ...prev, status: 'active' } : prev));
@@ -166,16 +156,14 @@ export default function EmployerJobDetails() {
                   <button
                     type="button"
                     onClick={handleEditJob}
-                    disabled={!verified}
-                    className="w-full px-4 py-3 text-left text-sm font-bold flex items-center gap-3 hover:bg-secondary transition-all disabled:opacity-40"
+                    className="w-full px-4 py-3 text-left text-sm font-bold flex items-center gap-3 hover:bg-secondary transition-all"
                   >
                     <Edit size={16} /> {t('common.edit')}
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleActivateJob()}
-                    disabled={!verified}
-                    className="w-full px-4 py-3 text-left text-sm font-bold flex items-center gap-3 hover:bg-secondary transition-all disabled:opacity-40"
+                    className="w-full px-4 py-3 text-left text-sm font-bold flex items-center gap-3 hover:bg-secondary transition-all"
                   >
                     <CheckCircle size={16} /> {t('common.active')}
                   </button>

@@ -66,7 +66,7 @@ export default function EmployerJobsMobile() {
           </div>
         )}
       </PullToRefresh>
-      <FAB label="E’lon" onClick={() => navigate('/employer/create-job')} />
+      <FAB label="Ishchilar" onClick={() => navigate('/jobs')} />
     </div>
   );
 }

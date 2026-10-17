@@ -7,7 +7,6 @@ import { Job } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { SERVICE_DIRECTIONS, isServiceDirection, jobMatchesDirection } from '../../constants/categories';
 import { filterJobsForSamarkand } from '../../lib/utils';
-import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../../lib/verificationGate';
 import ApplyModal from '../../components/ApplyModal';
 import MobileCard from '../components/Card';
 import ChipFilter from '../components/ChipFilter';
@@ -63,10 +62,6 @@ export default function JobsMobile() {
       return;
     }
     if (profile.role !== 'worker') return;
-    if (!isIdentityVerified(profile)) {
-      navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
-      return;
-    }
     setSelected(job);
   };
 
@@ -118,7 +113,7 @@ export default function JobsMobile() {
       </PullToRefresh>
 
       {profile?.role === 'employer' && (
-        <FAB label="E’lon" onClick={() => navigate('/employer/create-job')} />
+        <FAB label="Ishchilar" onClick={() => navigate('/jobs')} />
       )}
 
       {selected && profile && (

@@ -6,7 +6,6 @@ import { Job, Profile } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { applicationService } from '../services/applicationService';
-import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 import { useIsMobileUi } from '../hooks/useIsMobileUi';
 
 interface ApplyModalProps {
@@ -35,16 +34,10 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
       setError(null);
       setSuccess(false);
       setExpanded(false);
-      // Hard gate: unverified workers never stay on the apply form
-      if (profile && !isIdentityVerified(profile)) {
-        onClose();
-        navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
-      }
     }
-  }, [isOpen, job, profile, navigate, onClose]);
+  }, [isOpen, job]);
 
   if (!job) return null;
-  if (profile && !isIdentityVerified(profile)) return null;
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,13 +68,6 @@ export default function ApplyModal({ isOpen, onClose, job, profile }: ApplyModal
         setLoading(false);
         return;
       }
-      if (!isIdentityVerified(profile)) {
-        setLoading(false);
-        onClose();
-        navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
-        return;
-      }
-
       if (!job.employerId) {
         setError('Buyurtmachi topilmadi. E\'lonni qayta oching.');
         setLoading(false);

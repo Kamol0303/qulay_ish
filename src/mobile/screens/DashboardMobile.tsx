@@ -116,7 +116,7 @@ export function EmployerDashboardMobile() {
           <Quick to="/employer/jobs" label="E’lonlarim" />
           <Quick to="/verification" label="Tasdiqlash" />
         </div>
-        <FAB label="E’lon" onClick={() => navigate('/employer/create-job')} />
+        <FAB label="Ishchilar" onClick={() => navigate('/jobs')} />
       </div>
     </PullToRefresh>
   );

@@ -7,20 +7,18 @@ import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Briefcase, Down
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { getDistrictKey } from '../lib/utils';
-import { relationshipService } from '../services/relationshipService';
 import { SKILLS } from '../constants/categories';
 import { mediaUrl, avatarFallback } from '../lib/mediaUrl';
 import { downloadResumePdf } from '../lib/resumePdf';
 import { VerificationStatusCard } from '../components/verification/VerificationStatusCard';
 import { CoreIndicatorsCard } from '../components/profile/CoreIndicatorsCard';
-import { appAlert } from '../lib/appDialog';
+import { phoneTelHref } from '../lib/phoneLink';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { userId } = useParams();
   const { user: currentUser, profile: currentProfile } = useAuth();
   const [worker, setWorker] = React.useState<Profile | null>(null);
-  const [canViewPhone, setCanViewPhone] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const navigate = useNavigate();
 
@@ -33,10 +31,6 @@ export default function ProfilePage() {
         const workerData = await api.users.get(userId);
         if (cancelled) return;
         setWorker(workerData);
-        if (currentUser && userId) {
-          const ok = await relationshipService.canViewContact(currentUser.uid, userId);
-          setCanViewPhone(!!ok || currentProfile?.role === 'super_admin');
-        }
       } catch {
         if (!cancelled) setWorker(null);
       } finally {
@@ -48,17 +42,14 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, currentUser, currentProfile]);
+  }, [userId]);
 
-  const startChat = async () => {
+  const startChat = () => {
     if (!currentUser) {
-      navigate('/auth');
+      navigate('/auth?mode=login');
       return;
     }
-    if (!canViewPhone && currentProfile?.role !== 'super_admin') {
-      await appAlert(t('chat.restricted_before_approval', 'Chat available after application approval.'));
-      return;
-    }
+    if (currentUser.uid === userId) return;
     navigate(`/chat?with=${userId}`);
   };
 
@@ -116,7 +107,7 @@ export default function ProfilePage() {
                       <ShieldCheck size={20} />
                     </div>
                   )}
-                  {worker.rating && worker.rating >= 4.5 && (
+                  {Number(worker.rating) >= 4.5 && (
                     <span className="bg-yellow-50 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full flex items-center">
                       <Award size={14} className="mr-1" /> {t('worker_profile.top_worker')}
                     </span>
@@ -164,10 +155,18 @@ export default function ProfilePage() {
 
               <div className="w-full md:w-80 space-y-4">
                 <div className="bg-gray-50 rounded-3xl p-6 border border-gray-100">
-                  <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">{t('worker_profile.contact')}</div>
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{t('worker_profile.contact')}</div>
+                  <p className="text-[10px] font-black tracking-wide text-slate-500 mb-1">
+                    {t('worker_profile.registered_phone', { defaultValue: 'Roʻyxatdagi telefon' })}
+                  </p>
+                  <p className="text-lg font-black text-slate-900 mb-4">
+                    {(worker.phoneNumber || '').trim() || t('jobs.no_phone')}
+                  </p>
                   <button
+                    type="button"
                     onClick={startChat}
-                    className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-600 transition-all shadow-lg mb-3"
+                    disabled={currentUser?.uid === worker.uid}
+                    className="w-full bg-blue-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-600 transition-all shadow-lg mb-3 disabled:opacity-40"
                   >
                     <MessageSquare size={20} className="mr-2" /> {t('worker_profile.start_chat')}
                   </button>
@@ -185,15 +184,15 @@ export default function ProfilePage() {
                   >
                     Online rezyume →
                   </button>
-                  {canViewPhone ? (
+                  {phoneTelHref(worker.phoneNumber) ? (
                     <a
-                      href={`tel:${worker.phoneNumber}`}
-                      className="w-full bg-white text-gray-900 border border-gray-200 py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-gray-50 transition-all"
+                      href={phoneTelHref(worker.phoneNumber) || undefined}
+                      className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-emerald-700 transition-all"
                     >
                       <Phone size={20} className="mr-2" /> {t('worker_profile.call')}
                     </a>
                   ) : (
-                    <button className="w-full bg-gray-50 text-muted-foreground border border-border py-4 rounded-2xl font-bold flex items-center justify-center" disabled>
+                    <button type="button" className="w-full bg-gray-50 text-muted-foreground border border-border py-4 rounded-2xl font-bold flex items-center justify-center" disabled>
                       <Phone size={20} className="mr-2" /> {t('worker_profile.call')}
                     </button>
                   )}

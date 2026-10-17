@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { contractService } from '../../services/contractService';
 import { jobService } from '../../services/jobService';
 import { Job } from '../../types';
-import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Users, Plus, ChevronRight } from 'lucide-react';
+import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Users, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { uz } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
@@ -79,11 +79,11 @@ export default function EmployerDashboard() {
             <p className="text-muted-foreground mt-2 font-medium">{t('employer.dashboard.subtitle')}</p>
           </div>
           <Link
-            to="/employer/create-job"
+            to="/jobs"
             className="flex items-center justify-center gap-3 px-8 py-4 bg-blue-500 text-white rounded-[24px] font-black uppercase tracking-widest shadow-2xl shadow-blue-500/30 hover:scale-105 transition-all duration-300 group"
           >
-            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-            {t('employer.dashboard.post_job')}
+            <Users className="w-5 h-5" />
+            {t('directory.workers_title')}
           </Link>
         </div>
 
@@ -167,8 +167,8 @@ export default function EmployerDashboard() {
                     <Briefcase size={40} />
                   </div>
                   <p className="text-slate-500 font-bold text-lg mb-8 tracking-tight">{t('employer.dashboard.no_jobs')}</p>
-                  <Link to="/employer/create-job" className="inline-flex items-center gap-2 px-8 py-4 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-500/20">
-                    {t('employer.dashboard.post_first')}
+                  <Link to="/jobs" className="inline-flex items-center gap-2 px-8 py-4 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-500/20">
+                    {t('directory.workers_title')}
                   </Link>
                 </div>
               )}

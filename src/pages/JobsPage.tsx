@@ -1,31 +1,32 @@
 import { debugLogger } from '../lib/debugLogger';
 import React from 'react';
 import { api } from '../lib/api';
-import { Job } from '../types';
+import { Profile, ServicePost } from '../types';
 import { Search, MapPin, SlidersHorizontal, ArrowLeft } from 'lucide-react';
 import SafeSelect from '../components/SafeSelect';
-import { SERVICE_DIRECTIONS, isServiceDirection, jobMatchesDirection } from '../constants/categories';
+import {
+  SERVICE_DIRECTIONS,
+  isServiceDirection,
+  jobMatchesDirection,
+  workerMatchesDirection,
+} from '../constants/categories';
 import Layout from '../components/Layout';
-import JobCard from '../components/JobCard';
-import { useAuth } from '../context/AuthContext';
-import ApplyModal from '../components/ApplyModal';
-import { filterJobsForSamarkand } from '../lib/utils';
+import WorkerCard from '../components/WorkerCard';
 import { pointDistanceKm } from '../constants/districts';
 import { getCurrentPosition } from '../lib/geolocation';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isValidDistrictId } from '../constants/districts';
-import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 import { goBack } from '../lib/goBack';
+import { filterWorkersForSamarkand } from '../lib/utils';
 
 export default function JobsPage() {
-  const { profile } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Individual filter states for better clarity and control
-  const [jobs, setJobs] = React.useState<Job[]>([]);
+  const [workers, setWorkers] = React.useState<Profile[]>([]);
+  const [prices, setPrices] = React.useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = React.useState(true);
   const [direction, setDirection] = React.useState(() => {
     const picked = searchParams.get('direction') || searchParams.get('search') || '';
@@ -35,74 +36,83 @@ export default function JobsPage() {
   const [sortBy, setSortBy] = React.useState('price-low');
   const [origin, setOrigin] = React.useState<{ lat: number; lng: number } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
-  const [selectedJob, setSelectedJob] = React.useState<Job | null>(null);
-  const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
 
-  /**
-   * Main effect: Fetch and filter jobs from API
-   * Triggers whenever any filter state or search query changes
-   */
   React.useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
 
-    const loadJobs = async () => {
+    const loadWorkers = async () => {
       try {
-        const apiJobs = await api.jobs.list({
-          status: 'open',
-          ...(profile?.district ? { nearDistrict: profile.district } : {}),
-        });
+        const [listed, posts] = await Promise.all([
+          api.users.list({ role: 'worker' }),
+          api.servicePosts.list({ status: 'active' }).catch(() => [] as ServicePost[]),
+        ]);
         if (cancelled) return;
 
-        let filtered = filterJobsForSamarkand(apiJobs, {
-          status: 'open',
+        const nextPrices: Record<string, number> = {};
+        for (const post of posts) {
+          const amount = typeof post.price === 'number' ? post.price : post.expectedPrice;
+          if (typeof amount !== 'number' || !post.workerId) continue;
+          const prev = nextPrices[post.workerId];
+          if (prev == null || amount < prev) nextPrices[post.workerId] = amount;
+        }
+        setPrices(nextPrices);
+
+        let filtered = filterWorkersForSamarkand(listed, {
           ...(isValidDistrictId(districtFilter) ? { district: districtFilter } : {}),
         });
         if (direction) {
-          filtered = filtered.filter((job: Job) => jobMatchesDirection(job, direction));
+          filtered = filtered.filter((worker) => {
+            if (workerMatchesDirection(worker, direction)) return true;
+            return posts.some(
+              (post) =>
+                post.workerId === worker.uid &&
+                jobMatchesDirection(
+                  { category: post.category, title: post.title, description: post.description },
+                  direction,
+                ),
+            );
+          });
         }
 
-        const distanceOf = (job: Job) => {
+        const distanceOf = (worker: Profile) => {
           if (!origin) return Number.POSITIVE_INFINITY;
-          const km = pointDistanceKm(origin.lat, origin.lng, job.district);
+          const km = pointDistanceKm(origin.lat, origin.lng, worker.district);
           return km == null ? Number.POSITIVE_INFINITY : km;
         };
-        const priced = (job: Job) => (typeof job.price === 'number' ? job.price : Number.POSITIVE_INFINITY);
+        const priceOf = (worker: Profile) => nextPrices[worker.uid] ?? Number.POSITIVE_INFINITY;
 
         if (sortBy === 'price-low') {
-          filtered.sort((a: Job, b: Job) => priced(a) - priced(b));
+          filtered.sort((a, b) => priceOf(a) - priceOf(b));
         } else if (sortBy === 'price-high') {
-          filtered.sort((a: Job, b: Job) => {
-            const ap = typeof a.price === 'number' ? a.price : Number.NEGATIVE_INFINITY;
-            const bp = typeof b.price === 'number' ? b.price : Number.NEGATIVE_INFINITY;
+          filtered.sort((a, b) => {
+            const ap = nextPrices[a.uid] ?? Number.NEGATIVE_INFINITY;
+            const bp = nextPrices[b.uid] ?? Number.NEGATIVE_INFINITY;
             return bp - ap;
           });
         } else if (sortBy === 'nearest') {
-          filtered.sort((a: Job, b: Job) => distanceOf(a) - distanceOf(b));
+          filtered.sort((a, b) => distanceOf(a) - distanceOf(b));
         } else if (sortBy === 'farthest') {
-          filtered.sort((a: Job, b: Job) => distanceOf(b) - distanceOf(a));
+          filtered.sort((a, b) => distanceOf(b) - distanceOf(a));
         }
 
-        setJobs(filtered);
+        setWorkers(filtered);
       } catch (error) {
-        debugLogger.error('Error fetching jobs:', error);
-        if (!cancelled) setJobs([]);
+        debugLogger.error('Error fetching workers:', error);
+        if (!cancelled) setWorkers([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
 
-    loadJobs();
-    const interval = setInterval(loadJobs, 5000);
+    loadWorkers();
+    const interval = setInterval(loadWorkers, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [sortBy, direction, districtFilter, profile?.district, origin]);
+  }, [sortBy, direction, districtFilter, origin]);
 
-  /**
-   * Clear all filters and reset to defaults
-   */
   const handleClearFilters = () => {
     setDirection('');
     setDistrictFilter('');
@@ -133,34 +143,9 @@ export default function JobsPage() {
     }
   };
 
-  const canApply = !profile || profile.role === 'worker';
-
-  const handleApply = (job: Job) => {
-    if (!profile) {
-      navigate('/auth?mode=login');
-      return;
-    }
-    if (profile.role !== 'worker') return;
-    if (!isIdentityVerified(profile)) {
-      navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
-      return;
-    }
-    setSelectedJob(job);
-    setIsApplyModalOpen(true);
-  };
-
   return (
     <Layout>
-      {canApply && (
-        <ApplyModal
-          isOpen={isApplyModalOpen}
-          onClose={() => setIsApplyModalOpen(false)}
-          job={selectedJob}
-          profile={profile}
-        />
-      )}
       <div className="bg-slate-900 pt-16 pb-32 relative">
-        {/* Background Accents */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 skew-x-12 translate-x-1/4" />
           <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-emerald-500/5 -skew-x-12 -translate-x-1/4" />
@@ -174,7 +159,7 @@ export default function JobsPage() {
             <ArrowLeft size={18} />
             {t('common.back')}
           </button>
-          
+
           <div className="max-w-3xl">
             <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
               {t('jobs.title')}
@@ -182,7 +167,7 @@ export default function JobsPage() {
             <p className="text-slate-400 text-lg mb-10 font-medium max-w-xl">
               {t('jobs.subtitle')}
             </p>
-            
+
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="pointer-events-none absolute left-5 top-5 text-blue-700" size={20} />
@@ -270,7 +255,7 @@ export default function JobsPage() {
           <div className="flex items-center gap-4">
             <div className="h-8 w-1.5 bg-blue-500 rounded-full" />
             <div className="text-slate-500 font-bold tracking-tight">
-              {isLoading ? t('jobs.loading') : t('jobs.found_jobs', { count: jobs.length })}
+              {isLoading ? t('jobs.loading') : t('jobs.found_jobs', { count: workers.length })}
             </div>
           </div>
         </div>
@@ -281,14 +266,10 @@ export default function JobsPage() {
               <div key={i} className="bg-white h-[400px] rounded-[32px] animate-pulse border border-slate-100 shadow-sm"></div>
             ))}
           </div>
-        ) : jobs.length > 0 ? (
+        ) : workers.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {jobs.map(job => (
-              <JobCard
-                key={job.id}
-                job={job}
-                onApply={canApply ? () => handleApply(job) : undefined}
-              />
+            {workers.map((worker) => (
+              <WorkerCard key={worker.uid} worker={worker} price={prices[worker.uid]} />
             ))}
           </div>
         ) : (

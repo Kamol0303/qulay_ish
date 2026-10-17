@@ -52,6 +52,29 @@ export function jobMatchesDirection(
   return direction.keywords.some((word) => titled.includes(word));
 }
 
+/** A worker matches a direction by profession, skills, or the words in the bio. */
+export function workerMatchesDirection(
+  worker: {
+    profession?: string | null;
+    skills?: readonly string[] | null;
+    bio?: string | null;
+    professionalSummary?: string | null;
+  },
+  directionId: string,
+): boolean {
+  const direction = SERVICE_DIRECTIONS.find((item) => item.id === directionId);
+  if (!direction) return true;
+  const ids = new Set<string>([direction.id, ...direction.aliases]);
+  const fields = [worker.profession, ...(worker.skills ?? [])].filter(
+    (value): value is string => Boolean(value),
+  );
+  if (fields.some((field) => ids.has(field))) return true;
+  const text = `${worker.bio || ''} ${worker.professionalSummary || ''} ${fields.join(' ')}`.toLowerCase();
+  if (text.includes(direction.name.toLowerCase())) return true;
+  if (direction.keywords.some((word) => text.includes(word))) return true;
+  return direction.aliases.some((alias) => text.includes(alias));
+}
+
 export const CATEGORIES = [
   { id: 'nurse', name: 'Hamshira', icon: '👩‍⚕️' },
   { id: 'pedagogue', name: 'Pedagog', icon: '👨‍🏫' },

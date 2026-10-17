@@ -156,7 +156,9 @@ export default function ChatPage() {
         const partnerData = await api.users.get(withUserId);
         setChatPartner(partnerData);
         const ok = await relationshipService.canViewContact(userId, partnerData.uid);
-        setCanViewPhone(!!ok || profile?.role === 'super_admin');
+        setCanViewPhone(
+          partnerData.role === 'worker' || !!ok || profile?.role === 'super_admin',
+        );
       } catch (err) {
         debugLogger.error('Error fetching partner:', err);
       }

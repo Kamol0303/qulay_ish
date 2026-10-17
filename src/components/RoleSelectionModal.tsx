@@ -102,7 +102,7 @@ export default function RoleSelectionModal({ onComplete }: RoleSelectionModalPro
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Buyurtmachi</h3>
                 <p className="text-sm text-gray-600">
-                  Ish e'lon qilish, ishchilar topish, boshqarish
+                  Ishchilarni koʻrish va telefoniga qoʻngʻiroq qilish
                 </p>
               </div>
             </div>

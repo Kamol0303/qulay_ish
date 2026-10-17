@@ -9,7 +9,6 @@ import { getCurrentPosition, isGeolocationAvailable } from '../../lib/geolocatio
 import { getDistrictKey } from '../../lib/utils';
 import { SERVICE_DIRECTIONS, isServiceDirection } from '../../constants/categories';
 import { REGIONS } from '../../constants/locations';
-import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../../lib/verificationGate';
 import ApplyModal from '../../components/ApplyModal';
 import { MapPin, Search, Banknote, Loader2, Navigation, Briefcase } from 'lucide-react';
 import SafeSelect from '../../components/SafeSelect';
@@ -93,10 +92,6 @@ export default function NearbyJobs() {
       return;
     }
     if (profile.role !== 'worker') return;
-    if (!isIdentityVerified(profile)) {
-      navigate('/verification', { state: VERIFICATION_REDIRECT_STATE });
-      return;
-    }
     setSelected(job);
   };
 

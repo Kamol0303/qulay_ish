@@ -36,7 +36,6 @@ import SystemSettings from './pages/admin/SystemSettings';
 import UsersManagement from './pages/admin/UsersManagement';
 import JobsManagement from './pages/admin/JobsManagement';
 import VerificationManagement from './pages/admin/VerificationManagement';
-import CreateJob from './pages/employer/CreateJob';
 import CreateServicePost from './pages/worker/CreateServicePost';
 import MyServicePosts from './pages/worker/MyServicePosts';
 import ContractPage from './pages/ContractPage';
@@ -175,7 +174,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
       />
       <Route path="/employer/create-contract" element={<RoleProtectedRoute allowedRoles={['employer']}><CreateContract /></RoleProtectedRoute>} />
       <Route path="/employer/jobs/:jobId" element={<RoleProtectedRoute allowedRoles={['employer']}><EmployerJobDetails /></RoleProtectedRoute>} />
-      <Route path="/employer/create-job" element={<RoleProtectedRoute allowedRoles={['employer']}><CreateJob /></RoleProtectedRoute>} />
+      <Route path="/employer/create-job" element={<Navigate to="/jobs" replace />} />
       <Route path="/employer/worker-services" element={<RoleProtectedRoute allowedRoles={['employer']}><WorkerServices /></RoleProtectedRoute>} />
       <Route path="/employer/nearby-workers" element={<RoleProtectedRoute allowedRoles={['employer']}><NearbyWorkers /></RoleProtectedRoute>} />
 

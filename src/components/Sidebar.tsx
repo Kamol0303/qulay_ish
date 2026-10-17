@@ -18,7 +18,6 @@ import {
   MapPin,
   Activity,
   BookOpen,
-  Plus,
   Heart
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -53,7 +52,7 @@ export default function Sidebar() {
     ],
     employer: [
       { icon: LayoutDashboard, label: t('nav.sidebar.dashboard'), path: '/employer/dashboard', end: true },
-      { icon: Plus, label: t('nav.sidebar.post_job'), path: '/employer/create-job', end: true },
+      { icon: Users, label: t('nav.jobs_link'), path: '/jobs', end: true },
       { icon: Briefcase, label: t('nav.sidebar.my_jobs'), path: '/employer/jobs', end: false },
       { icon: CheckCircle, label: t('nav.sidebar.contracts'), path: '/employer/contracts', end: false },
       { icon: Users, label: t('directory.workers_title'), path: '/directory', end: true },

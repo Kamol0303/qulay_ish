@@ -1,12 +1,14 @@
 import React from 'react';
 import { Profile } from '../types';
-import { MapPin, Star, ShieldCheck, Award } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, Award, Phone, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
 import { CATEGORIES, SKILLS } from '../constants/categories';
 import RoleBadge from './RoleBadge';
+import { useAuth } from '../hooks/useAuth';
+import { phoneTelHref } from '../lib/phoneLink';
 
 interface WorkerCardProps {
   worker: Profile;
@@ -15,6 +17,19 @@ interface WorkerCardProps {
 
 export default function WorkerCard({ worker, price }: WorkerCardProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const tel = phoneTelHref(worker.phoneNumber);
+  const phoneLabel = (worker.phoneNumber || '').trim();
+
+  const startChat = () => {
+    if (!user) {
+      navigate('/auth?mode=login');
+      return;
+    }
+    if (user.uid === worker.uid) return;
+    navigate(`/chat?with=${worker.uid}`);
+  };
 
   const getSkillLabel = (skill: string) => {
     const skillObj = SKILLS.find(s => s.id === skill || s.name === skill);
@@ -54,7 +69,7 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
                 PREMIUM
               </span>
             )}
-            {worker.rating && worker.rating >= 4.5 && (
+            {Number(worker.rating) >= 4.5 && (
               <span className="bg-yellow-50 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center">
                 <Award size={10} className="mr-0.5" /> {t('worker_profile.top_worker')}
               </span>
@@ -103,6 +118,42 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
             +{worker.skills.length - 3}
           </span>
         )}
+      </div>
+
+      <div className="mb-3 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
+        <p className="text-[10px] font-black tracking-wide text-slate-500">
+          {t('worker_profile.registered_phone', { defaultValue: 'Roʻyxatdagi telefon' })}
+        </p>
+        <p className="text-base font-black text-slate-900">
+          {phoneLabel || t('jobs.no_phone')}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        {tel ? (
+          <a
+            href={tel}
+            className="min-h-[44px] bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-emerald-700"
+          >
+            <Phone size={16} className="mr-1.5" /> {t('worker_profile.call')}
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="min-h-[44px] bg-slate-100 text-slate-400 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center"
+          >
+            <Phone size={16} className="mr-1.5" /> {t('worker_profile.call')}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={startChat}
+          disabled={user?.uid === worker.uid}
+          className="min-h-[44px] bg-blue-600 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-blue-700 disabled:opacity-40"
+        >
+          <MessageSquare size={16} className="mr-1.5" /> {t('worker_profile.start_chat')}
+        </button>
       </div>
 
       <Link

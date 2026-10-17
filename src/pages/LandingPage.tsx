@@ -89,10 +89,10 @@ export default function LandingPage() {
                   <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
-                  to="/auth"
+                  to="/workers"
                   className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-white/20 transition-all flex items-center justify-center"
                 >
-                  {t('landing.post_job')}
+                  {t('directory.workers_title')}
                 </Link>
               </div>
             </motion.div>

@@ -16,8 +16,8 @@ interface Message {
 
 const PREDEFINED_RESPONSES: Record<AILanguage, Record<string, string>> = {
   uz: {
-    jobs_search: `**Buyurtma qidirish:**\n\n1. "Buyurtmalar" bo'limiga o'ting\n2. Qidiruv maydonida kalit so'zlarni kiriting\n3. Saralash: eng arzon, eng qimmat, eng yaqin, eng uzoq\n4. Mos buyurtmaga "Ariza topshirish" tugmasini bosing\n\n**Maslahat:** Profilingizni to'ldiring!`,
-    post_job: `**Ish e'lon qilish:**\n\n1. Buyurtmachi paneliga kiring\n2. "Yangi e'lon berish" tugmasini bosing\n3. Ma'lumotlarni to'ldiring\n4. "Yuborish" tugmasini bosing\n\n**Eslatma:** E'loningiz 30 kun davomida faol bo'ladi!`,
+    jobs_search: `**Ishchi topish:**\n\n1. "Buyurtmalar" bo'limiga o'ting\n2. Yoʻnalishni tanlang\n3. Ishchining roʻyxatdagi telefoniga qoʻngʻiroq qiling yoki chat yozing\n\n**Eslatma:** Tasdiqlash markazi tasdiqlamagan boʻlsa ham ishchi ishlayveradi.`,
+    post_job: `**E'lon joylanmaydi.**\n\nBuyurtmachilar e'lon bermaydi. Buyurtmalar bo'limida ishchilar chiqadi. Ularning roʻyxatdan oʻtgan telefoniga qoʻngʻiroq qiling yoki chat yozing.`,
     contract: `**Shartnoma tuzish:**\n\n1. Nomzod bilan kelishib oling\n2. "Shartnoma tuzish" tugmasini bosing\n3. Shartlarni kiriting\n4. Ikkala tomon imzolashi kerak\n\n**Muhim:** Shartnoma qonuniy hujjat!`,
     dispute: `**Nizo yuzaga kelsa:**\n\n1. Shartnoma sahifasiga o'ting\n2. "Nizo ochish" tugmasini bosing\n3. Muammoni yozing\n4. Admin 24-48 soat ichida ko'rib chiqadi`,
     profile: `**Profilni to'ldirish:**\n\n1. "Profil" bo'limiga o'ting\n2. Ma'lumotlarni qo'shing\n3. Rasm yuklang\n4. "Saqlash" tugmasini bosing`,
@@ -25,7 +25,7 @@ const PREDEFINED_RESPONSES: Record<AILanguage, Record<string, string>> = {
   },
   ru: {
     jobs_search: `**Поиск работы:**\n\n1. Перейдите в раздел **Работа**\n2. Введите ключевые слова\n3. Используйте фильтры\n4. Нажмите **Подать заявку**\n\n**Совет:** Заполните профиль!`,
-    post_job: `**Размещение вакансии:**\n\n1. Откройте панель работодателя\n2. Нажмите **Разместить вакансию**\n3. Заполните данные\n4. Нажмите **Опубликовать**`,
+    post_job: `**Объявления не размещаются.**\n\nЗаказчики не публикуют вакансии. В разделе заказов показаны работники — звоните на номер регистрации или пишите в чат.`,
     contract: `**Создание контракта:**\n\n1. Договоритесь с кандидатом\n2. Нажмите **Создать контракт**\n3. Укажите условия\n4. Обе стороны подписывают`,
     dispute: `**Если возник спор:**\n\n1. Перейдите на страницу контракта\n2. Нажмите **Открыть спор**\n3. Опишите проблему\n4. Админ рассмотрит за 24-48 часов`,
     profile: `**Заполнение профиля:**\n\n1. Перейдите в **Мой профиль**\n2. Добавьте данные\n3. Загрузите фото\n4. Нажмите **Сохранить**`,
@@ -33,7 +33,7 @@ const PREDEFINED_RESPONSES: Record<AILanguage, Record<string, string>> = {
   },
   en: {
     jobs_search: `**Finding a Job:**\n\n1. Go to the **Jobs** section\n2. Enter keywords\n3. Use filters\n4. Click **Apply**\n\n**Tip:** Complete your profile!`,
-    post_job: `**Posting a Job:**\n\n1. Open employer dashboard\n2. Click **Post New Job**\n3. Fill in details\n4. Click **Publish**`,
+    post_job: `**Listings are closed.**\n\nEmployers do not post ads. The orders screen shows workers. Call the phone they registered with, or open a chat.`,
     contract: `**Creating a Contract:**\n\n1. Agree with candidate\n2. Click **Create Contract**\n3. Enter terms\n4. Both parties sign`,
     dispute: `**If a Dispute Arises:**\n\n1. Go to contract page\n2. Click **Open Dispute**\n3. Describe the issue\n4. Admin reviews within 24-48 hours`,
     profile: `**Completing Profile:**\n\n1. Go to **My Profile**\n2. Add information\n3. Upload photo\n4. Click **Save**`,
