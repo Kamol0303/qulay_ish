@@ -11,7 +11,6 @@ import PeopleDirectoryPage from './pages/PeopleDirectoryPage';
 import ProfilePage from './pages/ProfilePage';
 import MyProfilePage from './pages/MyProfilePage';
 import ChatPage from './pages/ChatPage';
-import StatisticsPage from './pages/StatisticsPage';
 import CoursesPage from './pages/CoursesPage';
 import EmployerDashboard from './pages/employer/Dashboard';
 import WorkerServices from './pages/employer/WorkerServices';
@@ -97,7 +96,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
           </RoleProtectedRoute>
         }
       />
-      <Route path="/statistics" element={<StatisticsPage />} />
+      <Route path="/statistics" element={<Navigate to="/" replace />} />
       <Route path="/courses" element={<CoursesPage />} />
 
       <Route path="/qulay-ish" element={<QualayIshPage />} />

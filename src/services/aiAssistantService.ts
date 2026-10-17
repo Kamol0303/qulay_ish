@@ -464,7 +464,6 @@ export const aiAssistantService = {
       admin: [
         "How do I verify users?",
         "How do I manage disputes?",
-        "How do I view platform statistics?",
         "How do I moderate content?"
       ],
       general: [

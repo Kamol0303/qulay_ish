@@ -55,7 +55,6 @@ export default function Layout({
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="/jobs" className="hover:text-primary transition-colors">{t('nav.jobs_link')}</a></li>
                 <li><a href="/workers" className="hover:text-primary transition-colors">{t('nav.workers_link')}</a></li>
-                <li><a href="/statistics" className="hover:text-primary transition-colors">{t('nav.statistics')}</a></li>
                 <li><a href="/about" className="hover:text-primary transition-colors">{t('nav.about')}</a></li>
               </ul>
             </div>

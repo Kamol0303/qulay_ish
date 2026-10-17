@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LogOut, User, Briefcase, BarChart2, MessageSquare, Menu, X, Globe, ChevronDown, Moon, Sun } from 'lucide-react';
+import { LogOut, User, Briefcase, MessageSquare, Menu, X, Globe, ChevronDown, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { normalizeLanguageCode } from '../lib/utils';
@@ -39,7 +39,6 @@ export default function Header({ minimalNav = false }: { minimalNav?: boolean })
     ? []
     : [
         { name: t('nav.jobs_link'), path: '/jobs', icon: Briefcase },
-        { name: t('nav.statistics'), path: '/statistics', icon: BarChart2 },
       ];
 
   const profilePath = '/my-profile';

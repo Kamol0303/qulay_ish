@@ -437,12 +437,6 @@ export default function LandingPage() {
             >
               {t('landing.register_now')}
             </Link>
-            <Link
-              to="/statistics"
-              className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-xl hover:bg-blue-600 transition-all border border-blue-500"
-            >
-              {t('landing.view_stats')}
-            </Link>
           </div>
         </div>
       </section>

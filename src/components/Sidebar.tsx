@@ -68,7 +68,6 @@ export default function Sidebar() {
       { icon: Briefcase, label: t('nav.sidebar.jobs'), path: '/admin/jobs', end: false },
       { icon: CheckCircle, label: t('nav.sidebar.contracts'), path: '/admin/contracts', end: false },
       { icon: AlertTriangle, label: t('nav.sidebar.disputes'), path: '/admin/disputes', end: false },
-      { icon: BarChart3, label: t('nav.sidebar.statistics'), path: '/statistics', end: true },
       { icon: Settings, label: t('nav.sidebar.settings'), path: '/admin/settings', end: true },
     ],
     super_admin: [
