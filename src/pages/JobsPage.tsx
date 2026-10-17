@@ -3,6 +3,8 @@ import React from 'react';
 import { api } from '../lib/api';
 import { Job } from '../types';
 import { Search, MapPin, SlidersHorizontal, ArrowLeft } from 'lucide-react';
+import SafeSelect from '../components/SafeSelect';
+import { SERVICE_DIRECTIONS, isServiceDirection, jobMatchesDirection } from '../constants/categories';
 import Layout from '../components/Layout';
 import JobCard from '../components/JobCard';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +27,10 @@ export default function JobsPage() {
   // Individual filter states for better clarity and control
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [searchQuery, setSearchQuery] = React.useState(() => searchParams.get('search') ?? '');
+  const [direction, setDirection] = React.useState(() => {
+    const picked = searchParams.get('direction') || searchParams.get('search') || '';
+    return isServiceDirection(picked) ? picked : '';
+  });
   const [districtFilter, setDistrictFilter] = React.useState(() => searchParams.get('district') ?? '');
   const [sortBy, setSortBy] = React.useState('price-low');
   const [origin, setOrigin] = React.useState<{ lat: number; lng: number } | null>(null);
@@ -53,13 +58,8 @@ export default function JobsPage() {
           status: 'open',
           ...(isValidDistrictId(districtFilter) ? { district: districtFilter } : {}),
         });
-        if (searchQuery.trim()) {
-          const searchLower = searchQuery.toLowerCase().trim();
-          filtered = filtered.filter((job: Job) => {
-            const titleMatch = job.title?.toLowerCase().includes(searchLower);
-            const descMatch = job.description?.toLowerCase().includes(searchLower);
-            return titleMatch || descMatch;
-          });
+        if (direction) {
+          filtered = filtered.filter((job: Job) => jobMatchesDirection(job, direction));
         }
 
         const distanceOf = (job: Job) => {
@@ -98,13 +98,13 @@ export default function JobsPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [sortBy, searchQuery, districtFilter, profile?.district, origin]);
+  }, [sortBy, direction, districtFilter, profile?.district, origin]);
 
   /**
    * Clear all filters and reset to defaults
    */
   const handleClearFilters = () => {
-    setSearchQuery('');
+    setDirection('');
     setDistrictFilter('');
     setSortBy('price-low');
     setIsFilterOpen(false);
@@ -159,10 +159,12 @@ export default function JobsPage() {
           profile={profile}
         />
       )}
-      <div className="bg-slate-900 pt-16 pb-32 relative overflow-hidden">
+      <div className="bg-slate-900 pt-16 pb-32 relative">
         {/* Background Accents */}
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 skew-x-12 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-emerald-500/5 -skew-x-12 -translate-x-1/4" />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 skew-x-12 translate-x-1/4" />
+          <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-emerald-500/5 -skew-x-12 -translate-x-1/4" />
+        </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <button
@@ -182,15 +184,29 @@ export default function JobsPage() {
             </p>
             
             <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative group">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-400 transition-colors" size={20} />
-                <input
-                  type="text"
-                  placeholder={t('jobs.search_placeholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-14 pr-6 py-5 rounded-[24px] border-none focus:ring-4 focus:ring-blue-500/20 outline-none shadow-2xl text-lg bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-900 placeholder:text-blue-400 font-bold transition-all"
-                />
+              <div className="flex-1 relative">
+                <Search className="pointer-events-none absolute left-5 top-5 text-blue-700" size={20} />
+                <SafeSelect
+                  id="job-direction"
+                  value={direction}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDirection(isServiceDirection(next) ? next : '');
+                    const params = new URLSearchParams(searchParams);
+                    params.delete('search');
+                    if (isServiceDirection(next)) params.set('direction', next);
+                    else params.delete('direction');
+                    setSearchParams(params, { replace: true });
+                  }}
+                  className="w-full min-h-[64px] rounded-[24px] bg-white pl-14 pr-6 py-5 text-left text-lg font-bold text-slate-900 shadow-2xl"
+                >
+                  <option value="">{t('jobs.all_directions')}</option>
+                  {SERVICE_DIRECTIONS.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {t(`jobs.directions.${item.id}`, { defaultValue: item.name })}
+                    </option>
+                  ))}
+                </SafeSelect>
               </div>
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}

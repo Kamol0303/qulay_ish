@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { Job } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
-import { CATEGORIES } from '../../constants/categories';
+import { SERVICE_DIRECTIONS, isServiceDirection, jobMatchesDirection } from '../../constants/categories';
 import { filterJobsForSamarkand } from '../../lib/utils';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../../lib/verificationGate';
 import ApplyModal from '../../components/ApplyModal';
@@ -33,7 +33,7 @@ export default function JobsMobile() {
         ...(profile?.district ? { nearDistrict: profile.district } : {}),
       });
       let filtered = filterJobsForSamarkand(rows, { status: 'open' });
-      if (category) filtered = filtered.filter((j) => j.category === category);
+      if (category) filtered = filtered.filter((j) => jobMatchesDirection(j, category));
       setJobs(filtered);
     } catch {
       setJobs([]);
@@ -50,7 +50,10 @@ export default function JobsMobile() {
 
   const chips = [
     { id: '', label: t('jobs.all_categories', { defaultValue: 'Barcha toifalar' }) },
-    ...CATEGORIES.map((c) => ({ id: c.id, label: t(`categories.${c.id}`, { defaultValue: c.name }) })),
+    ...SERVICE_DIRECTIONS.map((item) => ({
+      id: item.id,
+      label: t(`jobs.directions.${item.id}`, { defaultValue: item.name }),
+    })),
   ];
 
   const onApply = (job: Job) => {
@@ -87,7 +90,9 @@ export default function JobsMobile() {
               <MobileCard key={job.id}>
                 <div className="flex justify-between gap-2 mb-2">
                   <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-1 rounded-lg">
-                    {t(`categories.${job.category}`, { defaultValue: job.category })}
+                    {isServiceDirection(job.category)
+                      ? t(`jobs.directions.${job.category}`)
+                      : t(`categories.${job.category}`, { defaultValue: job.category })}
                   </span>
                   <span className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1">
                     <Banknote size={14} />

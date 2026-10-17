@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, MapPin, Briefcase, Users, TrendingUp, ShieldCheck, ArrowRight, FileText, ClipboardCheck, Edit3 } from 'lucide-react';
-import { CATEGORIES } from '../constants/categories';
+import { CATEGORIES, SERVICE_DIRECTIONS } from '../constants/categories';
 import { SAMARQAND_DISTRICTS } from '../constants/districts';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
@@ -13,7 +13,7 @@ export default function LandingPage() {
   const { user, profile } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDirection, setSelectedDirection] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [currentDistrictIndex, setCurrentDistrictIndex] = React.useState(0);
   const samarkandDistricts = SAMARQAND_DISTRICTS;
@@ -104,14 +104,19 @@ export default function LandingPage() {
       <section className="relative z-20 -mt-12 max-w-5xl mx-auto px-4">
         <div className="bg-white text-slate-900 p-3 rounded-[32px] shadow-2xl border border-gray-100 flex flex-col md:flex-row gap-2" style={{ colorScheme: 'light' }}>
           <div className="flex-1 flex items-center px-6 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-            <Search className="text-slate-500 mr-3" size={24} />
-            <input 
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('landing.search_placeholder')} 
-              className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-medium text-slate-900 placeholder:text-slate-500"
-            />
+            <Search className="text-slate-500 mr-3 shrink-0" size={24} />
+            <SafeSelect
+              value={selectedDirection}
+              onChange={(e) => setSelectedDirection(e.target.value)}
+              className="w-full bg-transparent text-left text-lg font-medium text-slate-900"
+            >
+              <option value="">{t('jobs.all_directions')}</option>
+              {SERVICE_DIRECTIONS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {t(`jobs.directions.${item.id}`, { defaultValue: item.name })}
+                </option>
+              ))}
+            </SafeSelect>
           </div>
           <div className="flex-1 flex items-center px-6 py-4">
             <MapPin className="text-slate-500 mr-3" size={24} />
@@ -130,7 +135,7 @@ export default function LandingPage() {
             type="button"
             onClick={() => {
               const params = new URLSearchParams();
-              if (searchQuery.trim()) params.set('search', searchQuery.trim());
+              if (selectedDirection) params.set('direction', selectedDirection);
               if (selectedDistrict) params.set('district', selectedDistrict);
               navigate(`/jobs${params.toString() ? `?${params.toString()}` : ''}`);
             }}

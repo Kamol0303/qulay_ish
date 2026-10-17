@@ -230,6 +230,14 @@
     "title": "Заказы",
     "subtitle": "Смотрите открытые заказы и выбирайте подходящий.",
     "search_placeholder": "Поиск заказа (например: няня, уборка...)",
+    "all_directions": "Все направления",
+    "directions": {
+      "childcare": "Уход за маленькими детьми",
+      "house_cleaning": "Уборка дома",
+      "hotel_cleaning": "Уборка гостиницы",
+      "elder_care": "Уход за пожилыми",
+      "postpartum_care": "Послеродовой уход"
+    },
     "filters": "Фильтры",
     "region": "Область",
     "district": "Район",

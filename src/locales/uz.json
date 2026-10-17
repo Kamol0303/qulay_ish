@@ -230,6 +230,14 @@
     "title": "Buyurtmalar",
     "subtitle": "Ochiq buyurtmalarni koʻring va mosini tanlang.",
     "search_placeholder": "Buyurtma qidirish (masalan: enaga, tozalash...)",
+    "all_directions": "Barcha yoʻnalishlar",
+    "directions": {
+      "childcare": "Yosh bolalarga enagalik",
+      "house_cleaning": "Uy tozalash",
+      "hotel_cleaning": "Mehmonxona tozalash",
+      "elder_care": "Keksalarga qarash",
+      "postpartum_care": "Tugʻruqdan keyingi parvarish"
+    },
     "filters": "Filtrlar",
     "region": "Viloyat",
     "district": "Tuman",

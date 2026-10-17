@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Briefcase, Users, CheckCircle, XCircle, Trash2, Image as ImageIcon, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
-import { CATEGORIES } from '../constants/categories';
+import { SERVICE_DIRECTIONS } from '../constants/categories';
 import { REGIONS, DISTRICTS } from '../constants/locations';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
@@ -240,7 +240,9 @@ export default function EmployerDashboard() {
                       className="w-full px-5 py-3.5 rounded-2xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     >
                       <option value="">{t('common.select')}...</option>
-                      {CATEGORIES.map(c => <option key={c.id} value={c.id}>{t(`categories.${c.id}`)}</option>)}
+                      {SERVICE_DIRECTIONS.map((item) => (
+                        <option key={item.id} value={item.id}>{t(`jobs.directions.${item.id}`, { defaultValue: item.name })}</option>
+                      ))}
                     </SafeSelect>
                   </div>
                   <div>

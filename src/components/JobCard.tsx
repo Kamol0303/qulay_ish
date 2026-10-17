@@ -6,6 +6,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey, toJsDate } from '../lib/utils';
+import { isServiceDirection } from '../constants/categories';
 
 interface JobCardProps {
   job: Job;
@@ -34,7 +35,9 @@ export default function JobCard({ job, onApply }: JobCardProps) {
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <span className="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-xl uppercase tracking-widest border border-primary/20">
-              {t(`categories.${job.category}`, { defaultValue: job.category })}
+              {isServiceDirection(job.category)
+                ? t(`jobs.directions.${job.category}`)
+                : t(`categories.${job.category}`, { defaultValue: job.category })}
             </span>
             {job.isPromoted && (
               <span className="flex items-center text-[10px] font-black text-blue-600 bg-blue-500/10 px-3 py-1.5 rounded-xl uppercase tracking-widest border border-blue-500/20 shadow-lg shadow-blue-500/10">

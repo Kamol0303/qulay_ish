@@ -7,7 +7,7 @@ import { Job } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { getCurrentPosition, isGeolocationAvailable } from '../../lib/geolocation';
 import { getDistrictKey } from '../../lib/utils';
-import { CATEGORIES } from '../../constants/categories';
+import { SERVICE_DIRECTIONS, isServiceDirection } from '../../constants/categories';
 import { REGIONS } from '../../constants/locations';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../../lib/verificationGate';
 import ApplyModal from '../../components/ApplyModal';
@@ -117,8 +117,8 @@ export default function NearbyJobs() {
                   className="w-full min-h-[44px] rounded-xl border border-border pl-9 pr-3 text-sm"
                 >
                   <option value="">{t('jobs.all_categories', { defaultValue: 'Barcha toifalar' })}</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>{t(`categories.${c.id}`, { defaultValue: c.name })}</option>
+                  {SERVICE_DIRECTIONS.map((item) => (
+                    <option key={item.id} value={item.id}>{t(`jobs.directions.${item.id}`, { defaultValue: item.name })}</option>
                   ))}
                 </SafeSelect>
               </div>
@@ -196,7 +196,9 @@ export default function NearbyJobs() {
                 <div key={job.id} className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
                   <div className="flex items-start justify-between gap-2">
                     <span className="rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
-                      {t(`categories.${job.category}`, { defaultValue: job.category })}
+                      {isServiceDirection(job.category)
+                        ? t(`jobs.directions.${job.category}`)
+                        : t(`categories.${job.category}`, { defaultValue: job.category })}
                     </span>
                     {job.distanceLabel && (
                       <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">

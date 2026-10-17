@@ -2,7 +2,7 @@ import { debugLogger } from '../../lib/debugLogger';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
-import { CATEGORIES } from '../../constants/categories';
+import { SERVICE_DIRECTIONS } from '../../constants/categories';
 import { isValidDistrictId } from '../../constants/districts';
 import { Briefcase, MapPin, DollarSign, CalendarClock, CheckCircle, AlertCircle, Sparkles, Loader } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -194,7 +194,9 @@ export default function CreateJob() {
                       className="w-full px-5 py-4 rounded-2xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     >
                       <option value="">{t('common.select')}...</option>
-                      {CATEGORIES.map(c => <option key={c.id} value={c.id}>{t(`categories.${c.id}`)}</option>)}
+                      {SERVICE_DIRECTIONS.map((item) => (
+                        <option key={item.id} value={item.id}>{t(`jobs.directions.${item.id}`, { defaultValue: item.name })}</option>
+                      ))}
                     </SafeSelect>
                   </div>
 

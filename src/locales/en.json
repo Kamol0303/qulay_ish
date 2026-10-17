@@ -230,6 +230,14 @@
     "title": "Orders",
     "subtitle": "Browse open orders and choose one that fits.",
     "search_placeholder": "Search orders (e.g. nanny, cleaning...)",
+    "all_directions": "All directions",
+    "directions": {
+      "childcare": "Childcare for young children",
+      "house_cleaning": "House cleaning",
+      "hotel_cleaning": "Hotel cleaning",
+      "elder_care": "Elderly care",
+      "postpartum_care": "Postpartum care"
+    },
     "filters": "Filters",
     "region": "Region",
     "district": "District",

@@ -1,3 +1,57 @@
+/** Service directions offered on the orders screen. */
+export const SERVICE_DIRECTIONS = [
+  {
+    id: 'childcare',
+    name: 'Yosh bolalarga enagalik',
+    aliases: ['nanny', 'babysitting'],
+    keywords: ['enaga', 'нян', 'nanny', 'bolalarga', 'yosh bola'],
+  },
+  {
+    id: 'house_cleaning',
+    name: 'Uy tozalash',
+    aliases: ['cleaner'],
+    keywords: ['uy tozalash', 'uy-joy', 'house clean', 'уборка дома', 'уборка квартир'],
+  },
+  {
+    id: 'hotel_cleaning',
+    name: 'Mehmonxona tozalash',
+    aliases: ['hospitality'],
+    keywords: ['mehmonxona', 'hotel', 'гостиниц'],
+  },
+  {
+    id: 'elder_care',
+    name: 'Keksalarga qarash',
+    aliases: ['caregiver'],
+    keywords: ['keksa', 'qariya', 'пожил', 'elder'],
+  },
+  {
+    id: 'postpartum_care',
+    name: 'Tugʻruqdan keyingi parvarish',
+    aliases: ['midwifery'],
+    keywords: ['tugʻruq', 'tugruq', "tug'ruq", 'keyingi parvarish', 'postpartum', 'послеродов'],
+  },
+] as const;
+
+export type ServiceDirectionId = (typeof SERVICE_DIRECTIONS)[number]['id'];
+
+export function isServiceDirection(value?: string | null): value is ServiceDirectionId {
+  return SERVICE_DIRECTIONS.some((direction) => direction.id === value);
+}
+
+/** A job matches a direction by its saved category or by the words in the title. */
+export function jobMatchesDirection(
+  job: { category?: string | null; title?: string | null; description?: string | null },
+  directionId: string,
+): boolean {
+  const direction = SERVICE_DIRECTIONS.find((item) => item.id === directionId);
+  if (!direction) return true;
+  const category = (job.category || '').trim();
+  if (category === direction.id || (direction.aliases as readonly string[]).includes(category)) return true;
+  const titled = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+  if (titled.includes(direction.name.toLowerCase())) return true;
+  return direction.keywords.some((word) => titled.includes(word));
+}
+
 export const CATEGORIES = [
   { id: 'nurse', name: 'Hamshira', icon: '👩‍⚕️' },
   { id: 'pedagogue', name: 'Pedagog', icon: '👨‍🏫' },
