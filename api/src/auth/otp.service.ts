@@ -74,7 +74,7 @@ export class OtpService {
     });
     if (recent) {
       throw new HttpException(
-        'Bir daqiqada faqat bitta OTP so\'rov yuborish mumkin',
+        'Bir daqiqada faqat bitta tasdiqlash kodi so\'rash mumkin',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -97,7 +97,7 @@ export class OtpService {
     throw new BadRequestException(`SMS yuborib bo'lmadi: ${detail}`);
   }
 
-  /** POST /auth/send-otp — SMS only when needed (prefer password auth; reset uses OTP) */
+  /** POST /auth/send-otp — public sign-in is phone number plus SMS code. */
   async sendOtp(dto: SendOtpDto): Promise<{ success: true }> {
     const phone = this.normalizePhone(dto.phone);
     this.validateE164Phone(phone);
@@ -113,7 +113,6 @@ export class OtpService {
 
     let existingMeta:
       | {
-          passwordHash?: string;
           purpose?: string;
           firstName?: string;
           lastName?: string;
@@ -137,11 +136,7 @@ export class OtpService {
       if (!registerName.firstName || registerName.firstName.length < 2) {
         throw new BadRequestException('Ism majburiy (kamida 2 ta belgi)');
       }
-      if (!dto.password || dto.password.length < 8) {
-        throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
-      }
       existingMeta = {
-        passwordHash: await bcrypt.hash(dto.password, 10),
         firstName: registerName.firstName,
         lastName: registerName.lastName,
         ...(isValidDistrictId(dto.district) ? { district: dto.district } : {}),
@@ -227,12 +222,12 @@ export class OtpService {
     });
 
     if (!session) {
-      throw new NotFoundException('Session topilmadi, qayta OTP so\'rang');
+      throw new NotFoundException('Session topilmadi, tasdiqlash kodini qayta so\'rang');
     }
 
     if (session.expiresAt < new Date()) {
       await this.prisma.otpSession.delete({ where: { id: session.id } }).catch(() => undefined);
-      throw new GoneException('OTP muddati tugagan');
+      throw new GoneException('Tasdiqlash kodi muddati tugagan');
     }
 
     if (session.attempts >= OTP_MAX_ATTEMPTS) {
@@ -242,7 +237,7 @@ export class OtpService {
       });
       throw new HttpException(
         {
-          message: 'Urinishlar soni tugadi, yangi OTP so\'rang',
+          message: 'Urinishlar soni tugadi, yangi tasdiqlash kodi so\'rang',
           remainingAttempts: 0,
           maxAttempts: OTP_MAX_ATTEMPTS,
         },
@@ -261,7 +256,7 @@ export class OtpService {
       if (exhausted) {
         throw new HttpException(
           {
-            message: 'Urinishlar soni tugadi, yangi OTP so\'rang',
+            message: 'Urinishlar soni tugadi, yangi tasdiqlash kodi so\'rang',
             remainingAttempts: 0,
             maxAttempts: OTP_MAX_ATTEMPTS,
           },
@@ -269,7 +264,7 @@ export class OtpService {
         );
       }
       throw new UnauthorizedException({
-        message: 'OTP kodi noto\'g\'ri',
+        message: 'Tasdiqlash kodi noto\'g\'ri',
         remainingAttempts: OTP_MAX_ATTEMPTS - attempts,
         maxAttempts: OTP_MAX_ATTEMPTS,
       });
@@ -306,18 +301,12 @@ export class OtpService {
       const meta = (session.metadata && typeof session.metadata === 'object'
         ? session.metadata
         : {      }) as {
-        passwordHash?: string;
         firstName?: string;
         lastName?: string;
         profession?: string;
         educationLevel?: string;
         district?: string;
       };
-      if (!meta.passwordHash) {
-        throw new BadRequestException(
-          'Parol topilmadi. Ro\'yxatdan o\'tishni qaytadan boshlang va OTP oling.',
-        );
-      }
       // Public OTP registration creates workers only.
       const role = UserRole.worker;
       const fallbackSplit = splitFullName(session.fullName);
@@ -332,7 +321,6 @@ export class OtpService {
           email,
           phoneNumber: phone,
           role,
-          passwordHash: meta.passwordHash,
           region: 'Samarqand viloyati',
           ...(isValidDistrictId(meta.district) ? { district: meta.district } : {}),
           isVerified: false,

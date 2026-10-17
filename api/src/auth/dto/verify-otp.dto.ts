@@ -8,6 +8,6 @@ export class VerifyOtpDto {
   phone!: string;
 
   @IsString()
-  @Matches(/^\d{6}$/, { message: 'OTP kodi 6 raqamli bo\'lishi kerak' })
+  @Matches(/^\d{6}$/, { message: 'Tasdiqlash kodi 6 raqamli bo\'lishi kerak' })
   code!: string;
 }

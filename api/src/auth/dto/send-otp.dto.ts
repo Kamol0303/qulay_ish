@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { SAMARQAND_DISTRICT_IDS } from '../../common/samarqand-districts';
 
 export class SendOtpDto {
@@ -9,9 +9,9 @@ export class SendOtpDto {
   phone!: string;
 
   /**
-   * login — legacy OTP login (discouraged; use password)
-   * register — legacy OTP register (discouraged; use password register)
-   * reset — password recovery (SMS OTP only for this purpose)
+   * login — SMS code sign-in for an existing account
+   * register — SMS code sign-up (worker only, no password)
+   * reset — kept for older clients; public sign-in no longer uses a password
    */
   @IsOptional()
   @IsIn(['login', 'register', 'reset'])
@@ -36,10 +36,10 @@ export class SendOtpDto {
   @IsIn(['worker'], { message: 'Faqat ishchilar roʻyxatdan oʻta oladi' })
   role?: 'worker';
 
-  /** Required when purpose=register — hashed server-side, never stored plaintext */
-  @ValidateIf((o: SendOtpDto) => o.purpose === 'register')
+  /** Ignored. Public sign-in is phone + SMS code only. */
+  @IsOptional()
   @IsString()
-  @MinLength(8, { message: 'Parol kamida 8 ta belgidan iborat bo\'lishi kerak' })
+  @MaxLength(128)
   password?: string;
 
   /** Worker's main specialty/profession (optional, register only) */

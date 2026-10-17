@@ -53,7 +53,7 @@ export class AuthController {
   @Post('register')
   async register(@Body() _body: RegisterDto) {
     throw new BadRequestException(
-      'Ro\'yxatdan o\'tish uchun OTP SMS tasdiqlash majburiy. Avval OTP kodini oling, keyin tasdiqlang.',
+      'Ro\'yxatdan o\'tish uchun SMS tasdiqlash majburiy. Avval tasdiqlash kodini oling, keyin tasdiqlang.',
     );
   }
 

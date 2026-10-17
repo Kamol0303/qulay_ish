@@ -77,8 +77,7 @@ export default function AuthPage() {
   const mode = useMemo<AuthMode>(() => {
     const params = new URLSearchParams(location.search);
     const value = params.get('mode');
-    if (value === 'login') return 'login';
-    if (value === 'forgot') return 'forgot';
+    if (value === 'login' || value === 'forgot') return 'login';
     return 'register';
   }, [location.search]);
 
@@ -145,47 +144,47 @@ export default function AuthPage() {
     }
   }, [step, mode, clearMessages, setPartialState, navigate]);
 
+  const requestLoginOtp = useCallback(async () => {
+    const phoneValidation = validatePhoneNumber(state.phone);
+    if (!phoneValidation.isValid) {
+      setPartialState({
+        fieldErrors: { phone: phoneValidation.error || t('auth.phone_invalid') },
+        error: phoneValidation.error || t('auth.phone_invalid'),
+      });
+      return false;
+    }
+
+    setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
+    try {
+      const result = await authService.sendOtp({
+        phone: state.phone,
+        purpose: 'login',
+      });
+      if (!result.success) {
+        setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
+        return false;
+      }
+      setPartialState({
+        loading: false,
+        success: t('auth.code_sent_sms'),
+        resendSeconds: 60,
+      });
+      setStep('otp');
+      return true;
+    } catch (err) {
+      debugError('Login code error', err);
+      setPartialState({ loading: false, error: t('auth.unexpected_error') });
+      return false;
+    }
+  }, [state.phone, setPartialState, t]);
+
   const handleLogin = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       clearMessages();
-
-      const fieldErrors: AuthState['fieldErrors'] = {};
-      const phoneValidation = validatePhoneNumber(state.phone);
-      if (!phoneValidation.isValid) {
-        fieldErrors.phone = phoneValidation.error || 'Telefon raqami noto\'g\'ri.';
-      }
-      const passwordValidation = validatePassword(state.password);
-      if (!passwordValidation.isValid) {
-        fieldErrors.password = passwordValidation.error || '';
-      }
-      if (Object.keys(fieldErrors).length > 0) {
-        setPartialState({
-          fieldErrors,
-          error: Object.values(fieldErrors)[0] || 'Formani to\'ldiring',
-        });
-        return;
-      }
-
-      setPartialState({ loading: true, error: '', success: '', fieldErrors: {} });
-      try {
-        const result = await authService.loginWithPassword(state.phone, state.password);
-        if (!result.success || !result.profile) {
-          setPartialState({ loading: false, error: result.error || t('auth.unexpected_error') });
-          return;
-        }
-        setAuthProfile(result.profile);
-        setPartialState({
-          loading: false,
-          success: 'Tizimga muvaffaqiyatli kirdingiz.',
-        });
-        setStep('complete');
-      } catch (err) {
-        debugError('Login Error', err);
-        setPartialState({ loading: false, error: t('auth.unexpected_error') });
-      }
+      await requestLoginOtp();
     },
-    [state.phone, state.password, clearMessages, setPartialState, t, setAuthProfile],
+    [clearMessages, requestLoginOtp],
   );
 
   /** Register step 1: send SMS OTP (user is NOT created until OTP is verified) */
@@ -205,10 +204,6 @@ export default function AuthPage() {
         fieldErrors.lastName = lastNameValidation.error || '';
       }
     }
-    const passwordValidation = validatePassword(state.password);
-    if (!passwordValidation.isValid) {
-      fieldErrors.password = passwordValidation.error || '';
-    }
     if (Object.keys(fieldErrors).length > 0) {
       setPartialState({
         fieldErrors,
@@ -226,7 +221,6 @@ export default function AuthPage() {
         firstName: state.firstName.trim(),
         lastName: state.lastName.trim() || undefined,
         role: 'worker',
-        password: state.password,
         profession: state.profession || undefined,
         educationLevel: state.educationLevel || undefined,
       });
@@ -236,7 +230,7 @@ export default function AuthPage() {
       }
       setPartialState({
         loading: false,
-        success: 'OTP kodi SMS orqali yuborildi. Telefonni tasdiqlang.',
+        success: t('auth.code_sent_sms'),
         resendSeconds: 60,
       });
       setStep('otp');
@@ -248,7 +242,6 @@ export default function AuthPage() {
     }
   }, [
     state.phone,
-    state.password,
     state.firstName,
     state.lastName,
     state.profession,
@@ -274,7 +267,7 @@ export default function AuthPage() {
       clearMessages();
 
       if (!state.otp || state.otp.length !== 6) {
-        setPartialState({ error: 'OTP kodi 6 raqamli bo\'lishi kerak.' });
+        setPartialState({ error: t('auth.code_length') });
         return;
       }
 
@@ -288,7 +281,7 @@ export default function AuthPage() {
         setAuthProfile(result.profile);
         setPartialState({
           loading: false,
-          success: 'Telefon tasdiqlandi. Ro\'yxatdan o\'tish muvaffaqiyatli.',
+          success: mode === 'login' ? t('auth.demo_login_success') : t('auth.register_success'),
         });
         setStep('complete');
       } catch (err) {
@@ -296,7 +289,7 @@ export default function AuthPage() {
         setPartialState({ loading: false, error: t('auth.unexpected_error') });
       }
     },
-    [state.otp, state.phone, clearMessages, setPartialState, t, setAuthProfile],
+    [state.otp, state.phone, mode, clearMessages, setPartialState, t, setAuthProfile],
   );
 
   const requestResetOtp = useCallback(async () => {
@@ -349,8 +342,12 @@ export default function AuthPage() {
       await requestRegisterOtp();
       return;
     }
+    if (mode === 'login') {
+      await requestLoginOtp();
+      return;
+    }
     await requestResetOtp();
-  }, [state.resendSeconds, state.loading, clearMessages, mode, requestRegisterOtp, requestResetOtp]);
+  }, [state.resendSeconds, state.loading, clearMessages, mode, requestRegisterOtp, requestLoginOtp, requestResetOtp]);
 
   const handleVerifyResetOtp = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -512,71 +509,17 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                <div>
-                  <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('auth.password')}
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="auth-password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      value={state.password}
-                      onChange={(e) => {
-                        clearMessages();
-                        const password = e.target.value;
-                        const v = validatePassword(password);
-                        setPartialState({
-                          password,
-                          fieldErrors: {
-                            ...state.fieldErrors,
-                            password: password ? (v.isValid ? undefined : v.error) : undefined,
-                          },
-                        });
-                      }}
-                      placeholder="Parolingizni kiriting"
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                      disabled={state.loading}
-                      minLength={8}
-                      maxLength={128}
-                      aria-invalid={Boolean(state.fieldErrors.password)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {state.fieldErrors.password && (
-                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
-                  )}
-                </div>
-
-                <div className="flex justify-end -mt-2">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/auth?mode=forgot')}
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                  >
-                    Parolni unutdingizmi?
-                  </button>
-                </div>
-
                 <button
                   type="submit"
-                  disabled={state.loading || state.password.length < 8}
+                  disabled={state.loading}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 >
                   {state.loading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <Loader size={18} className="animate-spin" aria-hidden /> Kirilmoqda...
+                      <Loader size={18} className="animate-spin" aria-hidden /> {t('auth.sending')}
                     </span>
                   ) : (
-                    t('nav.login')
+                    t('auth.get_otp')
                   )}
                 </button>
               </form>
@@ -684,52 +627,6 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                <div>
-                  <label htmlFor="auth-reg-password" className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('auth.password')}
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="auth-reg-password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      value={state.password}
-                      onChange={(e) => {
-                        clearMessages();
-                        const password = e.target.value;
-                        const v = validatePassword(password);
-                        setPartialState({
-                          password,
-                          fieldErrors: {
-                            ...state.fieldErrors,
-                            password: password ? (v.isValid ? undefined : v.error) : undefined,
-                          },
-                        });
-                      }}
-                      placeholder={t('auth.password_hint')}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900"
-                      disabled={state.loading}
-                      minLength={8}
-                      maxLength={128}
-                      aria-invalid={Boolean(state.fieldErrors.password)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {state.fieldErrors.password ? (
-                    <p className="mt-1 text-xs text-red-600" role="alert">{state.fieldErrors.password}</p>
-                  ) : (
-                    <p className="mt-1 text-xs text-gray-500">{t('auth.password_hint')}</p>
-                  )}
-                </div>
-
                 <p className="text-sm text-slate-700 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
                   {t('auth.worker_only_notice')}
                 </p>
@@ -782,12 +679,12 @@ export default function AuthPage() {
 
                 <button
                   type="submit"
-                  disabled={state.loading || state.password.length < 8}
+                  disabled={state.loading}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 >
                   {state.loading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <Loader size={18} className="animate-spin" aria-hidden /> Yuborilmoqda...
+                      <Loader size={18} className="animate-spin" aria-hidden /> {t('auth.sending')}
                     </span>
                   ) : (
                     t('auth.get_otp')
@@ -849,14 +746,14 @@ export default function AuthPage() {
             )}
 
             {/* REGISTER / FORGOT — OTP */}
-            {(mode === 'register' || mode === 'forgot') && step === 'otp' && (
+            {(mode === 'register' || mode === 'login' || mode === 'forgot') && step === 'otp' && (
               <form
-                onSubmit={mode === 'register' ? handleVerifyRegisterOtp : handleVerifyResetOtp}
+                onSubmit={mode === 'forgot' ? handleVerifyResetOtp : handleVerifyRegisterOtp}
                 className="space-y-5"
               >
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    OTP kodi (6 raqam)
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="auth-otp">
+                    {t('auth.code_label')}
                   </label>
                   <input
                     id="auth-otp"
@@ -873,13 +770,11 @@ export default function AuthPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-gray-900 text-center text-2xl tracking-widest font-mono"
                     disabled={state.loading}
                     maxLength={6}
-                    aria-label="OTP kodi"
+                    aria-label={t('auth.code')}
                   />
                   <p className="text-xs text-gray-500 mt-2">
-                    {formattedPhone} raqamiga yuborilgan kod
-                    {mode === 'register'
-                      ? '. Tasdiqlangandan keyin akkaunt bazaga saqlanadi.'
-                      : ''}
+                    {t('auth.code_sent_to', { phone: formattedPhone })}
+                    {mode === 'register' ? ` ${t('auth.register_saved_note')}` : ''}
                   </p>
                 </div>
 
@@ -893,9 +788,11 @@ export default function AuthPage() {
                       <Loader size={18} className="animate-spin" /> Tekshirilmoqda...
                     </span>
                   ) : mode === 'register' ? (
-                    'Tasdiqlash va roʻyxatdan oʻtish'
+                    t('auth.verify_register')
+                  ) : mode === 'login' ? (
+                    t('nav.login')
                   ) : (
-                    'Tasdiqlash'
+                    t('auth.verify_code')
                   )}
                 </button>
 
@@ -906,8 +803,8 @@ export default function AuthPage() {
                   className="w-full text-blue-600 hover:text-blue-700 disabled:text-gray-400 font-medium py-2"
                 >
                   {state.resendSeconds > 0
-                    ? `Qayta yuborish (${state.resendSeconds}s)`
-                    : 'OTP kodini qayta yuborish'}
+                    ? t('auth.resend_wait', { seconds: state.resendSeconds })
+                    : t('auth.resend_code')}
                 </button>
               </form>
             )}
