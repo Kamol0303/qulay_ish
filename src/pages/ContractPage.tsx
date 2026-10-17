@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import DisputeModal from '../components/DisputeModal';
 import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../lib/verificationGate';
 import { goBack } from '../lib/goBack';
+import { appAlert } from '../lib/appDialog';
 
 export default function ContractPage() {
   const { t, i18n } = useTranslation();
@@ -80,7 +81,7 @@ export default function ContractPage() {
   const handleSign = async () => {
     if (!contract || !profile) return;
     if (profile.role === 'worker' && !isIdentityVerified(profile)) {
-      window.alert(VERIFICATION_REQUIRED_MESSAGE);
+      await appAlert(VERIFICATION_REQUIRED_MESSAGE);
       navigate('/verification');
       return;
     }

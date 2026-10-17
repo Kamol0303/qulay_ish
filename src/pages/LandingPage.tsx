@@ -2,12 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, MapPin, Briefcase, Users, TrendingUp, ShieldCheck, ArrowRight, FileText, ClipboardCheck, Edit3 } from 'lucide-react';
-import { REGIONS, DISTRICTS } from '../constants/locations';
 import { CATEGORIES } from '../constants/categories';
+import { SAMARQAND_DISTRICTS } from '../constants/districts';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
-import { getDistrictKey } from '../lib/utils';
 import SafeSelect from '../components/SafeSelect';
 
 export default function LandingPage() {
@@ -17,7 +16,7 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [currentDistrictIndex, setCurrentDistrictIndex] = React.useState(0);
-  const samarkandDistricts = DISTRICTS["Samarqand viloyati"];
+  const samarkandDistricts = SAMARQAND_DISTRICTS;
 
   useEffect(() => {
     if (user && profile) {
@@ -69,7 +68,9 @@ export default function LandingPage() {
                     exit={{ opacity: 0, y: -10 }}
                     className="inline-block"
                   >
-                    {t(`districts.${getDistrictKey(samarkandDistricts[currentDistrictIndex])}`)}
+                    {t(`districts.${samarkandDistricts[currentDistrictIndex].id}`, {
+                      defaultValue: samarkandDistricts[currentDistrictIndex].name,
+                    })}
                   </motion.span>
                 </span>
                 <br />
@@ -120,10 +121,13 @@ export default function LandingPage() {
               onChange={(e) => setSelectedDistrict(e.target.value)}
             >
               <option value="">{t('landing.all_districts')}</option>
-              {samarkandDistricts.map(d => <option key={d} value={d}>{t(`districts.${getDistrictKey(d)}`)}</option>)}
+              {samarkandDistricts.map((d) => (
+                <option key={d.id} value={d.id}>{t(`districts.${d.id}`, { defaultValue: d.name })}</option>
+              ))}
             </SafeSelect>
           </div>
-          <button 
+          <button
+            type="button"
             onClick={() => {
               const params = new URLSearchParams();
               if (searchQuery.trim()) params.set('search', searchQuery.trim());

@@ -31,6 +31,7 @@ import { getDistrictKey } from '../../lib/utils';
 import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
 import ReviewModal from '../../components/ReviewModal';
 import { goBack } from '../../lib/goBack';
+import { appAlert, appConfirm } from '../../lib/appDialog';
 
 export default function EmployerJobDetails() {
   const { t, i18n } = useTranslation();
@@ -95,7 +96,7 @@ export default function EmployerJobDetails() {
   };
 
   const handleDeleteJob = async () => {
-    if (!jobId || !window.confirm(t('employer.dashboard.delete_job_confirm'))) return;
+    if (!jobId || !(await appConfirm(t('employer.dashboard.delete_job_confirm')))) return;
     try {
       await jobService.delete(jobId);
       navigate('/employer/dashboard');
@@ -104,20 +105,20 @@ export default function EmployerJobDetails() {
     }
   };
 
-  const requireVerified = () => {
+  const requireVerified = async () => {
     if (isIdentityVerified(profile)) return true;
-    window.alert(VERIFICATION_REQUIRED_MESSAGE);
+    await appAlert(VERIFICATION_REQUIRED_MESSAGE);
     navigate('/verification');
     return false;
   };
 
-  const handleEditJob = () => {
-    if (!requireVerified() || !jobId) return;
+  const handleEditJob = async () => {
+    if (!(await requireVerified()) || !jobId) return;
     navigate(`/employer/create-job?edit=${jobId}`);
   };
 
   const handleActivateJob = async () => {
-    if (!requireVerified() || !jobId) return;
+    if (!(await requireVerified()) || !jobId) return;
     try {
       await jobService.markAsInProgress(jobId);
       setJob((prev) => (prev ? { ...prev, status: 'active' } : prev));

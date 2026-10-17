@@ -10,6 +10,7 @@ import { SkeletonList } from '../components/SkeletonCard';
 import PullToRefresh from '../components/PullToRefresh';
 import SwipeableRow from '../components/SwipeableRow';
 import ReviewModal from '../../components/ReviewModal';
+import { appConfirm } from '../../lib/appDialog';
 
 type Row = Application & { job?: Job; worker?: Profile };
 
@@ -43,7 +44,7 @@ export function WorkerApplicationsMobile() {
   }, [profile?.uid]);
 
   const complete = async (id: string) => {
-    if (!window.confirm('Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi.')) return;
+    if (!(await appConfirm('Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi.'))) return;
     setActionError(null);
     setCompletingId(id);
     try {

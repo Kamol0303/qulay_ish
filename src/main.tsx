@@ -5,6 +5,7 @@ import './index.css';
 import './i18n';
 import { clearLegacyDemoStorage } from './lib/demoMode';
 import { hydrateTokenFromNativePreferences } from './native/tokenPreferences';
+import { preventNativeCrashes } from './native/preventNativeCrashes';
 
 // Suppress React DevTools message and other noise in development
 if (import.meta.env.DEV) {
@@ -19,6 +20,7 @@ if (import.meta.env.DEV) {
 }
 
 clearLegacyDemoStorage();
+preventNativeCrashes();
 
 async function boot() {
   await hydrateTokenFromNativePreferences();

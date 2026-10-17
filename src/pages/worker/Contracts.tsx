@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { isIdentityVerified, VERIFICATION_REQUIRED_MESSAGE } from '../../lib/verificationGate';
+import { appAlert } from '../../lib/appDialog';
 
 function safeFormatDate(value: any, fmt: string, options: any): string {
   try {
@@ -68,7 +69,7 @@ export default function WorkerContracts() {
   const handleSign = async (contractId: string) => {
     try {
       if (!isIdentityVerified(profile)) {
-        window.alert(VERIFICATION_REQUIRED_MESSAGE);
+        await appAlert(VERIFICATION_REQUIRED_MESSAGE);
         navigate('/verification');
         return;
       }

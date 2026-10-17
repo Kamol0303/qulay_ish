@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { uz, ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey, toJsDate } from '../../lib/utils';
+import { appConfirm } from '../../lib/appDialog';
 
 export default function WorkerApplications() {
   const { t, i18n } = useTranslation();
@@ -55,7 +56,7 @@ export default function WorkerApplications() {
   }, [profile]);
 
   const handleComplete = async (appId: string) => {
-    if (!window.confirm(t('worker.dashboard.complete_confirm', { defaultValue: 'Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi.' }))) {
+    if (!(await appConfirm(t('worker.dashboard.complete_confirm', { defaultValue: 'Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi.' })))) {
       return;
     }
     setActionError(null);

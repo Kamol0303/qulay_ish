@@ -70,7 +70,7 @@ export default function DisputeModal({ isOpen, onClose, contractId, openedById }
                   </div>
                   <h3 className="text-2xl font-black tracking-tight">{t('dispute.title')}</h3>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">
+                <button type="button" onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">
                   <X size={24} />
                 </button>
               </div>

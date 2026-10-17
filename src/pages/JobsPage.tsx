@@ -11,7 +11,8 @@ import { filterJobsForSamarkand } from '../lib/utils';
 import { pointDistanceKm } from '../constants/districts';
 import { getCurrentPosition } from '../lib/geolocation';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { isValidDistrictId } from '../constants/districts';
 import { isIdentityVerified, VERIFICATION_REDIRECT_STATE } from '../lib/verificationGate';
 import { goBack } from '../lib/goBack';
 
@@ -19,11 +20,13 @@ export default function JobsPage() {
   const { profile } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Individual filter states for better clarity and control
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = React.useState(() => searchParams.get('search') ?? '');
+  const [districtFilter, setDistrictFilter] = React.useState(() => searchParams.get('district') ?? '');
   const [sortBy, setSortBy] = React.useState('price-low');
   const [origin, setOrigin] = React.useState<{ lat: number; lng: number } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
@@ -46,7 +49,10 @@ export default function JobsPage() {
         });
         if (cancelled) return;
 
-        let filtered = filterJobsForSamarkand(apiJobs, { status: 'open' });
+        let filtered = filterJobsForSamarkand(apiJobs, {
+          status: 'open',
+          ...(isValidDistrictId(districtFilter) ? { district: districtFilter } : {}),
+        });
         if (searchQuery.trim()) {
           const searchLower = searchQuery.toLowerCase().trim();
           filtered = filtered.filter((job: Job) => {
@@ -92,15 +98,17 @@ export default function JobsPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [sortBy, searchQuery, profile?.district, origin]);
+  }, [sortBy, searchQuery, districtFilter, profile?.district, origin]);
 
   /**
    * Clear all filters and reset to defaults
    */
   const handleClearFilters = () => {
     setSearchQuery('');
+    setDistrictFilter('');
     setSortBy('price-low');
     setIsFilterOpen(false);
+    setSearchParams({}, { replace: true });
   };
 
   const useMyLocation = async () => {

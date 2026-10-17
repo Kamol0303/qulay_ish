@@ -13,6 +13,7 @@ import { mediaUrl, avatarFallback } from '../lib/mediaUrl';
 import { downloadResumePdf } from '../lib/resumePdf';
 import { VerificationStatusCard } from '../components/verification/VerificationStatusCard';
 import { CoreIndicatorsCard } from '../components/profile/CoreIndicatorsCard';
+import { appAlert } from '../lib/appDialog';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -49,13 +50,13 @@ export default function ProfilePage() {
     };
   }, [userId, currentUser, currentProfile]);
 
-  const startChat = () => {
+  const startChat = async () => {
     if (!currentUser) {
       navigate('/auth');
       return;
     }
     if (!canViewPhone && currentProfile?.role !== 'super_admin') {
-      window.alert(t('chat.restricted_before_approval', 'Chat available after application approval.'));
+      await appAlert(t('chat.restricted_before_approval', 'Chat available after application approval.'));
       return;
     }
     navigate(`/chat?with=${userId}`);

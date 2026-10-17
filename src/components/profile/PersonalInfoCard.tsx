@@ -216,11 +216,15 @@ export function PersonalInfoCard({
         <label>
           <FieldLabel label="Tug'ilgan sana" required />
           <input
-            type="date"
+            type="text"
+            inputMode="numeric"
+            placeholder="YYYY-MM-DD"
+            pattern="\d{4}-\d{2}-\d{2}"
             disabled={!editable}
             value={info.dateOfBirth || ''}
             onChange={(e) => patch({ dateOfBirth: e.target.value, age: calcAgeFromDob(e.target.value) })}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-slate-900"
+            style={{ colorScheme: 'light' }}
           />
           {fieldErrors.dateOfBirth && <p className="mt-1 text-xs text-rose-600">{fieldErrors.dateOfBirth}</p>}
         </label>

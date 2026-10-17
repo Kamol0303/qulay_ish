@@ -98,7 +98,7 @@ export default function ReviewModal({
                     {jobTitle ? ` — ${jobTitle}` : ''}
                   </p>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">
+                <button type="button" onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">
                   <X size={24} className="text-muted-foreground" />
                 </button>
               </div>

@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Loader2, Printer } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Profile } from '../types';
 import { downloadResumePdf, RESUME_TEMPLATES } from '../lib/resumePdf';
+import { Capacitor } from '@capacitor/core';
 import { PremiumResume } from './resume/PremiumResume';
 import Layout from './Layout';
 
@@ -70,7 +71,13 @@ export default function ResumeView() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => {
+                if (Capacitor.isNativePlatform()) {
+                  void downloadResumePdf(profile);
+                  return;
+                }
+                window.print();
+              }}
               className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium"
             >
               <Printer className="h-4 w-4" /> Print

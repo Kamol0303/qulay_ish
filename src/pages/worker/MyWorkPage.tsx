@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useIsMobileUi } from '../../hooks/useIsMobileUi';
 import { api } from '../../lib/api';
 import type { Application, Job } from '../../types';
+import { appConfirm } from '../../lib/appDialog';
 
 type Assignment = Application & { job?: Job };
 
@@ -44,7 +45,7 @@ function MyWorkContent() {
   }, [load]);
 
   const complete = async (assignment: Assignment) => {
-    if (!window.confirm(t('my_work.complete_confirm'))) return;
+    if (!(await appConfirm(t('my_work.complete_confirm')))) return;
     setError('');
     setCompleting(assignment.id);
     try {

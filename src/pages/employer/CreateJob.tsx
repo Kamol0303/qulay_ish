@@ -52,10 +52,6 @@ export default function CreateJob() {
     scheduledAt: '',
     workType: 'one_time',
   });
-  const now = new Date();
-  const minimumSchedule = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
-    .toISOString()
-    .slice(0, 16);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +67,11 @@ export default function CreateJob() {
     // Validation
     if (!formData.title || !formData.description || !formData.category || !formData.price || !formData.scheduledAt) {
       setError(t('common.fill_all_fields'));
+      return;
+    }
+    const scheduled = new Date(formData.scheduledAt);
+    if (Number.isNaN(scheduled.getTime())) {
+      setError(t('common.invalid_datetime', { defaultValue: 'Vaqtni YYYY-MM-DDTHH:mm ko‘rinishida kiriting' }));
       return;
     }
     if (!isValidDistrictId(profile?.district)) {
@@ -252,12 +253,14 @@ export default function CreateJob() {
                       <div className="relative">
                         <CalendarClock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                         <input
-                          type="datetime-local"
+                          type="text"
+                          inputMode="numeric"
                           required
-                          min={minimumSchedule}
+                          placeholder="YYYY-MM-DDTHH:mm"
                           value={formData.scheduledAt}
                           onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
-                          className="w-full px-4 py-3 pl-11 rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                          className="w-full px-4 py-3 pl-11 rounded-xl border border-border bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                          style={{ colorScheme: 'light' }}
                         />
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">

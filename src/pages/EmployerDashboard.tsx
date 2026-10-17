@@ -13,6 +13,7 @@ import { REGIONS, DISTRICTS } from '../constants/locations';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
 import SafeSelect from '../components/SafeSelect';
+import { appConfirm } from '../lib/appDialog';
 
 export default function EmployerDashboard() {
   const { t } = useTranslation();
@@ -87,7 +88,7 @@ export default function EmployerDashboard() {
   };
 
   const handleDeleteJob = async (jobId: string) => {
-    if (window.confirm(t('employer.dashboard.delete_job_confirm'))) {
+    if (await appConfirm(t('employer.dashboard.delete_job_confirm'))) {
       await jobService.delete(jobId);
     }
   };

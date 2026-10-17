@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../../lib/utils';
+import { appConfirm } from '../../lib/appDialog';
 
 export default function MyServicePosts() {
   const { t, i18n } = useTranslation();
@@ -44,7 +45,7 @@ export default function MyServicePosts() {
   const handleDelete = async (id: string) => {
     // For now, keeping it simple but using translation. 
     // Ideally should be a custom modal.
-    if (!window.confirm(t('common.delete_confirm'))) return;
+    if (!(await appConfirm(t('common.delete_confirm')))) return;
     setDeletingId(id);
     try {
       await api.servicePosts.update(id, { status: 'inactive' });

@@ -16,6 +16,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import SafeSelect from '../../components/SafeSelect';
 import { useAuth } from '../../hooks/useAuth';
 import { api, type AdminStaffUser } from '../../lib/api';
+import { appConfirm, appPrompt } from '../../lib/appDialog';
 
 type NewAdmin = {
   fullName: string;
@@ -105,7 +106,7 @@ export default function AdminUsers() {
   };
 
   const handleReset = async (u: AdminStaffUser) => {
-    const next = window.prompt(t('admin_users.prompt_new_password', { name: u.fullName }));
+    const next = await appPrompt(t('admin_users.prompt_new_password', { name: u.fullName }));
     if (next == null) return;
     if (next.length < 8) {
       setError(t('admin_users.err_password'));
@@ -125,7 +126,7 @@ export default function AdminUsers() {
   };
 
   const handleDelete = async (u: AdminStaffUser) => {
-    if (!window.confirm(t('admin_users.confirm_delete', { name: u.fullName }))) return;
+    if (!(await appConfirm(t('admin_users.confirm_delete', { name: u.fullName })))) return;
     setError('');
     setSuccess('');
     setBusyId(u.uid);
