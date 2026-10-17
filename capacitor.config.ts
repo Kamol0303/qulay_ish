@@ -40,9 +40,10 @@ const config: CapacitorConfig = {
       enabled: true,
     },
     SplashScreen: {
+      // Duration 0: the plugin must not touch Android 12's splash view.
+      // On Xiaomi that second touch throws and closes the APK at launch.
       launchAutoHide: true,
-      launchShowDuration: 400,
-      // Android 12 exit animation NPEs on Xiaomi (clearOnExitAnimationListener).
+      launchShowDuration: 0,
       launchFadeOutDuration: 0,
       backgroundColor: '#102833',
       showSpinner: false,

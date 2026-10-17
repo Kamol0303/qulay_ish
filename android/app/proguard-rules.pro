@@ -21,5 +21,7 @@
 #-renamesourcefileattribute SourceFile
 
 # Release minify must not strip plugins loaded by name from capacitor.plugins.json.
--keep class com.capacitorjs.plugins.** { *; }
+-keep class com.getcapacitor.** { *; }
+-keep class com.capacitorjs.** { *; }
 -keep class io.ionic.libs.iongeolocationlib.** { *; }
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault,InnerClasses,EnclosingMethod
