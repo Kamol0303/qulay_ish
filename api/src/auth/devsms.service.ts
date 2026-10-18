@@ -64,7 +64,7 @@ export class DevSmsService implements OnModuleInit {
     const token = this.getToken();
     if (!token) {
       if (this.isDevMode()) {
-        this.logger.warn("DEVSMS_TOKEN yo'q — OTP faqat terminalda [DEV OTP]");
+        this.logger.warn("DEVSMS_TOKEN yo'q — SMS ketmaydi");
         return;
       }
       this.logger.error(
@@ -147,14 +147,16 @@ export class DevSmsService implements OnModuleInit {
     return e164Phone.replace(/\D/g, '');
   }
 
-  private async call(body: Record<string, unknown>): Promise<{ smsId: number; requestId: string }> {
+  private async call(body: Record<string, unknown>): Promise<{ smsId: number; requestId: string; balance?: number }> {
     const token = this.getToken();
     if (!token) {
       throw new DevSmsError('TOKEN_MISSING', "DevSMS token sozlanmagan (api/.env DEVSMS_TOKEN)");
     }
 
     const url = `${this.getBaseUrl()}/send_sms.php`;
-    this.logger.log(`DevSMS so'rov: ${JSON.stringify(body)}`);
+    const logged = { ...body };
+    if ('otp_code' in logged) logged.otp_code = '******';
+    this.logger.log(`DevSMS so'rov: ${JSON.stringify(logged)}`);
 
     let res: Response;
     try {
@@ -196,7 +198,7 @@ export class DevSmsService implements OnModuleInit {
       this.logger.warn(`DevSMS balance past: ${data.data.balance}`);
     }
 
-    return { smsId: data.data.sms_id, requestId: data.data.request_id };
+    return { smsId: data.data.sms_id, requestId: data.data.request_id, balance: data.data.balance };
   }
 
   private inferCode(message: string): string {
@@ -220,13 +222,13 @@ export class DevSmsService implements OnModuleInit {
     phone: string,
     code: string,
     purpose: OtpPurpose = 'login',
-  ): Promise<{ smsId: number; requestId: string }> {
+  ): Promise<{ smsId: number; requestId: string; balance?: number }> {
     ensureApiEnvLoaded();
     const token = this.getToken();
 
     if (!token && this.isDevMode()) {
-      this.logger.warn(`[DEV OTP] ${phone} → ${code}`);
-      return { smsId: 0, requestId: `dev-${randomUUID()}` };
+      this.logger.warn(`[DEV OTP] ${phone} — SMS ketmaydi, token yo'q`);
+      return { smsId: 0, requestId: `dev-${randomUUID()}`, balance: undefined };
     }
 
     const templateType = this.templateType(purpose);

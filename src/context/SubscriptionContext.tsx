@@ -15,12 +15,12 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isStaff = profile?.role === 'super_admin' || profile?.role === 'admin';
   const [status, setStatus] = useState<SubscriptionStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!isSuperAdmin) {
+    if (!isStaff) {
       setStatus(null);
       return;
     }
@@ -34,14 +34,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     } finally {
       setLoading(false);
     }
-  }, [isSuperAdmin]);
+  }, [isStaff]);
 
   useEffect(() => {
     void refresh();
-    if (!isSuperAdmin) return;
+    if (!isStaff) return;
     const interval = setInterval(() => void refresh(), 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [refresh, isSuperAdmin]);
+  }, [refresh, isStaff]);
 
   const isPathBlocked = useCallback(
     (pathname: string) => {

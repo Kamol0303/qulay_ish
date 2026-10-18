@@ -25,14 +25,19 @@ export default function DashboardLayout({ children, title }: { children: React.R
   const mobileUi = useIsMobileUi();
   const { status, isPathBlocked } = useSubscription();
   const isSuperAdmin = profile?.role === 'super_admin';
-  const monthEnded = isSuperAdmin && Boolean(status?.blocked);
-  const pathStopped = monthEnded && isPathBlocked(location.pathname);
+  const isAdmin = profile?.role === 'admin';
+  const monthEnded = Boolean(status?.blocked);
+  const pathStopped = isSuperAdmin && monthEnded && isPathBlocked(location.pathname);
   const subscriptionContent = isSuperAdmin ? (
     <>
       <SubscriptionBanner />
       {pathStopped ? null : children}
       {monthEnded ? <SubscriptionBlock /> : null}
     </>
+  ) : isAdmin && monthEnded ? (
+    <div className="mx-auto max-w-lg px-6 py-24 text-center">
+      <p className="text-lg font-semibold">Panel to‘xtatilgan.</p>
+    </div>
   ) : (
     children
   );

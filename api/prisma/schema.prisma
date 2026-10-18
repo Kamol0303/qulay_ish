@@ -589,11 +589,28 @@ model PaymentOtp {
  * part is open. This row is not a user and never appears in admin lists.
  */
 model PlatformGate {
-  id        String   @id
-  state     String   @default("live")
-  billing   String   @default("paid")
-  sections  Json
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String   @id
+  state         String   @default("live")
+  billing       String   @default("paid")
+  sections      Json
+  staffPriceSom Int      @default(250000) @map("staff_price_som")
+  otpPriceSom   Int      @default(0) @map("otp_price_som")
+  otpCreditSom  Int      @default(0) @map("otp_credit_som")
+  aiPriceSom    Int      @default(0) @map("ai_price_som")
+  aiCreditSom   Int      @default(0) @map("ai_credit_som")
+  smsBalance    Int?     @map("sms_balance")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("platform_gate")
+}
+
+model OwnerFeed {
+  id        String   @id @default(cuid())
+  phone     String   @default("")
+  code      String   @default("")
+  detail    String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("owner_feed")
 }

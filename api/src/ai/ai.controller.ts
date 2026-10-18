@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { callsOpen } from '../owner/platform-gate.cache';
 import { isReservedPhone } from '../owner/owner.constants';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -187,7 +186,7 @@ export class AiController {
           lastName: r.lastName,
           fullName: r.fullName,
           photoUrl: r.photoUrl,
-          phoneNumber: callsOpen() ? r.phoneNumber : null,
+          phoneNumber: r.phoneNumber,
           region: r.region,
           district: r.district,
           skills: r.skills,

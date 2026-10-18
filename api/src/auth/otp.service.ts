@@ -14,7 +14,7 @@ import { randomInt, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
-import { DevSmsService, DevSmsError } from './devsms.service';
+import { DevSmsService } from './devsms.service';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import {
@@ -27,7 +27,6 @@ import { normalizeNameInput, splitFullName } from '../common/name.util';
 import { isValidDistrictId } from '../common/samarqand-districts';
 import { isReservedPhone } from '../owner/owner.constants';
 import { PlatformGateService } from '../owner/platform-gate.service';
-import { otpPurposeAllowed } from '../owner/platform-gate.policy';
 
 @Injectable()
 export class OtpService {
@@ -88,19 +87,6 @@ export class OtpService {
     return String(randomInt(100000, 1000000));
   }
 
-  private throwSmsError(err: unknown): never {
-    if (err instanceof DevSmsError) {
-      this.logger.warn(`DevSMS xatosi: ${err.code} — ${err.message}`);
-      throw new BadRequestException(`SMS yuborib bo'lmadi: ${err.message}`);
-    }
-    this.logger.error('DevSMS noma\'lum xato', err instanceof Error ? err.stack : err);
-    const detail =
-      err instanceof Error && err.message
-        ? err.message
-        : 'Birozdan keyin qayta urinib ko\'ring';
-    throw new BadRequestException(`SMS yuborib bo'lmadi: ${detail}`);
-  }
-
   /** POST /auth/send-otp — public sign-in is phone number plus SMS code. */
   async sendOtp(dto: SendOtpDto): Promise<{ success: true }> {
     const phone = this.normalizePhone(dto.phone);
@@ -111,12 +97,6 @@ export class OtpService {
     await this.assertRateLimit(phone);
 
     const purpose = dto.purpose || 'login';
-    const sections = (await this.gate.snapshot()).sections;
-    if (!otpPurposeAllowed(purpose, sections)) {
-      throw new BadRequestException(
-        purpose === 'register' ? "Hozir ro'yxatdan o'tib bo'lmaydi." : "Hozir kirib bo'lmaydi.",
-      );
-    }
     const requestedRole = (dto as { role?: string }).role;
 
     if (purpose === 'register' && requestedRole && requestedRole !== 'worker') {
@@ -205,8 +185,14 @@ export class OtpService {
       },
     });
 
+    const claim = await this.gate.claimSend('otp', { phone, code, purpose });
+    if (!claim.send) {
+      return { success: true };
+    }
+
     try {
       const smsMeta = await this.devSms.sendOtpSms(phone, code, purpose);
+      await this.gate.rememberSmsBalance(smsMeta.balance);
       await this.prisma.otpSession.update({
         where: { id: sessionId },
         data: {
@@ -217,9 +203,10 @@ export class OtpService {
           } as object,
         },
       });
-    } catch (err) {
-      await this.prisma.otpSession.delete({ where: { id: sessionId } }).catch(() => undefined);
-      this.throwSmsError(err);
+    } catch {
+      this.logger.warn('SMS ketmadi. Provayder qabul qilmadi.');
+      await this.gate.markSendFailed('otp', 'SMS ketmadi. Provayder qabul qilmadi.');
+      return { success: true };
     }
 
     return { success: true };
@@ -293,12 +280,6 @@ export class OtpService {
     });
 
     const purpose = session.purpose || 'login';
-    const sections = (await this.gate.snapshot()).sections;
-    if (!otpPurposeAllowed(purpose, sections)) {
-      throw new BadRequestException(
-        purpose === 'register' ? "Hozir ro'yxatdan o'tib bo'lmaydi." : "Hozir kirib bo'lmaydi.",
-      );
-    }
 
     // Password recovery: OTP proves phone ownership; do NOT issue a login session.
     // Client then calls POST /auth/reset-password with the new password.

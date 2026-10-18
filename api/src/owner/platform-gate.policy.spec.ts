@@ -8,6 +8,7 @@ import {
   defaultSnapshot,
   normalizeSections,
   otpPurposeAllowed,
+  spend,
   type GateSections,
 } from './platform-gate.policy';
 import { OWNER_PATH, isOwnerPhone } from './owner.constants';
@@ -25,32 +26,59 @@ test('a live site leaves ordinary reads open', () => {
   assert.equal(decideAccess(live).allow, true);
 });
 
-test('removed site hides data but keeps the control entry and the public switch', () => {
-  const hidden = decideAccess({ ...live, state: 'removed', path: '/api/stats/counts' });
+test('a closed panel leaves ordinary reads open and stops staff', () => {
+  assert.equal(decideAccess({ ...live, state: 'removed', path: '/api/stats/counts' }).allow, true);
+  assert.equal(decideAccess({ ...live, state: 'paused', path: '/api/jobs' }).allow, true);
+  assert.equal(decideAccess({ ...live, state: 'off', path: '/uploads/public/a.jpg' }).allow, true);
+  assert.equal(decideAccess({ ...live, state: 'removed', role: 'worker', path: '/api/jobs' }).allow, true);
+  const hidden = decideAccess({ ...live, state: 'removed', role: 'admin', path: '/api/jobs' });
   assert.equal(hidden.allow, false);
   if (!hidden.allow) assert.equal(hidden.status, 404);
-  const paused = decideAccess({ ...live, state: 'paused', path: '/api/jobs' });
+  const paused = decideAccess({ ...live, state: 'paused', role: 'super_admin', path: '/api/admin/users' });
+  assert.equal(paused.allow, false);
   if (!paused.allow) assert.equal(paused.status, 503);
-  assert.equal(decideAccess({ ...live, state: 'off', path: '/uploads/public/a.jpg' }).allow, false);
+  assert.equal(
+    decideAccess({ ...live, state: 'off', path: '/api/auth/super-admin/login', method: 'POST' }).allow,
+    false,
+  );
   assert.equal(decideAccess({ ...live, state: 'removed', path: OWNER_PATH }).allow, true);
   assert.equal(decideAccess({ ...live, state: 'removed', path: '/api/gate' }).allow, true);
   assert.equal(decideAccess({ ...live, state: 'removed', path: '/api/health' }).allow, true);
+  assert.equal(
+    decideAccess({ ...live, state: 'paused', role: 'admin', path: '/api/auth/logout', method: 'POST' }).allow,
+    true,
+  );
 });
 
-test('section switches close only that part', () => {
+test('public section flags do not close ordinary reads', () => {
   const sections: GateSections = { ...allSectionsOn(), workers: false, chat: false, jobs: false };
-  assert.equal(decideAccess({ ...live, sections, path: '/api/users' }).allow, false);
+  assert.equal(decideAccess({ ...live, sections, path: '/api/users' }).allow, true);
+  assert.equal(decideAccess({ ...live, sections, path: '/api/chat-messages' }).allow, true);
+  assert.equal(decideAccess({ ...live, sections, path: '/api/jobs/abc', method: 'POST' }).allow, true);
+  assert.equal(decideAccess({ ...live, sections, path: '/api/auth/login', method: 'POST' }).allow, true);
+});
+
+test('an unpaid panel stops staff and leaves payment and workers', () => {
+  assert.equal(decideAccess({ ...live, paidLock: true, role: 'admin', path: '/api/jobs' }).allow, false);
+  assert.equal(decideAccess({ ...live, paidLock: true, role: 'worker', path: '/api/jobs' }).allow, true);
   assert.equal(
-    decideAccess({ ...live, sections, path: '/api/users/me-1', userId: 'me-1' }).allow,
+    decideAccess({ ...live, paidLock: true, role: 'super_admin', path: '/api/admin/subscription/status' }).allow,
     true,
   );
   assert.equal(
-    decideAccess({ ...live, sections, path: '/api/users/other', userId: 'me-1' }).allow,
+    decideAccess({ ...live, paidLock: true, role: 'super_admin', path: '/api/admin/subscription/pay', method: 'POST' }).allow,
+    true,
+  );
+  assert.equal(
+    decideAccess({ ...live, paidLock: true, path: '/api/auth/super-admin/login', method: 'POST' }).allow,
     false,
   );
-  assert.equal(decideAccess({ ...live, sections, path: '/api/chat-messages' }).allow, false);
-  assert.equal(decideAccess({ ...live, sections, path: '/api/jobs/abc', method: 'POST' }).allow, false);
-  assert.equal(decideAccess({ ...live, sections, path: '/api/auth/login', method: 'POST' }).allow, true);
+});
+
+test('a send is free at price zero and stops when the balance is short', () => {
+  assert.deepEqual(spend(1000, 0), { ok: true, next: 1000 });
+  assert.deepEqual(spend(500, 200), { ok: true, next: 300 });
+  assert.deepEqual(spend(100, 200), { ok: false, next: 100 });
 });
 
 test('staff panels can be closed without closing worker login', () => {
@@ -83,6 +111,7 @@ test('control page lists the switches and does not print the phone', () => {
   for (const word of ['Ishga tushirish', "To'xtatish", 'Yopish', 'Tiklash', 'Bepul', 'Pullik', "O'chirish"]) {
     assert.equal(html.includes(word), true, word);
   }
+  assert.equal(html.includes('OTP qoldiq'), true);
   assert.equal(html.includes('998995700913'), false);
   assert.equal(login.includes('998995700913'), false);
   assert.equal(login.includes('type="password"'), true);

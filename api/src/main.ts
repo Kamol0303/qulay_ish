@@ -7,6 +7,7 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { decideRateLimit, pruneBuckets, type RateBucket } from './common/rate-limit.util';
 import { PlatformGateService } from './owner/platform-gate.service';
+import { SubscriptionService } from './subscription/subscription.service';
 
 async function bootstrap() {
   if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET?.trim()) {
@@ -80,9 +81,16 @@ async function bootstrap() {
   });
 
   const gate = app.get(PlatformGateService);
+  const subscription = app.get(SubscriptionService);
   app.use(async (req, res, next) => {
     try {
-      const decision = await gate.decide(req);
+      let paidLock = false;
+      try {
+        paidLock = await subscription.isBlocked();
+      } catch {
+        paidLock = false;
+      }
+      const decision = await gate.decide(req, paidLock);
       if (!decision.allow) {
         res.status(decision.status).json({ message: decision.message });
         return;

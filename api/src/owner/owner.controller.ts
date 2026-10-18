@@ -48,7 +48,8 @@ export class OwnerController {
     prepare(res);
     const authed = this.gate.valid(readCookie(req.headers.cookie, OWNER_COOKIE));
     const snap = authed ? await this.gate.snapshot() : null;
-    res.type('html').send(renderOwnerPage({ authed, snap }));
+    const feed = authed ? await this.gate.listFeed() : [];
+    res.type('html').send(renderOwnerPage({ authed, snap, feed }));
   }
 
   @Post()
@@ -85,9 +86,11 @@ export class OwnerController {
       await this.gate.apply(body || {});
     } catch {
       const snap = await this.gate.snapshot();
+      const feed = await this.gate.listFeed();
       res.status(500).type('html').send(renderOwnerPage({
         authed: true,
         snap,
+        feed,
         error: "Saqlab bo'lmadi. Serverda baza yangilanishi kerak.",
       }));
       return;

@@ -21,6 +21,12 @@ export type GateSnapshot = {
   state: GateState;
   billing: GateBilling;
   sections: GateSections;
+  staffPriceSom: number;
+  otpPriceSom: number;
+  otpCreditSom: number;
+  aiPriceSom: number;
+  aiCreditSom: number;
+  smsBalance: number | null;
 };
 
 export type AccessDecision =
@@ -44,7 +50,34 @@ export function allSectionsOn(): GateSections {
 }
 
 export function defaultSnapshot(): GateSnapshot {
-  return { state: 'live', billing: 'paid', sections: allSectionsOn() };
+  return {
+    state: 'live',
+    billing: 'paid',
+    sections: allSectionsOn(),
+    staffPriceSom: 250000,
+    otpPriceSom: 0,
+    otpCreditSom: 0,
+    aiPriceSom: 0,
+    aiCreditSom: 0,
+    smsBalance: null,
+  };
+}
+
+export function money(value: unknown): number {
+  const digits = String(value ?? '').replace(/[^\d]/g, '');
+  if (!digits) return 0;
+  const n = Number(digits);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(100_000_000, Math.floor(n));
+}
+
+/** Price 0 means the send is free. Otherwise the credit must cover one send. */
+export function spend(credit: number, price: number): { ok: boolean; next: number } {
+  const c = Math.max(0, Math.floor(credit));
+  const p = Math.max(0, Math.floor(price));
+  if (p === 0) return { ok: true, next: c };
+  if (c < p) return { ok: false, next: c };
+  return { ok: true, next: c - p };
 }
 
 export function normalizeState(value: unknown): GateState {
@@ -74,6 +107,21 @@ function sessionPath(path: string): boolean {
   return path === '/api/auth/me' || path === '/api/auth/logout' || path === '/api/auth/refresh';
 }
 
+function staffRole(role: string | null): boolean {
+  return role === 'admin' || role === 'super_admin';
+}
+
+function staffApi(path: string): boolean {
+  return path.startsWith('/api/admin/') || path === '/api/auth/super-admin/login';
+}
+
+const PAY_PATHS = new Set([
+  '/api/admin/subscription/status',
+  '/api/admin/subscription/pay',
+  '/api/admin/subscription/paid',
+  '/api/admin/subscription/verify-otp',
+]);
+
 function closed(message: string, status = 403): AccessDecision {
   return { allow: false, status, message };
 }
@@ -85,56 +133,37 @@ export function decideAccess(input: {
   userId: string | null;
   state: GateState;
   sections: GateSections;
+  paidLock?: boolean;
 }): AccessDecision {
   const path = (input.path || '/').split('?')[0];
-  const method = (input.method || 'GET').toUpperCase();
+  const staff = staffRole(input.role) || staffApi(path);
+  const held = input.state !== 'live';
 
   if (path === OWNER_PATH || path.startsWith(`${OWNER_PATH}/`)) return { allow: true };
   if (ALLOWED.has(path)) return { allow: true };
+  if (path === '/api/stats/counts') return { allow: true };
+  if (sessionPath(path)) return { allow: true };
 
-  if (input.state === 'removed') return closed('Sahifa topilmadi.', 404);
-  if (input.state === 'paused') return closed('Sayt vaqtincha toʻxtatilgan.', 503);
-  if (input.state === 'off') return closed('Sayt yopiq.', 503);
+  if (held && staff) {
+    const status = input.state === 'removed' ? 404 : 503;
+    return closed('Panel hozir yopiq.', status);
+  }
 
-  if (!input.sections.login && method === 'POST' && (path === '/api/auth/login' || path === '/api/auth/reset-password')) {
-    return closed('Hozir kirib boʻlmaydi.');
+  if (!held && input.role === 'admin' && !input.sections.admin) {
+    return closed('Panel hozir yopiq.');
   }
-  if (!input.sections.superAdmin && path === '/api/auth/super-admin/login') {
-    return closed('Hozir kirib boʻlmaydi.');
+  if (!held && (input.role === 'super_admin' || path === '/api/auth/super-admin/login') && !input.sections.superAdmin) {
+    return closed('Panel hozir yopiq.');
   }
-  if (!input.sections.workers && method === 'GET' && path === '/api/users') {
-    return closed('Bu boʻlim hozir yopiq.');
+  if (!held && !input.sections.admin && (path.startsWith('/api/admin/users') || path.startsWith('/api/admin/export'))) {
+    return closed('Panel hozir yopiq.');
   }
-  if (!input.sections.workers && method === 'GET' && path.startsWith('/api/users/')) {
-    const id = path.slice('/api/users/'.length).split('/')[0];
-    if (!input.userId || input.userId !== id) return closed('Bu boʻlim hozir yopiq.');
+  if (!held && !input.sections.superAdmin && path.startsWith('/api/admin/subscription') && !PAY_PATHS.has(path)) {
+    return closed('Panel hozir yopiq.');
   }
-  if (!input.sections.workers && path.startsWith('/api/employer/workers')) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (!input.sections.workers && path.startsWith('/api/service-posts')) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (!input.sections.jobs && path.startsWith('/api/jobs')) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (!input.sections.chat && path.startsWith('/api/chat-messages')) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (!input.sections.verification && path.startsWith('/api/verification-requests')) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (!input.sections.admin && (path.startsWith('/api/admin/users') || path.startsWith('/api/admin/export'))) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (!input.sections.superAdmin && path.startsWith('/api/admin/subscription')) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (input.role === 'admin' && !input.sections.admin && !sessionPath(path)) {
-    return closed('Bu boʻlim hozir yopiq.');
-  }
-  if (input.role === 'super_admin' && !input.sections.superAdmin && !sessionPath(path)) {
-    return closed('Bu boʻlim hozir yopiq.');
+
+  if (input.paidLock && staff && !PAY_PATHS.has(path)) {
+    return closed('Panel toʻxtatilgan.');
   }
   return { allow: true };
 }

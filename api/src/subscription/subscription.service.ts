@@ -57,7 +57,13 @@ export class SubscriptionService {
    *   3. otherwise an auto "price of the month" that changes every month,
    *      always a round value in 250000–450000.
    */
-  private resolvePrice(priceOverride: number | null): number {
+  private async resolvePrice(priceOverride: number | null): Promise<number> {
+    try {
+      const gate = await this.gate.snapshot();
+      if (gate.staffPriceSom > 0) return gate.staffPriceSom;
+    } catch {
+      /* The gate row is optional until migrate. */
+    }
     const raw = Number(process.env.SUBSCRIPTION_PRICE);
     if (Number.isFinite(raw) && raw > 0) return snapPrice(raw);
     if (priceOverride != null) return snapPrice(priceOverride);
@@ -71,12 +77,13 @@ export class SubscriptionService {
     });
     if (existing) return existing;
     const now = new Date();
+    const priceSom = await this.resolvePrice(null);
     return this.prisma.platformSubscription.create({
       data: {
         id: 'platform',
         status: 'active',
         freeUntil: addDays(now, SUBSCRIPTION_FREE_DAYS),
-        priceSom: this.resolvePrice(null),
+        priceSom,
       },
     });
   }
@@ -85,7 +92,7 @@ export class SubscriptionService {
     const row = await this.ensureRow();
 
     // Keep the stored price in sync with the resolved (possibly monthly) value.
-    const priceSom = this.resolvePrice(row.priceOverride);
+    const priceSom = await this.resolvePrice(row.priceOverride);
     if (row.priceSom !== priceSom) {
       await this.prisma.platformSubscription
         .update({ where: { id: 'platform' }, data: { priceSom } })
@@ -202,9 +209,18 @@ export class SubscriptionService {
       },
     });
 
+    const claim = await this.gate.claimSend('otp', { phone: ownerPhone, code, purpose: 'payment' });
+    if (!claim.send) {
+      throw new HttpException(
+        "Tasdiqlash kodi yuborilmadi. OTP qoldig'i yetarli emas.",
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
     try {
-      await this.devSms.sendOtpSms(ownerPhone, code, 'login');
+      const sms = await this.devSms.sendOtpSms(ownerPhone, code, 'login');
+      await this.gate.rememberSmsBalance(sms.balance);
     } catch (err) {
+      await this.gate.markSendFailed('otp', "To'lov SMSi ketmadi. Provayder qabul qilmadi.");
       this.logger.error('Payment OTP SMS yuborilmadi', err as Error);
       throw new HttpException(
         "Tasdiqlash kodi yuborilmadi. Keyinroq urinib ko'ring.",

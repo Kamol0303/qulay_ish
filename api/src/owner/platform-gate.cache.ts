@@ -9,7 +9,3 @@ export function currentGate(): GateSnapshot {
 export function rememberGate(next: GateSnapshot) {
   snapshot = next;
 }
-
-export function callsOpen(): boolean {
-  return snapshot.sections.calls;
-}

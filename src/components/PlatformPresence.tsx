@@ -37,8 +37,3 @@ export function useSiteGate(): GateView {
 
   return gate;
 }
-
-export function siteChatOpen(gate: GateView): boolean {
-  if (gate.status !== 'ready') return true;
-  return gate.sections.chat;
-}

@@ -19,7 +19,6 @@ import { registrationPhone } from '../common/registration-phone.util';
 import { isSafeAppPath } from '../common/safe-path.util';
 import { moderateText } from '../common/moderation.util';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
-import { callsOpen } from '../owner/platform-gate.cache';
 import { hideReservedPhone, isReservedPhone } from '../owner/owner.constants';
 
 type AuthUser = { userId: string; role: string };
@@ -75,7 +74,7 @@ function toPublicUser(
     email: user.email,
     personalInfo,
   });
-  if (callsOpen() && String(user.role) === 'worker' && signupPhone && !isReservedPhone(signupPhone)) {
+  if (String(user.role) === 'worker' && signupPhone && !isReservedPhone(signupPhone)) {
     out.phoneNumber = signupPhone;
   }
   if (opts?.includePrivateDocs) {
@@ -93,7 +92,7 @@ function toPublicUser(
     out.blockedAt = blockedAt;
     out.isBlocked = isBlocked;
     out.telegram = telegram;
-    if (callsOpen() && signupPhone && !isReservedPhone(signupPhone)) out.phoneNumber = signupPhone;
+    if (signupPhone && !isReservedPhone(signupPhone)) out.phoneNumber = signupPhone;
   }
   if (opts?.includePersonalInfo) {
     out.personalInfo = personalInfo ?? null;

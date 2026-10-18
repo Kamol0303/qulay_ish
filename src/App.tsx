@@ -56,7 +56,7 @@ import QualayIshPage from './pages/QualayIshPage';
 import SavedJobsPage from './pages/SavedJobsPage';
 import QualayIshJobDetailsPage from './pages/QualayIshJobDetailsPage';
 import { useIsMobileUi } from './hooks/useIsMobileUi';
-import { siteChatOpen, useSiteGate } from './components/PlatformPresence';
+import { useSiteGate } from './components/PlatformPresence';
 import { closedSection } from './lib/platformGate';
 import MobileShell from './mobile/shell/MobileShell';
 import DesktopShell from './mobile/shell/DesktopShell';
@@ -248,35 +248,22 @@ function AppShell() {
   const gate = useSiteGate();
   const Shell = mobile ? MobileShell : DesktopShell;
   if (gate.status === 'loading') return <div className="min-h-screen bg-background" />;
-  if (gate.status === 'ready' && gate.state !== 'live') {
-    return gate.state === 'removed' ? (
-      <div className="flex min-h-screen items-center justify-center bg-white text-neutral-500">
-        <div className="text-center">
-          <div className="text-6xl font-semibold text-neutral-300">404</div>
-          <p className="mt-3 text-base">Sahifa topilmadi.</p>
-        </div>
-      </div>
-    ) : (
-      <div className="flex min-h-screen items-center justify-center bg-stone-100 text-stone-700">
-        <p className="text-lg">{gate.state === 'paused' ? "Sayt vaqtincha to'xtatilgan." : 'Sayt yopiq.'}</p>
-      </div>
-    );
-  }
-  const sectionOff = gate.status === 'ready' && closedSection(location.pathname, location.search, gate.sections);
+  const panelOff =
+    gate.status === 'ready' && closedSection(location.pathname, gate.state, gate.sections);
   return (
     <Shell>
       <div className="min-h-screen overflow-x-hidden bg-background text-foreground transition-colors duration-300">
         <NativeBackHandler />
         <AppDialogHost />
-        {sectionOff ? (
+        {panelOff ? (
           <div className="mx-auto max-w-lg px-6 py-24 text-center">
-            <p className="text-lg font-semibold">Bu bo‘lim hozir yopiq.</p>
+            <p className="text-lg font-semibold">Panel hozir yopiq.</p>
           </div>
         ) : (
           <AppRoutes mobile={mobile} />
         )}
         <OfflineBanner />
-        {!mobile && siteChatOpen(gate) && <ChatAssistant />}
+        {!mobile && <ChatAssistant />}
       </div>
     </Shell>
   );

@@ -17,7 +17,6 @@ import {
 } from '../common/geo.util';
 import { districtProximityKey } from '../common/district.util';
 import { isValidDistrictId } from '../common/samarqand-districts';
-import { callsOpen } from '../owner/platform-gate.cache';
 import { hideReservedPhone, isReservedPhone } from '../owner/owner.constants';
 
 type WorkerRow = {
@@ -47,7 +46,7 @@ function toEmployerWorker(u: WorkerRow, distanceKm?: number) {
     lastName: u.lastName,
     fullName: u.fullName,
     photoUrl: u.photoUrl,
-    phoneNumber: callsOpen() && !isReservedPhone(u.phoneNumber || '') ? u.phoneNumber : null,
+    phoneNumber: !isReservedPhone(u.phoneNumber || '') ? u.phoneNumber : null,
     region: u.region,
     district: u.district,
     skills: u.skills,

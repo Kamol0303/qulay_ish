@@ -24,50 +24,14 @@ export const OPEN_SECTIONS: GateSections = {
   superAdmin: true,
 };
 
-const WORKER_APP_PREFIXES = [
-  '/worker/dashboard',
-  '/worker/applications',
-  '/worker/nearby-jobs',
-  '/worker/contracts',
-  '/worker/service-posts',
-  '/worker/create-service',
-  '/worker/edit-service',
-];
-
-function isWorkerAppPath(pathname: string): boolean {
-  return WORKER_APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-/** Which public part is closed for this address, if any. */
-export function closedSection(pathname: string, search: string, sections: GateSections): keyof GateSections | null {
-  if (pathname === '/super-admin-login' || pathname.startsWith('/super-admin')) {
-    return sections.superAdmin ? null : 'superAdmin';
-  }
-  if (pathname.startsWith('/admin')) return sections.admin ? null : 'admin';
-  if (pathname.startsWith('/chat')) return sections.chat ? null : 'chat';
-  if (pathname.startsWith('/verification')) return sections.verification ? null : 'verification';
-  if (
-    pathname.startsWith('/jobs') ||
-    pathname.startsWith('/employer/jobs') ||
-    pathname === '/worker/nearby-jobs'
-  ) {
-    return sections.jobs ? null : 'jobs';
-  }
-  if (
-    pathname === '/workers' ||
-    pathname === '/directory' ||
-    pathname.startsWith('/employer/nearby-workers') ||
-    pathname.startsWith('/employer/worker-services') ||
-    (pathname.startsWith('/worker/') && !isWorkerAppPath(pathname))
-  ) {
-    return sections.workers ? null : 'workers';
-  }
-  if (pathname === '/login' || pathname.startsWith('/auth')) {
-    const mode = new URLSearchParams(search).get('mode');
-    if (mode === 'login' || mode === 'forgot') return sections.login ? null : 'login';
-    return sections.register ? null : 'register';
-  }
-  return null;
+/** Admin and super admin screens close. Workers, employers, and the public site stay open. */
+export function closedSection(pathname: string, state: GateState, sections: GateSections): boolean {
+  const superAdmin = pathname === '/super-admin-login' || pathname.startsWith('/super-admin');
+  const admin = pathname === '/admin' || pathname.startsWith('/admin/');
+  if (!superAdmin && !admin) return false;
+  if (state !== 'live') return true;
+  if (admin) return !sections.admin;
+  return !sections.superAdmin;
 }
 
 export function readGatePayload(value: unknown): { state: GateState; sections: GateSections } | null {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PlatformGateService } from '../owner/platform-gate.service';
 
 export type AiLanguage = 'uz' | 'ru' | 'en';
 
@@ -15,6 +16,8 @@ const LANGUAGE_RULE: Record<AiLanguage, string> = {
 
 @Injectable()
 export class AiService {
+  constructor(private readonly gate: PlatformGateService) {}
+
   private readonly logger = new Logger(AiService.name);
 
   private get anthropicKey(): string {
@@ -52,6 +55,13 @@ export class AiService {
   }): Promise<AiCompletion> {
     const provider = this.getProvider();
     const maxTokens = params.maxTokens ?? 700;
+    if (provider === 'mock') {
+      return { text: params.mockFallback(), provider: 'mock' };
+    }
+    const claim = await this.gate.claimSend('ai', { purpose: 'ai' });
+    if (!claim.send) {
+      return { text: "Sun'iy intellekt hozir to'xtatilgan.", provider: 'mock' };
+    }
 
     try {
       if (provider === 'anthropic') {
@@ -62,6 +72,7 @@ export class AiService {
       }
     } catch (err) {
       this.logger.error(`AI provider "${provider}" error — mock fallback`, err as Error);
+      await this.gate.markSendFailed('ai', "Sun'iy intellekt provayderi javob bermadi.");
       return { text: params.mockFallback(), provider: 'mock' };
     }
 

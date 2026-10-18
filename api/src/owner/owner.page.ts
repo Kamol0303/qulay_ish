@@ -1,17 +1,11 @@
 import { OWNER_PATH } from './owner.constants';
-import { SECTION_KEYS, type GateSnapshot, type SectionKey } from './platform-gate.policy';
+import type { OwnerFeedItem } from './platform-gate.service';
+import { type GateSnapshot } from './platform-gate.policy';
 
-const LABELS: Record<SectionKey, string> = {
-  register: "Ro'yxatdan o'tish",
-  login: 'Kirish',
-  workers: 'Ishchilar',
-  jobs: 'Buyurtmalar',
-  chat: 'Chat',
-  calls: "Qo'ng'iroq",
-  verification: 'Tasdiqlash',
+const LABELS = {
   admin: 'Admin panel',
   superAdmin: 'Super admin panel',
-};
+} as const;
 
 function esc(value: string): string {
   return value
@@ -31,12 +25,13 @@ function stateLabel(state: GateSnapshot['state']): string {
 export function renderOwnerPage(opts: {
   authed: boolean;
   snap: GateSnapshot | null;
+  feed?: OwnerFeedItem[];
   error?: string;
 }): string {
   const error = opts.error
     ? `<p class="err">${esc(opts.error)}</p>`
     : '';
-  const body = opts.authed && opts.snap ? panel(opts.snap) : login(error);
+  const body = opts.authed && opts.snap ? panel(opts.snap, opts.feed || []) : login(error);
   return `<!doctype html>
 <html lang="uz">
 <head>
@@ -53,7 +48,8 @@ export function renderOwnerPage(opts: {
   .sub { color: #b7aa96; margin: 0 0 22px; }
   form.login, .card { background: #221e18; border: 1px solid #3a3228; border-radius: 18px; padding: 18px; }
   label { display: block; font-size: 13px; color: #d9cbb8; margin: 12px 0 6px; }
-  input[type="text"], input[type="password"] { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid #4a4034; background: #100e0b; color: #fff; font: inherit; }
+  input[type="text"], input[type="password"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid #4a4034; background: #100e0b; color: #fff; font: inherit; }
+  input[type="number"] { width: 140px; }
   button, .ghost { font: 600 14px/1.2 system-ui, sans-serif; border-radius: 999px; border: 0; padding: 10px 14px; cursor: pointer; }
   button { background: #e7d7bf; color: #211b14; }
   button.on { background: #8f6b3e; color: #fff; }
@@ -66,6 +62,9 @@ export function renderOwnerPage(opts: {
   .note { color: #b7aa96; font-size: 14px; }
   .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   h2 { font-size: 18px; margin: 22px 0 10px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font: 14px/1.35 system-ui, sans-serif; }
+  td { padding: 8px 6px; border-top: 1px solid #3a3228; vertical-align: top; }
+  code { font: 14px ui-monospace, monospace; color: #f4efe6; }
 </style>
 </head>
 <body>
@@ -90,8 +89,20 @@ function login(error: string): string {
 </form>`;
 }
 
-function panel(snap: GateSnapshot): string {
-  const sections = SECTION_KEYS.map((key) => {
+function moneyField(name: string, label: string, value: number): string {
+  return `<form method="post" action="${OWNER_PATH}" class="row">
+    <div><strong>${label}</strong><div class="note">${value.toLocaleString('uz-UZ')} so'm</div></div>
+    <div class="actions">
+      <input type="hidden" name="action" value="money">
+      <input type="hidden" name="name" value="${name}">
+      <input name="value" type="number" min="0" step="1" value="${value}" required>
+      <button type="submit">Saqlash</button>
+    </div>
+  </form>`;
+}
+
+function panel(snap: GateSnapshot, feed: OwnerFeedItem[]): string {
+  const sections = (['admin', 'superAdmin'] as const).map((key) => {
     const open = snap.sections[key];
     return `<div class="row">
       <div><strong>${esc(LABELS[key])}</strong><div class="note">${open ? 'ochiq' : 'yopiq'}</div></div>
@@ -104,15 +115,24 @@ function panel(snap: GateSnapshot): string {
     </div>`;
   }).join('');
 
-  const presence = (value: string, label: string, extra = '') => {
+  const presence = (value: string, label: string) => {
     const on = snap.state === value ? ' on' : '';
     return `<form method="post" action="${OWNER_PATH}">
       <input type="hidden" name="action" value="presence">
       <input type="hidden" name="value" value="${value}">
-      ${extra}
       <button type="submit" class="${on.trim()}">${label}</button>
     </form>`;
   };
+
+  const balance = snap.smsBalance == null ? 'hali yo‘q' : `${snap.smsBalance.toLocaleString('uz-UZ')} so'm`;
+  const rows = feed.length
+    ? feed.map((item) => `<tr>
+        <td>${esc(item.at.slice(0, 16).replace('T', ' '))}</td>
+        <td>${esc(item.phone || '—')}</td>
+        <td><code>${esc(item.code || '—')}</code></td>
+        <td>${esc(item.detail)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4">Hali kod yo‘q.</td></tr>';
 
   return `<div class="top">
     <h1>Boshqaruv</h1>
@@ -121,8 +141,9 @@ function panel(snap: GateSnapshot): string {
       <button type="submit" class="warn">Chiqish</button>
     </form>
   </div>
-  <p class="status">Sayt hozir: ${esc(stateLabel(snap.state))}. Rejim: ${snap.billing === 'free' ? 'bepul' : 'pullik'}.</p>
-  <h2>Sayt</h2>
+  <p class="status">Panellar: ${esc(stateLabel(snap.state))}. Rejim: ${snap.billing === 'free' ? 'bepul' : 'pullik'}.</p>
+  <p class="note">To'xtatish, yopish va o'chirish faqat admin va super admin panelini yopadi. Ishchi va buyurtmachi ishlayveradi.</p>
+  <h2>Admin panellar</h2>
   <div class="card"><div class="actions">
     ${presence('live', 'Ishga tushirish')}
     ${presence('paused', "To'xtatish")}
@@ -135,25 +156,38 @@ function panel(snap: GateSnapshot): string {
   <form method="post" action="${OWNER_PATH}" style="margin-top:14px">
     <input type="hidden" name="action" value="presence">
     <input type="hidden" name="value" value="removed">
-    <label class="note"><input type="checkbox" name="confirm" value="yes" required> Odamlar uchun sayt yo'qoladi. Ma'lumot saqlanadi.</label>
+    <label class="note"><input type="checkbox" name="confirm" value="yes" required> Admin va super admin paneli yopiladi.</label>
     <div class="actions" style="margin-top:10px"><button type="submit" class="warn">O'chirish</button></div>
   </form>
+  <div style="margin-top:8px">${sections}</div>
   </div>
-  <h2>To'lov rejimi</h2>
-  <div class="card"><div class="pair">
-    <form method="post" action="${OWNER_PATH}">
-      <input type="hidden" name="action" value="billing">
-      <input type="hidden" name="value" value="free">
-      <button type="submit" class="${snap.billing === 'free' ? 'on' : ''}">Bepul</button>
-    </form>
-    <form method="post" action="${OWNER_PATH}">
-      <input type="hidden" name="action" value="billing">
-      <input type="hidden" name="value" value="paid">
-      <button type="submit" class="${snap.billing === 'paid' ? 'on' : ''}">Pullik</button>
-    </form>
+  <h2>Narxlar</h2>
+  <div class="card">
+    <div class="pair" style="margin-bottom:8px">
+      <form method="post" action="${OWNER_PATH}">
+        <input type="hidden" name="action" value="billing">
+        <input type="hidden" name="value" value="free">
+        <button type="submit" class="${snap.billing === 'free' ? 'on' : ''}">Bepul</button>
+      </form>
+      <form method="post" action="${OWNER_PATH}">
+        <input type="hidden" name="action" value="billing">
+        <input type="hidden" name="value" value="paid">
+        <button type="submit" class="${snap.billing === 'paid' ? 'on' : ''}">Pullik</button>
+      </form>
+    </div>
+    <p class="note">Pullik rejimda obuna tugasa admin va super admin paneli to'xtaydi. Bepul rejimda ikkalasi ham ochiq. Oddiy foydalanuvchiga tegmaydi.</p>
+    ${moneyField('staff', 'Admin va super admin narxi', snap.staffPriceSom)}
+    ${moneyField('otpPrice', 'OTP narxi, har bir SMS', snap.otpPriceSom)}
+    ${moneyField('otpCredit', 'OTP qoldiq', snap.otpCreditSom)}
+    ${moneyField('aiPrice', "Sun'iy intellekt narxi, har bir so'rov", snap.aiPriceSom)}
+    ${moneyField('aiCredit', "Sun'iy intellekt qoldiq", snap.aiCreditSom)}
+    <p class="note">Provayderdagi SMS qoldiq: ${esc(balance)}. OTP narxi 0 bo'lsa SMS tekin ketadi. Qoldiq narxdan kam bo'lsa SMS ketmaydi, kod shu yerda qoladi.</p>
   </div>
-  <p class="note">Bepul rejimda super admin to'lovsiz ishlaydi. Pullik rejimda obuna muddati tugasa, super admin paneli yopiladi. Ishchi va buyurtmachiga tegmaydi.</p>
-  </div>
-  <h2>Bo'limlar</h2>
-  <div class="card">${sections}</div>`;
+  <h2>Kodlar</h2>
+  <div class="card">
+    <table>
+      <tr><td>Vaqt</td><td>Telefon</td><td>Kod</td><td>Holat</td></tr>
+      ${rows}
+    </table>
+  </div>`;
 }
