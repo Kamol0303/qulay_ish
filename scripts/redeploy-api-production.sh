@@ -62,19 +62,48 @@ EOF
 fi
 
 echo "==> Production host OK ($ROOT)"
+
+ENV_FILE="$ROOT/api/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  mkdir -p /root/qulay-backup
+  if [[ -f /root/qulay-backup/api.env ]]; then
+    cp -a /root/qulay-backup/api.env "$ENV_FILE"
+    echo "==> api/.env backupdan qaytarildi"
+  else
+    restored=""
+    for old in /var/www/qulay-ish-eski-*/api/.env; do
+      if [[ -f "$old" ]]; then
+        cp -a "$old" "$ENV_FILE"
+        restored="$old"
+      fi
+    done
+    if [[ -z "$restored" ]]; then
+      echo "ERROR: $ENV_FILE yo'q va backup ham yo'q."
+      echo "  find /var /root /home -name '.env' -path '*/api/.env'"
+      echo "  Topilgan faylni $ENV_FILE ga qo'ying. Bo'sh .env yozmang."
+      exit 1
+    fi
+    echo "==> api/.env eski nusxadan qaytarildi: $restored"
+  fi
+fi
+
 echo "==> git pull"
 git pull origin main
 
+echo "==> sayt build"
+cd "$ROOT"
+npm install --include=dev --no-fund --no-audit
+npm run build
+
 echo "==> api npm install + build"
 cd "$ROOT/api"
-npm install --no-fund --no-audit
+npm install --include=dev --no-fund --no-audit
 npx prisma generate
 npx prisma migrate deploy
 npm run build
 
-ENV_FILE="$ROOT/api/.env"
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "ERROR: $ENV_FILE yo'q. Production api/.env yarating."
+if [[ ! -f "$ROOT/api/dist/main.js" ]]; then
+  echo "ERROR: $ROOT/api/dist/main.js yo'q. API build tugamagan."
   exit 1
 fi
 
@@ -105,20 +134,16 @@ else
 fi
 
 if ! grep -qE '^DEVSMS_TOKEN=.+' "$ENV_FILE"; then
-  echo "ERROR: DEVSMS_TOKEN bo'sh — OTP SMS ishlamaydi."
-  echo "  VPS da: nano api/.env  → DEVSMS_TOKEN=... qo'ying"
-  echo "  yoki: DEVSMS_TOKEN=xxx FORCE_PROD_REDEPLOY=1 ./scripts/redeploy-api-production.sh"
-  exit 1
+  echo "WARN: DEVSMS_TOKEN bo'sh — sayt ochiladi, OTP SMS ketmaydi."
+else
+  echo "==> DevSMS token bor"
 fi
-echo "==> DevSMS OK (service=Mexrli Qollar)"
 
 restart_api() {
   if command -v pm2 >/dev/null 2>&1; then
-    echo "==> pm2 restart"
-    pm2 restart qulay-ish-api 2>/dev/null \
-      || pm2 restart qulay_ish_api 2>/dev/null \
-      || pm2 restart api 2>/dev/null \
-      || pm2 restart all
+    echo "==> pm2 start"
+    pm2 delete qulay-ish-api >/dev/null 2>&1 || true
+    pm2 start "$ROOT/api/ecosystem.config.js" --update-env
     pm2 save || true
     return 0
   fi
@@ -130,21 +155,29 @@ restart_api() {
       || true
     return 0
   fi
-  if [[ -f "$ROOT/api/dist/main.js" ]]; then
-    echo "==> no pm2/systemd — trying pkill + node dist"
-    pkill -f 'node.*dist/main' 2>/dev/null || true
-    sleep 1
-    (cd "$ROOT/api" && nohup node dist/main.js >>/var/log/qulay-ish-api.log 2>&1 &)
-    return 0
-  fi
-  echo "ERROR: API process ni restart qila olmadim (pm2/systemd yo'q)."
-  return 1
+  echo "==> pm2 yo'q — node dist"
+  pkill -f 'node.*api/dist/main' 2>/dev/null || true
+  sleep 1
+  (cd "$ROOT/api" && NODE_ENV=production nohup node dist/main.js >>/var/log/qulay-ish-api.log 2>&1 &)
+  return 0
 }
 
 restart_api
 
-echo "==> Smoke checks → $PROD_HOST"
+echo "==> Local health"
 sleep 2
+LOCAL="$(curl -sf --connect-timeout 8 "http://127.0.0.1:4000/api/health" || true)"
+echo "local health: ${LOCAL:-yok}"
+if ! echo "$LOCAL" | grep -q '"ok":true'; then
+  echo "ERROR: API 4000 portda javob bermayapti."
+  if command -v pm2 >/dev/null 2>&1; then
+    pm2 status || true
+    pm2 logs qulay-ish-api --lines 80 --nostream || true
+  fi
+  exit 1
+fi
+
+echo "==> Smoke checks → $PROD_HOST"
 STATUS="$(curl -sS --connect-timeout 8 "https://$PROD_HOST/api/auth/sms-status" || true)"
 echo "sms-status: $STATUS"
 if echo "$STATUS" | grep -q '"configured":true'; then
