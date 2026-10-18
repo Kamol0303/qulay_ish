@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { callsOpen } from '../owner/platform-gate.cache';
+import { isReservedPhone } from '../owner/owner.constants';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -158,6 +160,7 @@ export class AiController {
 
     const scored = rows
       .map((r) => {
+        if (isReservedPhone(r.phoneNumber || '')) return null;
         const workerSkills = (r.skills || []).map((s) => s.toLowerCase());
         const overlap = skills.length
           ? skills.filter((s) => workerSkills.some((ws) => ws.includes(s) || s.includes(ws))).length
@@ -184,7 +187,7 @@ export class AiController {
           lastName: r.lastName,
           fullName: r.fullName,
           photoUrl: r.photoUrl,
-          phoneNumber: r.phoneNumber,
+          phoneNumber: callsOpen() ? r.phoneNumber : null,
           region: r.region,
           district: r.district,
           skills: r.skills,

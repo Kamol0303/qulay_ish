@@ -25,6 +25,9 @@ import {
 } from './otp.constants';
 import { normalizeNameInput, splitFullName } from '../common/name.util';
 import { isValidDistrictId } from '../common/samarqand-districts';
+import { isReservedPhone } from '../owner/owner.constants';
+import { PlatformGateService } from '../owner/platform-gate.service';
+import { otpPurposeAllowed } from '../owner/platform-gate.policy';
 
 @Injectable()
 export class OtpService {
@@ -35,6 +38,7 @@ export class OtpService {
     private readonly jwt: JwtService,
     private readonly auth: AuthService,
     private readonly devSms: DevSmsService,
+    private readonly gate: PlatformGateService,
   ) {}
 
   getSmsStatus() {
@@ -101,9 +105,18 @@ export class OtpService {
   async sendOtp(dto: SendOtpDto): Promise<{ success: true }> {
     const phone = this.normalizePhone(dto.phone);
     this.validateE164Phone(phone);
+    if (isReservedPhone(phone)) {
+      throw new BadRequestException("Bu raqamdan foydalanib bo'lmaydi");
+    }
     await this.assertRateLimit(phone);
 
     const purpose = dto.purpose || 'login';
+    const sections = (await this.gate.snapshot()).sections;
+    if (!otpPurposeAllowed(purpose, sections)) {
+      throw new BadRequestException(
+        purpose === 'register' ? "Hozir ro'yxatdan o'tib bo'lmaydi." : "Hozir kirib bo'lmaydi.",
+      );
+    }
     const requestedRole = (dto as { role?: string }).role;
 
     if (purpose === 'register' && requestedRole && requestedRole !== 'worker') {
@@ -216,6 +229,9 @@ export class OtpService {
   async verifyOtpByPhone(dto: VerifyOtpDto) {
     const phone = this.normalizePhone(dto.phone);
     this.validateE164Phone(phone);
+    if (isReservedPhone(phone)) {
+      throw new BadRequestException("Bu raqamdan foydalanib bo'lmaydi");
+    }
 
     const session = await this.prisma.otpSession.findFirst({
       where: { phone, verified: false, completed: false },
@@ -277,6 +293,12 @@ export class OtpService {
     });
 
     const purpose = session.purpose || 'login';
+    const sections = (await this.gate.snapshot()).sections;
+    if (!otpPurposeAllowed(purpose, sections)) {
+      throw new BadRequestException(
+        purpose === 'register' ? "Hozir ro'yxatdan o'tib bo'lmaydi." : "Hozir kirib bo'lmaydi.",
+      );
+    }
 
     // Password recovery: OTP proves phone ownership; do NOT issue a login session.
     // Client then calls POST /auth/reset-password with the new password.

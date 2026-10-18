@@ -8,6 +8,7 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { randomInt, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { PlatformGateService } from '../owner/platform-gate.service';
 import { DevSmsService } from '../auth/devsms.service';
 import {
   PAYMENT_OTP_MAX_ATTEMPTS,
@@ -46,6 +47,7 @@ export class SubscriptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly devSms: DevSmsService,
+    private readonly gate: PlatformGateService,
   ) {}
 
   /**
@@ -117,6 +119,8 @@ export class SubscriptionService {
   }
 
   async isBlocked(): Promise<boolean> {
+    const snapGate = await this.gate.snapshot();
+    if (snapGate.billing === 'free') return false;
     const snap = await this.getSnapshot();
     return snap.blocked;
   }

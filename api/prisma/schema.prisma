@@ -583,3 +583,17 @@ model PaymentOtp {
   @@index([requestedBy, createdAt])
   @@map("payment_otps")
 }
+
+/**
+ * Singleton switch for the whole public site. Empty sections means every
+ * part is open. This row is not a user and never appears in admin lists.
+ */
+model PlatformGate {
+  id        String   @id
+  state     String   @default("live")
+  billing   String   @default("paid")
+  sections  Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_gate")
+}

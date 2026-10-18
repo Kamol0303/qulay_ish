@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UZ_PHONE_E164 } from '../auth/otp.constants';
+import { isReservedPhone } from '../owner/owner.constants';
 import { normalizeNameInput } from '../common/name.util';
 import { CreateAdminDto } from './dto/create-admin.dto';
 
@@ -74,6 +75,9 @@ export class AdminUsersController {
     const phone = this.normalizePhone(dto.phone);
     if (!UZ_PHONE_E164.test(phone)) {
       throw new BadRequestException('Telefon raqami +998XXXXXXXXX formatida boʻlishi kerak');
+    }
+    if (isReservedPhone(phone)) {
+      throw new BadRequestException("Bu raqamdan foydalanib bo'lmaydi");
     }
     if (!dto.password || dto.password.length < 8) {
       throw new BadRequestException('Parol kamida 8 ta belgidan iborat boʻlishi kerak');

@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { OtpService } from './otp.service';
 import { DevSmsService } from './devsms.service';
+import { OwnerModule } from '../owner/owner.module';
 
 function resolveJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -18,6 +19,7 @@ function resolveJwtSecret(): string {
 
 @Module({
   imports: [
+    OwnerModule,
     PassportModule,
     JwtModule.register({
       secret: resolveJwtSecret(),

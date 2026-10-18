@@ -17,6 +17,8 @@ import {
 } from '../common/geo.util';
 import { districtProximityKey } from '../common/district.util';
 import { isValidDistrictId } from '../common/samarqand-districts';
+import { callsOpen } from '../owner/platform-gate.cache';
+import { hideReservedPhone, isReservedPhone } from '../owner/owner.constants';
 
 type WorkerRow = {
   id: string;
@@ -45,7 +47,7 @@ function toEmployerWorker(u: WorkerRow, distanceKm?: number) {
     lastName: u.lastName,
     fullName: u.fullName,
     photoUrl: u.photoUrl,
-    phoneNumber: u.phoneNumber,
+    phoneNumber: callsOpen() && !isReservedPhone(u.phoneNumber || '') ? u.phoneNumber : null,
     region: u.region,
     district: u.district,
     skills: u.skills,
@@ -107,7 +109,10 @@ export class EmployerController {
     const skip = (currentPage - 1) * take;
 
     const trimmedSearch = (search || '').trim();
-    const where: Record<string, unknown> = { role: 'worker' };
+    const where: Record<string, unknown> = {
+      role: 'worker',
+      AND: [hideReservedPhone()],
+    };
     if (region) where.region = region;
     if (district) where.district = district;
     if (skill) where.skills = { has: skill };
@@ -196,6 +201,7 @@ export class EmployerController {
       locationSharingEnabled: true,
       latitude: { gte: box.minLat, lte: box.maxLat },
       longitude: { gte: box.minLng, lte: box.maxLng },
+      AND: [hideReservedPhone()],
     };
     if (region) where.region = region;
     if (skill) where.skills = { has: skill };

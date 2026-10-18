@@ -19,6 +19,8 @@ import { registrationPhone } from '../common/registration-phone.util';
 import { isSafeAppPath } from '../common/safe-path.util';
 import { moderateText } from '../common/moderation.util';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
+import { callsOpen } from '../owner/platform-gate.cache';
+import { hideReservedPhone, isReservedPhone } from '../owner/owner.constants';
 
 type AuthUser = { userId: string; role: string };
 
@@ -73,7 +75,7 @@ function toPublicUser(
     email: user.email,
     personalInfo,
   });
-  if (String(user.role) === 'worker' && signupPhone) {
+  if (callsOpen() && String(user.role) === 'worker' && signupPhone && !isReservedPhone(signupPhone)) {
     out.phoneNumber = signupPhone;
   }
   if (opts?.includePrivateDocs) {
@@ -91,7 +93,7 @@ function toPublicUser(
     out.blockedAt = blockedAt;
     out.isBlocked = isBlocked;
     out.telegram = telegram;
-    if (signupPhone) out.phoneNumber = signupPhone;
+    if (callsOpen() && signupPhone && !isReservedPhone(signupPhone)) out.phoneNumber = signupPhone;
   }
   if (opts?.includePersonalInfo) {
     out.personalInfo = personalInfo ?? null;
@@ -126,6 +128,7 @@ export class UsersController {
           : { role: (role as any) || { in: ['worker', 'employer'] }, isBlocked: false }),
         ...(region ? { region } : {}),
         ...(district ? { district } : {}),
+        ...(staff ? {} : { AND: [hideReservedPhone()] }),
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -315,6 +318,9 @@ export class UsersController {
     const staff = isStaff(req?.user?.role || '');
     const isSelf = req?.user?.userId === id;
     if (user.isBlocked && !staff && !isSelf) throw new NotFoundException('Foydalanuvchi topilmadi');
+    if (!staff && !isSelf && isReservedPhone(String(user.phoneNumber || ''))) {
+      throw new NotFoundException('Foydalanuvchi topilmadi');
+    }
     if (!staff && !isSelf && user.role !== 'worker' && user.role !== 'employer') {
       throw new NotFoundException('Foydalanuvchi topilmadi');
     }

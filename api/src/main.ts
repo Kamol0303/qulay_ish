@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { urlencoded } from 'express';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { decideRateLimit, pruneBuckets, type RateBucket } from './common/rate-limit.util';
+import { PlatformGateService } from './owner/platform-gate.service';
 
 async function bootstrap() {
   if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET?.trim()) {
@@ -12,6 +14,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.use(urlencoded({ extended: false }));
   app.set('trust proxy', 1);
   app.setGlobalPrefix('api');
   const fromEnv = (process.env.CORS_ORIGIN || '')
@@ -72,6 +75,20 @@ async function bootstrap() {
       res.setHeader('Retry-After', String(decision.retryAfterSec));
       res.status(429).json({ message: 'Juda koʻp soʻrov. Birozdan keyin urinib koʻring.' });
       return;
+    }
+    next();
+  });
+
+  const gate = app.get(PlatformGateService);
+  app.use(async (req, res, next) => {
+    try {
+      const decision = await gate.decide(req);
+      if (!decision.allow) {
+        res.status(decision.status).json({ message: decision.message });
+        return;
+      }
+    } catch {
+      // A missing switch must not take the public site down.
     }
     next();
   });
