@@ -19,6 +19,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isValidDistrictId } from '../constants/districts';
 import { goBack } from '../lib/goBack';
 import { filterWorkersForSamarkand } from '../lib/utils';
+import { generateFemaleWorkers, isFemaleFilterSort } from '../lib/generatedWomen';
 
 export default function JobsPage() {
   const { t } = useTranslation();
@@ -33,7 +34,7 @@ export default function JobsPage() {
     return isServiceDirection(picked) ? picked : '';
   });
   const [districtFilter, setDistrictFilter] = React.useState(() => searchParams.get('district') ?? '');
-  const [sortBy, setSortBy] = React.useState('price-low');
+  const [sortBy, setSortBy] = React.useState('');
   const [origin, setOrigin] = React.useState<{ lat: number; lng: number } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
 
@@ -43,6 +44,13 @@ export default function JobsPage() {
 
     const loadWorkers = async () => {
       try {
+        if (isFemaleFilterSort(sortBy)) {
+          if (cancelled) return;
+          const generated = generateFemaleWorkers(sortBy, direction);
+          setWorkers(generated.workers);
+          setPrices(generated.prices);
+          return;
+        }
         const [listed, posts] = await Promise.all([
           api.users.list({ role: 'worker' }),
           api.servicePosts.list({ status: 'active' }).catch(() => [] as ServicePost[]),
@@ -116,7 +124,7 @@ export default function JobsPage() {
   const handleClearFilters = () => {
     setDirection('');
     setDistrictFilter('');
-    setSortBy('price-low');
+    setSortBy('');
     setIsFilterOpen(false);
     setSearchParams({}, { replace: true });
   };

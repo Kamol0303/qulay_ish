@@ -22,7 +22,8 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const tel = phoneTelHref(worker.phoneNumber);
+  const sample = worker.uid.startsWith('gen-');
+  const tel = sample ? '' : phoneTelHref(worker.phoneNumber);
   const phoneLabel = (worker.phoneNumber || '').trim();
   const [sending, setSending] = React.useState(false);
   const [sent, setSent] = React.useState(false);
@@ -33,7 +34,7 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
       navigate('/auth?mode=login');
       return;
     }
-    if (user.uid === worker.uid || sending || sent) return;
+    if (sample || user.uid === worker.uid || sending || sent) return;
     setSending(true);
     setSendError(null);
     try {
@@ -168,7 +169,7 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
         <button
           type="button"
           onClick={sendContract}
-          disabled={user?.uid === worker.uid || sending || sent}
+          disabled={sample || user?.uid === worker.uid || sending || sent}
           className="min-h-[44px] bg-blue-600 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-blue-700 disabled:opacity-40"
         >
           <FileText size={16} className="mr-1.5" />
