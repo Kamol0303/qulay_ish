@@ -429,7 +429,11 @@
       "urgent_badge": "URGENT",
       "completed": "Completed",
       "finish_job": "Finish job",
-      "complete_confirm": "Did you finish the job? The customer will be notified."
+      "complete_confirm": "Did you finish the job? The customer will be notified.",
+      "incoming_contracts": "Incoming contracts",
+      "confirm_contract": "Confirm",
+      "confirm_hint": "Confirm it. The finish-job button opens after that.",
+      "confirmed_hint": "Confirmed. The finish-job button is on My work."
     }
   },
   "admin": {
@@ -1022,6 +1026,10 @@
     "contact": "Contact",
     "registered_phone": "Registered phone",
     "start_chat": "Start Chat",
+    "send_contract": "Send contract",
+    "contract_sent": "Sent",
+    "contract_wait": "The worker must confirm",
+    "contract_failed": "Contract was not sent",
     "call": "Call",
     "experience_level": "Experience Level",
     "employer_reviews": "Employer Reviews",

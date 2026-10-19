@@ -29,6 +29,7 @@ export default function WorkerContracts() {
   const { profile, isDemo } = useAuth();
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<(Contract & { employer?: Profile; job?: Job })[]>([]);
+  const [signError, setSignError] = useState<string | null>(null);
 
   const getDateLocale = () => {
     switch (i18n.language) {
@@ -64,16 +65,22 @@ export default function WorkerContracts() {
   }, [profile]);
 
   const handleSign = async (contractId: string) => {
+    setSignError(null);
     try {
-      await contractService.signByWorker(
+      const ok = await contractService.signByWorker(
         contractId,
         profile!.uid,
         contracts.find(c => c.id === contractId)?.employerId || '',
-        contracts.find(c => c.id === contractId)?.job?.title || '',
+        contracts.find(c => c.id === contractId)?.job?.title || contracts.find(c => c.id === contractId)?.jobTitle || '',
       );
+      if (!ok) {
+        setSignError(t('worker_profile.contract_failed'));
+        return;
+      }
       setContracts(prev => prev.map(c => c.id === contractId ? { ...c, workerSigned: true, status: 'active' } : c));
     } catch (error) {
       debugLogger.error('Error signing contract:', error);
+      setSignError(error instanceof Error ? error.message : t('worker_profile.contract_failed'));
     }
   };
 
@@ -85,6 +92,7 @@ export default function WorkerContracts() {
           <p className="text-muted-foreground mt-2">{t('worker.dashboard.contracts_desc')}</p>
         </div>
 
+        {signError ? <p className="text-sm font-semibold text-red-600">{signError}</p> : null}
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
@@ -134,7 +142,7 @@ export default function WorkerContracts() {
                       <div className="flex-1 space-y-4">
                         <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                           <Briefcase size={14} />
-                          <span>{t('contract.job_details')}: {contract.job?.title || t('jobs.deleted_job', { defaultValue: 'Deleted job' })}</span>
+                          <span>{t('contract.job_details')}: {contract.job?.title || contract.jobTitle || t('jobs.deleted_job', { defaultValue: 'Deleted job' })}</span>
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -170,13 +178,16 @@ export default function WorkerContracts() {
                       {/* Actions */}
                       <div className="flex flex-col justify-center gap-3 min-w-[200px]">
                         {!contract.workerSigned ? (
+                          <>
+                          <p className="text-center text-xs font-semibold text-muted-foreground">{t('worker.dashboard.confirm_hint')}</p>
                           <button
                             onClick={() => handleSign(contract.id)}
                             className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20"
                           >
                             <CheckCircle size={18} />
-                            {t('contract.sign')}
+                            {t('worker.dashboard.confirm_contract')}
                           </button>
+                          </>
                         ) : (
                           <div className="py-3 bg-green-50 text-green-700 border border-green-100 rounded-xl font-bold flex items-center justify-center gap-2">
                             <CheckCircle size={18} />

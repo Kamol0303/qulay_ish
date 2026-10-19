@@ -429,7 +429,11 @@
       "urgent_badge": "SHOSHILINCH",
       "completed": "Yakunlangan",
       "finish_job": "Ishni yakunlash",
-      "complete_confirm": "Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi."
+      "complete_confirm": "Ishni yakunladingizmi? Buyurtmachiga xabar yuboriladi.",
+      "incoming_contracts": "Kelgan shartnomalar",
+      "confirm_contract": "Tasdiqlash",
+      "confirm_hint": "Tasdiqlang. Shundan keyin ishni yakunlash tugmasi ochiladi.",
+      "confirmed_hint": "Tasdiqlandi. Ishni yakunlash tugmasi Joriy ishimda."
     }
   },
   "admin": {
@@ -1022,6 +1026,10 @@
     "contact": "Bogʻlanish",
     "registered_phone": "Roʻyxatdagi telefon",
     "start_chat": "Chat boshlash",
+    "send_contract": "Shartnoma yuborish",
+    "contract_sent": "Yuborildi",
+    "contract_wait": "Ishchi tasdiqlashi kerak",
+    "contract_failed": "Shartnoma yuborilmadi",
     "call": "Qoʻngʻiroq qilish",
     "experience_level": "Tajriba darajasi",
     "employer_reviews": "Buyurtmachilar fikrlari",

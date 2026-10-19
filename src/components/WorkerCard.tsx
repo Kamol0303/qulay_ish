@@ -1,14 +1,16 @@
 import React from 'react';
 import { Profile } from '../types';
-import { MapPin, Star, ShieldCheck, Award, Phone, MessageSquare } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, Award, Phone, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
 import { CATEGORIES, SKILLS } from '../constants/categories';
 import RoleBadge from './RoleBadge';
 import { useAuth } from '../hooks/useAuth';
 import { phoneTelHref } from '../lib/phoneLink';
+import { api } from '../lib/api';
+import { ApiError } from '../lib/api/client';
 
 interface WorkerCardProps {
   worker: Profile;
@@ -21,14 +23,26 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
   const { user } = useAuth();
   const tel = phoneTelHref(worker.phoneNumber);
   const phoneLabel = (worker.phoneNumber || '').trim();
+  const [sending, setSending] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
+  const [sendError, setSendError] = React.useState<string | null>(null);
 
-  const startChat = () => {
+  const sendContract = async () => {
     if (!user) {
       navigate('/auth?mode=login');
       return;
     }
-    if (user.uid === worker.uid) return;
-    navigate(`/chat?with=${worker.uid}`);
+    if (user.uid === worker.uid || sending || sent) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await api.contracts.sendToWorker(worker.uid, typeof price === 'number' ? { amount: price } : {});
+      setSent(true);
+    } catch (error) {
+      setSendError(error instanceof ApiError || error instanceof Error ? error.message : t('worker_profile.contract_failed'));
+    } finally {
+      setSending(false);
+    }
   };
 
   const getSkillLabel = (skill: string) => {
@@ -129,7 +143,7 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-2">
+      <div className="grid grid-cols-1 gap-2 mb-2">
         {tel ? (
           <a
             href={tel}
@@ -148,20 +162,22 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
         )}
         <button
           type="button"
-          onClick={startChat}
-          disabled={user?.uid === worker.uid}
+          onClick={sendContract}
+          disabled={user?.uid === worker.uid || sending || sent}
           className="min-h-[44px] bg-blue-600 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-blue-700 disabled:opacity-40"
         >
-          <MessageSquare size={16} className="mr-1.5" /> {t('worker_profile.start_chat')}
+          <FileText size={16} className="mr-1.5" />
+          {sent
+            ? t('worker_profile.contract_sent')
+            : sending
+              ? t('common.loading')
+              : t('worker_profile.send_contract')}
         </button>
       </div>
-
-      <Link
-        to={`/worker/${worker.uid}`}
-        className="block w-full text-center bg-gray-50 text-gray-900 border border-gray-200 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors"
-      >
-        {t('workers.view_profile')}
-      </Link>
+      {sendError ? <p className="mb-2 text-center text-xs font-semibold text-red-600">{sendError}</p> : null}
+      {sent ? (
+        <p className="text-center text-xs font-semibold text-slate-600">{t('worker_profile.contract_wait')}</p>
+      ) : null}
     </motion.div>
   );
 }

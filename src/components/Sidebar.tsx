@@ -43,6 +43,7 @@ export default function Sidebar() {
       { icon: Briefcase, label: t('nav.sidebar.all_jobs'), path: '/jobs', end: true },
       { icon: Users, label: t('directory.employers_title'), path: '/directory', end: true },
       { icon: CheckCircle, label: t('my_work.title'), path: '/my-work', end: true },
+      { icon: FileText, label: t('nav.sidebar.contracts'), path: '/worker/contracts', end: true },
       { icon: MapPin, label: t('nav.sidebar.nearby_jobs'), path: '/worker/nearby-jobs', end: true },
       { icon: BookOpen, label: t('nav.sidebar.courses'), path: '/courses', end: true },
       { icon: ShieldCheck, label: t('nav.sidebar.identity_verification'), path: '/verification', end: true },

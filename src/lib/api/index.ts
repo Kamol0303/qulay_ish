@@ -643,6 +643,12 @@ export const api = {
     create(data: Partial<Contract>) {
       return apiRequest<Contract>('/contracts', { method: 'POST', body: JSON.stringify(data) });
     },
+    sendToWorker(workerId: string, data?: { amount?: number }) {
+      return apiRequest<Contract>(`/contracts/to-worker/${workerId}`, {
+        method: 'POST',
+        body: JSON.stringify(data ?? {}),
+      });
+    },
     createFromApplication(
       applicationId: string,
       data: { amount?: number; terms?: string; startDate?: string; endDate?: string },

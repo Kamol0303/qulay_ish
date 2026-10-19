@@ -1091,7 +1091,10 @@ function normalizeContractWrite(body: Record<string, unknown>, opts?: { partial?
 
 @Controller('contracts')
 export class ContractsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly devSms: DevSmsService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -1160,6 +1163,134 @@ export class ContractsController {
       },
       req,
     );
+  }
+
+  /** Offer from the worker list. The worker must confirm before the job can be finished. */
+  @UseGuards(JwtAuthGuard)
+  @Post('to-worker/:workerId')
+  async sendToWorker(
+    @Param('workerId') workerId: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: { user: AuthUser },
+  ) {
+    if (!workerId || workerId === req.user.userId) {
+      throw new BadRequestException("O'zingizga shartnoma yuborib bo'lmaydi");
+    }
+    const [worker, sender] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: workerId } }),
+      this.prisma.user.findUnique({ where: { id: req.user.userId } }),
+    ]);
+    if (!worker || worker.role !== 'worker') throw new NotFoundException('Ishchi topilmadi');
+    if (!sender) throw new NotFoundException('Hisob topilmadi');
+
+    const busy = await this.prisma.application.findFirst({
+      where: { workerId, status: 'accepted' },
+    });
+    if (busy) {
+      throw new BadRequestException("Bu ishchi hozir band. Avval joriy ishini yakunlashi kerak.");
+    }
+    const waiting = await this.prisma.contract.findFirst({
+      where: {
+        workerId,
+        employerId: sender.id,
+        signedByWorker: false,
+        status: { in: ['draft', 'active'] },
+      },
+    });
+    if (waiting) {
+      throw new BadRequestException("Shu ishchiga shartnoma yuborilgan. Tasdiqlashini kuting.");
+    }
+
+    let amount: number | null = null;
+    if (body.amount !== undefined && body.amount !== null && body.amount !== '') {
+      const n = Number(body.amount);
+      if (!Number.isFinite(n) || n < 0) throw new BadRequestException("Narx noto'g'ri");
+      amount = n;
+    }
+    const specialty = (worker.profession || worker.skills?.[0] || '').trim();
+    const title = (specialty ? `${worker.fullName} — ${specialty}` : `${worker.fullName} xizmati`).slice(0, 200);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const jobId = randomUUID();
+      const applicationId = randomUUID();
+      const contractId = randomUUID();
+      await tx.job.create({
+        data: {
+          id: jobId,
+          title,
+          description: "Ishchilar ro'yxatidan yuborilgan shartnoma.",
+          employerId: sender.id,
+          employerName: sender.fullName,
+          category: specialty || null,
+          region: worker.region || sender.region || 'Samarqand',
+          district: worker.district || sender.district,
+          price: amount,
+          salary: amount,
+          workType: 'direct',
+          status: 'draft',
+        },
+      });
+      await tx.application.create({
+        data: {
+          id: applicationId,
+          jobId,
+          workerId: worker.id,
+          employerId: sender.id,
+          workerName: worker.fullName,
+          jobTitle: title,
+          message: 'Shartnoma orqali taklif',
+          status: 'pending',
+        },
+      });
+      return tx.contract.create({
+        data: {
+          id: contractId,
+          jobId,
+          workerId: worker.id,
+          employerId: sender.id,
+          workerName: worker.fullName,
+          employerName: sender.fullName,
+          jobTitle: title,
+          amount,
+          terms: "Ishchi shartnomani tasdiqlagach ish boshlanadi. Tugagach ishchi yakunlaydi.",
+          status: 'draft',
+          signedByWorker: false,
+          signedByEmployer: true,
+        },
+      });
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: worker.id,
+        title: 'Yangi shartnoma',
+        message: `${sender.fullName || 'Buyurtmachi'} sizga "${title}" bo'yicha shartnoma yubordi. Tasdiqlang.`,
+        type: 'contract',
+        link: '/worker/contracts',
+        read: false,
+      },
+    }).catch(() => undefined);
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: sender.id,
+        title: 'Shartnoma yuborildi',
+        message: `${worker.fullName} tasdiqlashi kutilmoqda.`,
+        type: 'contract',
+        link: `/contracts/${created.id}`,
+        read: false,
+      },
+    }).catch(() => undefined);
+    if (worker.phoneNumber && !isReservedPhone(worker.phoneNumber)) {
+      void this.devSms
+        .sendNotificationSms(
+          worker.phoneNumber,
+          `Mehrli qollar: ${sender.fullName || 'Buyurtmachi'} sizga shartnoma yubordi. Ilovada tasdiqlang.`,
+        )
+        .catch(() => undefined);
+    }
+    return toContractDto(created as unknown as Record<string, unknown>);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -1310,6 +1441,15 @@ export class ContractsController {
     delete (data as any).workerSigned;
     delete (data as any).employerSigned;
 
+    const workerConfirms =
+      isWorker &&
+      !existing.signedByWorker &&
+      (body.signedByWorker === true || body.workerSigned === true);
+    const employerConfirms =
+      isEmployer &&
+      !existing.signedByEmployer &&
+      (body.signedByEmployer === true || body.employerSigned === true);
+
     // Party-scoped signature / approval fields
     if (!staff) {
       delete (data as any).adminApproved;
@@ -1319,11 +1459,76 @@ export class ContractsController {
       if (!isEmployer) delete (data as any).signedByEmployer;
     }
 
+    const bothSigned =
+      (workerConfirms || existing.signedByWorker) &&
+      (employerConfirms || existing.signedByEmployer);
+    if ((workerConfirms || employerConfirms) && bothSigned) {
+      data.status = 'active';
+      // Accept the offer before the signature is stored. A busy worker then
+      // keeps the contract unsigned and can confirm again after the current job.
+      if (existing.jobId) {
+        await this.openAcceptedWork(existing.jobId, existing.workerId);
+      }
+    }
+
     const updated = await this.prisma.contract.update({
       where: { id },
       data: data as any,
     });
     return toContractDto(updated as unknown as Record<string, unknown>);
+  }
+
+  /** Worker confirmation turns the linked offer into an accepted job, same as hiring. */
+  private async openAcceptedWork(jobId: string, workerId: string) {
+    const app = await this.prisma.application.findFirst({
+      where: { jobId, workerId, status: 'pending' },
+    });
+    if (!app) return;
+    const busy = await this.prisma.application.findFirst({
+      where: { workerId, status: 'accepted', NOT: { id: app.id } },
+    });
+    if (busy) {
+      throw new BadRequestException("Bu ishchi hozir band. Avval joriy ishini yakunlashi kerak.");
+    }
+    await this.prisma.application.update({
+      where: { id: app.id },
+      data: { status: 'accepted', acceptedAt: new Date() },
+    });
+    await this.prisma.user.update({
+      where: { id: workerId },
+      data: { availability: 'busy', lookingForWork: false },
+    }).catch(() => undefined);
+    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+    if (job && job.workType !== 'direct') {
+      await this.prisma.job.update({
+        where: { id: jobId },
+        data: { status: 'active' },
+      }).catch(() => undefined);
+    }
+    const jobTitle = app.jobTitle || job?.title || 'ish';
+    const schedule = formatJobSchedule(job?.scheduledAt);
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: workerId,
+        title: 'Ishga qabul qilindingiz',
+        message: `Siz "${jobTitle}" ishiga qabul qilindingiz. ${schedule} ishga borishingiz kerak.`,
+        type: 'application',
+        link: '/my-work',
+        read: false,
+      },
+    }).catch(() => undefined);
+    await this.prisma.notification.create({
+      data: {
+        id: randomUUID(),
+        userId: app.employerId,
+        title: 'Ishchi shartnomani tasdiqladi',
+        message: `${app.workerName || 'Ishchi'} "${jobTitle}" shartnomasini tasdiqladi.`,
+        type: 'application',
+        link: '/employer/applications',
+        read: false,
+      },
+    }).catch(() => undefined);
   }
 }
 

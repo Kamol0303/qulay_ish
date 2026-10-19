@@ -4,7 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { contractService } from '../../services/contractService';
 import { jobService } from '../../services/jobService';
-import { Job } from '../../types';
+import { Contract, Job } from '../../types';
 import { Briefcase, CheckCircle, Clock, MapPin, TrendingUp, Building2, MessageSquare, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { uz } from 'date-fns/locale';
@@ -23,6 +23,10 @@ export default function WorkerDashboard() {
     earnings: 0
   });
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
+  const [offers, setOffers] = useState<Contract[]>([]);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,6 +45,14 @@ export default function WorkerDashboard() {
           activeContracts: contracts.filter(d => d.status === 'active').length,
           earnings: contracts.filter(d => d.status === 'completed').reduce((acc, d) => acc + (d.amount || 0), 0),
         }));
+        setOffers(
+          contracts.filter(
+            (contract) =>
+              !contract.workerSigned &&
+              contract.status !== 'cancelled' &&
+              contract.status !== 'completed',
+          ),
+        );
         setRecentJobs(jobs.slice(0, 5));
         setLoading(false);
       } catch (error) {
@@ -59,6 +71,26 @@ export default function WorkerDashboard() {
       case 'ru': return ru;
       case 'en': return enUS;
       default: return uz;
+    }
+  };
+
+  const confirmOffer = async (offer: Contract) => {
+    if (!profile?.uid || confirming) return;
+    setConfirming(offer.id);
+    setConfirmError('');
+    try {
+      await contractService.signByWorker(
+        offer.id,
+        profile.uid,
+        offer.employerId,
+        offer.jobTitle || '',
+      );
+      setOffers((current) => current.filter((row) => row.id !== offer.id));
+      setConfirmed(true);
+    } catch (error) {
+      setConfirmError(error instanceof Error ? error.message : t('worker_profile.contract_failed'));
+    } finally {
+      setConfirming(null);
     }
   };
 
@@ -108,6 +140,36 @@ export default function WorkerDashboard() {
             </motion.div>
           ))}
         </div>
+
+        {offers.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-black text-foreground tracking-tight">{t('worker.dashboard.incoming_contracts')}</h3>
+            <p className="text-sm font-medium text-muted-foreground">{t('worker.dashboard.confirm_hint')}</p>
+            {confirmError ? <p className="text-sm font-semibold text-red-600">{confirmError}</p> : null}
+            {offers.map((offer) => (
+              <div key={offer.id} className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-lg font-black text-slate-900">{offer.jobTitle || t('nav.sidebar.contracts')}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{offer.employerName || t('worker_profile.anonymous_employer')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void confirmOffer(offer)}
+                  disabled={confirming === offer.id}
+                  className="min-h-[44px] rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {confirming === offer.id ? t('worker.dashboard.loading') : t('worker.dashboard.confirm_contract')}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {confirmed ? (
+          <p className="text-sm font-semibold text-emerald-700">
+            {t('worker.dashboard.confirmed_hint')}{' '}
+            <Link to="/my-work" className="underline">{t('my_work.title')}</Link>
+          </p>
+        ) : null}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           {/* Recent Jobs */}

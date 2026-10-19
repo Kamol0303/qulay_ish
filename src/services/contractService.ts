@@ -75,7 +75,7 @@ export const contractService = {
       return true;
     } catch (error) {
       debugLogger.error('Error signing contract by worker:', error);
-      return false;
+      throw error;
     }
   },
 
