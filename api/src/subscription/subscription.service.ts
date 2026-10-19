@@ -218,9 +218,10 @@ export class SubscriptionService {
     }
     try {
       const sms = await this.devSms.sendOtpSms(ownerPhone, code, 'login');
+      await this.gate.markSendDelivered(claim.feedId);
       await this.gate.rememberSmsBalance(sms.balance);
     } catch (err) {
-      await this.gate.markSendFailed('otp', "To'lov SMSi ketmadi. Provayder qabul qilmadi.");
+      await this.gate.markSendFailed('otp', "To'lov SMSi ketmadi. Provayder qabul qilmadi.", claim.feedId);
       this.logger.error('Payment OTP SMS yuborilmadi', err as Error);
       throw new HttpException(
         "Tasdiqlash kodi yuborilmadi. Keyinroq urinib ko'ring.",

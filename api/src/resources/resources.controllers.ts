@@ -20,6 +20,8 @@ import { isSafeAppPath } from '../common/safe-path.util';
 import { moderateText } from '../common/moderation.util';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 import { hideReservedPhone, isReservedPhone } from '../owner/owner.constants';
+import { PlatformGateService } from '../owner/platform-gate.service';
+import { sendMeteredSms } from '../owner/metered-sms';
 
 type AuthUser = { userId: string; role: string };
 
@@ -623,6 +625,7 @@ export class ApplicationsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly devSms: DevSmsService,
+    private readonly gate: PlatformGateService,
   ) {}
 
   /** A worker is "busy" while they still have an accepted (not completed) job. */
@@ -887,13 +890,17 @@ export class ApplicationsController {
       }).catch(() => undefined);
 
       if (worker?.phoneNumber) {
-        void this.devSms.sendNotificationSms(
+        void sendMeteredSms(
+          this.gate,
+          this.devSms,
           worker.phoneNumber,
           `Mehrli qollar: Siz "${jobTitle}" ishiga qabul qilindingiz. ${schedule} ishga borishingiz kerak. Tafsilotlar ilovada.`,
         );
       }
       if (employer?.phoneNumber) {
-        void this.devSms.sendNotificationSms(
+        void sendMeteredSms(
+          this.gate,
+          this.devSms,
           employer.phoneNumber,
           `Mehrli qollar: ${workerName} "${jobTitle}" ishini qabul qildi. ${schedule} ishchi kelishini kuting.`,
         );
@@ -991,12 +998,12 @@ export class ApplicationsController {
       select: { phoneNumber: true },
     });
     if (employer?.phoneNumber) {
-      void this.devSms
-        .sendNotificationSms(
-          employer.phoneNumber,
-          `Mehrli qollar: "${jobTitle}" ishi yakunlandi. Ilova orqali ${workerName}ning xizmat sifatini 5 yulduzda baholang.`,
-        )
-        .catch(() => undefined);
+      void sendMeteredSms(
+        this.gate,
+        this.devSms,
+        employer.phoneNumber,
+        `Mehrli qollar: "${jobTitle}" ishi yakunlandi. Ilova orqali ${workerName}ning xizmat sifatini 5 yulduzda baholang.`,
+      );
     }
 
     await this.prisma.systemLog.create({
@@ -1094,6 +1101,7 @@ export class ContractsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly devSms: DevSmsService,
+    private readonly gate: PlatformGateService,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -1283,12 +1291,12 @@ export class ContractsController {
       },
     }).catch(() => undefined);
     if (worker.phoneNumber && !isReservedPhone(worker.phoneNumber)) {
-      void this.devSms
-        .sendNotificationSms(
-          worker.phoneNumber,
-          `Mehrli qollar: ${sender.fullName || 'Buyurtmachi'} sizga shartnoma yubordi. Ilovada tasdiqlang.`,
-        )
-        .catch(() => undefined);
+      void sendMeteredSms(
+        this.gate,
+        this.devSms,
+        worker.phoneNumber,
+        `Mehrli qollar: ${sender.fullName || 'Buyurtmachi'} sizga shartnoma yubordi. Ilovada tasdiqlang.`,
+      );
     }
     return toContractDto(created as unknown as Record<string, unknown>);
   }

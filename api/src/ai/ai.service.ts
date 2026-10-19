@@ -60,7 +60,7 @@ export class AiService {
     }
     const claim = await this.gate.claimSend('ai', { purpose: 'ai' });
     if (!claim.send) {
-      return { text: "Sun'iy intellekt hozir to'xtatilgan.", provider: 'mock' };
+      return { text: "Xizmat vaqtincha mavjud emas", provider: 'mock' };
     }
 
     try {
@@ -72,7 +72,7 @@ export class AiService {
       }
     } catch (err) {
       this.logger.error(`AI provider "${provider}" error — mock fallback`, err as Error);
-      await this.gate.markSendFailed('ai', "Sun'iy intellekt provayderi javob bermadi.");
+      await this.gate.markSendFailed('ai', "Sun'iy intellekt provayderi javob bermadi.", claim.feedId);
       return { text: params.mockFallback(), provider: 'mock' };
     }
 

@@ -7,11 +7,13 @@ import { rememberGate } from './platform-gate.cache';
 import {
   decideAccess,
   defaultSnapshot,
+  feedPurpose,
+  feedStatus,
   money,
   normalizeBilling,
   normalizeSections,
   normalizeState,
-  spend,
+  parseMoney,
   type AccessDecision,
   type GateSnapshot,
   type SectionKey,
@@ -35,7 +37,34 @@ function jwtSecret(): string {
   return 'dev-secret';
 }
 
-export type OwnerFeedItem = { at: string; phone: string; code: string; detail: string };
+export type OwnerFeedItem = {
+  at: string;
+  phone: string;
+  code: string;
+  detail: string;
+  purpose: string;
+  status: string;
+};
+
+export type LedgerItem = {
+  at: string;
+  kind: string;
+  actor: string;
+  amountSom: number;
+  balanceSom: number;
+  reason: string;
+};
+
+export type PayPrompt = {
+  kind: 'otp' | 'ai';
+  title: string;
+  price: number;
+  credit: number;
+  need: number;
+};
+
+const FEED_KEEP = 200;
+const LEDGER_KEEP = 300;
 
 @Injectable()
 export class PlatformGateService {
@@ -92,119 +121,206 @@ export class PlatformGateService {
     return phoneOk && passwordOk;
   }
 
-  async apply(body: { action?: string; value?: string; confirm?: string; name?: string }): Promise<void> {
+  async apply(body: { action?: string; value?: string; confirm?: string; name?: string }): Promise<PayPrompt | null> {
     const action = String(body.action || '');
     const current = await this.readFresh();
     if (action === 'presence') {
       const value = normalizeState(body.value);
-      if (value === 'live' && body.value !== 'live') return;
-      if (String(body.value) === 'removed' && String(body.confirm) !== 'yes') return;
-      if (!['live', 'paused', 'off', 'removed'].includes(String(body.value))) return;
-      await this.write({ ...current, state: value });
-      return;
+      if (value === 'live' && body.value !== 'live') return null;
+      if ((String(body.value) === 'removed' || String(body.value) === 'off') && String(body.confirm) !== 'yes') return null;
+      if (!['live', 'paused', 'off', 'removed'].includes(String(body.value))) return null;
+      await this.patch({ state: value });
+      return null;
     }
     if (action === 'restore') {
-      await this.write({ ...current, state: 'live', sections: normalizeSections({}) });
-      return;
+      await this.patch({ state: 'live', sections: normalizeSections({}) });
+      return null;
     }
     if (action === 'billing') {
-      if (body.value !== 'free' && body.value !== 'paid') return;
-      await this.write({ ...current, billing: body.value });
-      return;
+      if (body.value !== 'free' && body.value !== 'paid') return null;
+      await this.patch({ billing: body.value });
+      return null;
     }
     if (action === 'section') {
       const name = String(body.name || '') as SectionKey;
-      if (name !== 'admin' && name !== 'superAdmin') return;
-      if (body.value !== 'on' && body.value !== 'off') return;
+      if (name !== 'admin' && name !== 'superAdmin') return null;
+      if (body.value !== 'on' && body.value !== 'off') return null;
       const sections = { ...current.sections, [name]: body.value === 'on' };
-      await this.write({ ...current, sections });
-      return;
+      await this.patch({ sections });
+      return null;
+    }
+    if (action === 'topup') {
+      const parsed = parseMoney(body.value);
+      if (!parsed.ok || parsed.value <= 0) throw new HttpException("Summani kiriting.", 400);
+      const kind = body.name === 'ai' ? 'ai' : 'otp';
+      await this.adjustCredit(kind, parsed.value, 'add', 'owner', "To'lov qabul qilindi");
+      return null;
     }
     if (action === 'money') {
-      const amount = money(body.value);
-      const next = { ...current };
+      const parsed = parseMoney(body.value);
+      if (!parsed.ok) throw new HttpException(parsed.error, 400);
+      const amount = parsed.value;
       const name = String(body.name || '');
-      if (name === 'staff') next.staffPriceSom = amount;
-      else if (name === 'otpPrice') next.otpPriceSom = amount;
-      else if (name === 'otpCredit') next.otpCreditSom = amount;
-      else if (name === 'aiPrice') next.aiPriceSom = amount;
-      else if (name === 'aiCredit') next.aiCreditSom = amount;
-      else return;
-      await this.write(next);
       if (name === 'staff') {
+        await this.patch({ staffPriceSom: amount });
         await this.prisma.platformSubscription.upsert({
           where: { id: 'platform' },
           create: { id: 'platform', status: 'active', priceSom: amount, priceOverride: amount },
           update: { priceSom: amount, priceOverride: amount },
         }).catch(() => undefined);
+        return null;
       }
+      if (name === 'otpCredit' || name === 'aiCredit') {
+        const kind = name === 'otpCredit' ? 'otp' : 'ai';
+        const before = kind === 'otp' ? current.otpCreditSom : current.aiCreditSom;
+        await this.adjustCredit(kind, amount - before, 'set', 'owner', 'Qoldiq yangilandi', amount);
+        return null;
+      }
+      if (name !== 'otpPrice' && name !== 'aiPrice') return null;
+      if (name === 'otpPrice') await this.patch({ otpPriceSom: amount });
+      else await this.patch({ aiPriceSom: amount });
+      const credit = name === 'otpPrice' ? current.otpCreditSom : current.aiCreditSom;
+      if (amount > 0 && credit < amount) {
+        return {
+          kind: name === 'otpPrice' ? 'otp' : 'ai',
+          title: name === 'otpPrice'
+            ? "OTP to'lovi yaqin: to'lovni amalga oshiring"
+            : "Sun'iy intellekt to'lovi yaqin: to'lovni amalga oshiring",
+          price: amount,
+          credit,
+          need: amount - credit,
+        };
+      }
+      return null;
     }
+    return null;
   }
 
   async listFeed(): Promise<OwnerFeedItem[]> {
     try {
       const rows = await this.prisma.ownerFeed.findMany({
         orderBy: { createdAt: 'desc' },
-        take: 40,
+        take: FEED_KEEP,
       });
       return rows.map((row) => ({
         at: row.createdAt.toISOString(),
         phone: row.phone,
         code: row.code,
         detail: row.detail,
+        purpose: feedPurpose(row),
+        status: feedStatus(row),
       }));
     } catch {
       return [];
     }
   }
 
-  /**
-   * OTP or AI send. Price 0 always allows the send. A short balance keeps the
-   * code here and skips the outside provider.
-   */
-  async claimSend(kind: 'otp' | 'ai', meta: { phone?: string; code?: string; purpose?: string }): Promise<{ send: boolean }> {
-    const snap = await this.readFresh();
-    const price = kind === 'otp' ? snap.otpPriceSom : snap.aiPriceSom;
-    const credit = kind === 'otp' ? snap.otpCreditSom : snap.aiCreditSom;
-    const result = spend(credit, price);
-    const phone = meta.phone || '';
-    const code = meta.code || '';
-    if (!result.ok) {
-      await this.note(
-        phone,
-        code,
-        kind === 'otp' ? 'SMS ketmadi. OTP qoldig‘i yetarli emas.' : 'Sun’iy intellekt to‘xtadi. Qoldiq yetarli emas.',
-      );
-      return { send: false };
+  async listLedger(): Promise<LedgerItem[]> {
+    try {
+      const rows = await this.prisma.creditLedger.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 40,
+      });
+      return rows.map((row) => ({
+        at: row.createdAt.toISOString(),
+        kind: row.kind,
+        actor: row.actor,
+        amountSom: row.amountSom,
+        balanceSom: row.balanceSom,
+        reason: row.reason,
+      }));
+    } catch {
+      return [];
     }
-    if (price > 0) {
-      const next = { ...snap };
-      if (kind === 'otp') next.otpCreditSom = result.next;
-      else next.aiCreditSom = result.next;
-      await this.write(next);
-    }
-    if (kind === 'otp') {
-      await this.note(phone, code, `SMS yuborilmoqda (${meta.purpose || 'login'})`);
-    }
-    return { send: true };
   }
 
-  async markSendFailed(kind: 'otp' | 'ai', detail: string): Promise<void> {
-    const snap = await this.readFresh();
-    const price = kind === 'otp' ? snap.otpPriceSom : snap.aiPriceSom;
-    if (price > 0) {
-      const next = { ...snap };
-      if (kind === 'otp') next.otpCreditSom = Math.min(100_000_000, snap.otpCreditSom + price);
-      else next.aiCreditSom = Math.min(100_000_000, snap.aiCreditSom + price);
-      await this.write(next);
+  async subscriptionBrief(): Promise<{ until: string | null; days: number | null }> {
+    try {
+      const row = await this.prisma.platformSubscription.findUnique({ where: { id: 'platform' } });
+      const until = row?.paidUntil ?? row?.freeUntil ?? null;
+      if (!until) return { until: null, days: null };
+      const days = Math.ceil((until.getTime() - Date.now()) / 86_400_000);
+      return { until: until.toISOString(), days };
+    } catch {
+      return { until: null, days: null };
     }
-    await this.note('', '', detail);
+  }
+
+  /**
+   * OTP or AI send. Price 0 always allows the send. A short balance keeps the
+   * code in the feed and skips the outside provider. The debit is one locked
+   * update, so two sends cannot spend the same sum.
+   */
+  async claimSend(kind: 'otp' | 'ai', meta: { phone?: string; code?: string; purpose?: string }): Promise<{ send: boolean; feedId?: string }> {
+    const phone = (meta.phone || '').slice(0, 32);
+    const code = (meta.code || '').slice(0, 12);
+    const purpose = (meta.purpose || (kind === 'ai' ? 'ai' : 'login')).slice(0, 24);
+    const result = await this.locked(async (tx) => {
+      const row = await tx.platformGate.findUnique({ where: { id: 'gate' } });
+      if (!row) return { send: false as const };
+      const price = kind === 'otp' ? money(row.otpPriceSom) : money(row.aiPriceSom);
+      const credit = kind === 'otp' ? money(row.otpCreditSom) : money(row.aiCreditSom);
+      if (price > 0 && credit < price) {
+        const feedId = kind === 'otp'
+          ? await this.noteTx(tx, phone, code, 'Balans yetmadi', purpose, 'short')
+          : undefined;
+        return { send: false as const, feedId };
+      }
+      let next = credit;
+      if (price > 0) {
+        next = credit - price;
+        await tx.platformGate.update({
+          where: { id: 'gate' },
+          data: kind === 'otp' ? { otpCreditSom: next } : { aiCreditSom: next },
+        });
+        await this.journalTx(tx, kind, 'system', -price, next, kind === 'otp' ? 'SMS uchun yechildi' : "So'rov uchun yechildi");
+      }
+      const feedId = kind === 'otp' && purpose !== 'notice'
+        ? await this.noteTx(tx, phone, code, `SMS yuborilmoqda (${purpose})`, purpose, 'sending')
+        : undefined;
+      return { send: true as const, feedId };
+    });
+    this.cached = null;
+    return result;
+  }
+
+  async markSendDelivered(feedId?: string): Promise<void> {
+    if (!feedId) return;
+    await this.prisma.ownerFeed.update({
+      where: { id: feedId },
+      data: { status: 'sent', detail: 'SMS yuborildi' },
+    }).catch(() => undefined);
+  }
+
+  async markSendFailed(kind: 'otp' | 'ai', detail: string, feedId?: string): Promise<void> {
+    await this.locked(async (tx) => {
+      const row = await tx.platformGate.findUnique({ where: { id: 'gate' } });
+      const price = row ? (kind === 'otp' ? money(row.otpPriceSom) : money(row.aiPriceSom)) : 0;
+      if (row && price > 0) {
+        const credit = kind === 'otp' ? money(row.otpCreditSom) : money(row.aiCreditSom);
+        const next = Math.min(100_000_000, credit + price);
+        await tx.platformGate.update({
+          where: { id: 'gate' },
+          data: kind === 'otp' ? { otpCreditSom: next } : { aiCreditSom: next },
+        });
+        await this.journalTx(tx, kind, 'system', price, next, 'Yuborilmadi, qaytarildi');
+      }
+      const text = detail.slice(0, 180);
+      if (feedId) {
+        await tx.ownerFeed.update({
+          where: { id: feedId },
+          data: { status: 'error', detail: text },
+        }).catch(() => undefined);
+      } else if (kind === 'otp') {
+        await this.noteTx(tx, '', '', text, '', 'error');
+      }
+    });
+    this.cached = null;
   }
 
   async rememberSmsBalance(balance: number | null | undefined): Promise<void> {
     if (typeof balance !== 'number' || !Number.isFinite(balance)) return;
-    const snap = await this.readFresh();
-    await this.write({ ...snap, smsBalance: Math.max(0, Math.floor(balance)) });
+    await this.patch({ smsBalance: Math.max(0, Math.floor(balance)) });
   }
 
   private hit(ip: string) {
@@ -295,42 +411,116 @@ export class PlatformGateService {
     };
   }
 
-  private async note(phone: string, code: string, detail: string): Promise<void> {
-    try {
-      await this.prisma.ownerFeed.create({
-        data: { phone: phone.slice(0, 32), code: code.slice(0, 12), detail: detail.slice(0, 180) },
-      });
-      const stale = await this.prisma.ownerFeed.findMany({
-        orderBy: { createdAt: 'desc' },
-        skip: 40,
-        select: { id: true },
-      });
-      if (stale.length) {
-        await this.prisma.ownerFeed.deleteMany({ where: { id: { in: stale.map((row) => row.id) } } });
-      }
-    } catch {
-      /* The feed table appears after migrate. A missing table must not block login. */
-    }
+  private async patch(data: Prisma.PlatformGateUpdateInput): Promise<void> {
+    await this.ensureRow();
+    await this.prisma.platformGate.update({ where: { id: 'gate' }, data });
+    this.cached = null;
+    rememberGate(await this.snapshot());
   }
 
-  private async write(snap: GateSnapshot): Promise<void> {
-    const data = {
-      state: snap.state,
-      billing: snap.billing,
-      sections: snap.sections,
-      staffPriceSom: snap.staffPriceSom,
-      otpPriceSom: snap.otpPriceSom,
-      otpCreditSom: snap.otpCreditSom,
-      aiPriceSom: snap.aiPriceSom,
-      aiCreditSom: snap.aiCreditSom,
-      smsBalance: snap.smsBalance,
-    };
-    await this.prisma.platformGate.upsert({
-      where: { id: 'gate' },
-      create: { id: 'gate', ...data },
-      update: data,
+  private async ensureRow(): Promise<void> {
+    const existing = await this.prisma.platformGate.findUnique({ where: { id: 'gate' } });
+    if (existing) return;
+    await this.prisma.platformGate.create({
+      data: {
+        id: 'gate',
+        state: 'live',
+        billing: 'paid',
+        sections: {},
+        staffPriceSom: 250000,
+        otpPriceSom: 0,
+        otpCreditSom: 0,
+        aiPriceSom: 0,
+        aiCreditSom: 0,
+      },
+    }).catch(() => undefined);
+  }
+
+  private async locked<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    await this.ensureRow();
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM platform_gate WHERE id = 'gate' FOR UPDATE`;
+      return fn(tx);
     });
-    this.cached = { at: Date.now(), snap };
-    rememberGate(snap);
+  }
+
+  private async adjustCredit(
+    kind: 'otp' | 'ai',
+    delta: number,
+    mode: 'add' | 'set',
+    actor: 'owner' | 'system',
+    reason: string,
+    absolute?: number,
+  ): Promise<void> {
+    await this.locked(async (tx) => {
+      const row = await tx.platformGate.findUnique({ where: { id: 'gate' } });
+      if (!row) return;
+      const before = kind === 'otp' ? money(row.otpCreditSom) : money(row.aiCreditSom);
+      const next = mode === 'set' ? (absolute ?? before) : before + delta;
+      if (next < 0 || next > 100_000_000) throw new HttpException("Juda katta son.", 400);
+      if (next === before) return;
+      await tx.platformGate.update({
+        where: { id: 'gate' },
+        data: kind === 'otp' ? { otpCreditSom: next } : { aiCreditSom: next },
+      });
+      await this.journalTx(tx, kind, actor, next - before, next, reason);
+    });
+    this.cached = null;
+  }
+
+  private async noteTx(
+    tx: Prisma.TransactionClient,
+    phone: string,
+    code: string,
+    detail: string,
+    purpose: string,
+    status: string,
+  ): Promise<string> {
+    const row = await tx.ownerFeed.create({
+      data: {
+        phone: phone.slice(0, 32),
+        code: code.slice(0, 12),
+        detail: detail.slice(0, 180),
+        purpose: purpose.slice(0, 24),
+        status: status.slice(0, 16),
+      },
+    });
+    const stale = await tx.ownerFeed.findMany({
+      orderBy: { createdAt: 'desc' },
+      skip: FEED_KEEP,
+      select: { id: true },
+    });
+    if (stale.length) {
+      await tx.ownerFeed.deleteMany({ where: { id: { in: stale.map((item) => item.id) } } });
+    }
+    return row.id;
+  }
+
+  private async journalTx(
+    tx: Prisma.TransactionClient,
+    kind: 'otp' | 'ai',
+    actor: 'owner' | 'system',
+    amountSom: number,
+    balanceSom: number,
+    reason: string,
+  ): Promise<void> {
+    if (!amountSom) return;
+    await tx.creditLedger.create({
+      data: {
+        kind,
+        actor,
+        amountSom,
+        balanceSom,
+        reason: reason.slice(0, 180),
+      },
+    });
+    const stale = await tx.creditLedger.findMany({
+      orderBy: { createdAt: 'desc' },
+      skip: LEDGER_KEEP,
+      select: { id: true },
+    });
+    if (stale.length) {
+      await tx.creditLedger.deleteMany({ where: { id: { in: stale.map((item) => item.id) } } });
+    }
   }
 }

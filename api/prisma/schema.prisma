@@ -609,8 +609,24 @@ model OwnerFeed {
   phone     String   @default("")
   code      String   @default("")
   detail    String   @default("")
+  purpose   String   @default("")
+  status    String   @default("")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([createdAt])
   @@map("owner_feed")
+}
+
+/** Every OTP or AI balance change: who, when, how much, and why. */
+model CreditLedger {
+  id         String   @id @default(cuid())
+  kind       String
+  actor      String   @default("owner")
+  amountSom  Int      @map("amount_som")
+  balanceSom Int      @map("balance_som")
+  reason     String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("credit_ledger")
 }

@@ -30,4 +30,9 @@ export class OwnerFormDto {
   @IsString()
   @MaxLength(8)
   confirm?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  format?: string;
 }

@@ -71,6 +71,62 @@ export function money(value: unknown): number {
   return Math.min(100_000_000, Math.floor(n));
 }
 
+const MONEY_CAP = 100_000_000;
+
+export type MoneyResult = { ok: true; value: number } | { ok: false; error: string };
+
+/** Form money. Empty, negative, and oversized values are rejected. */
+export function parseMoney(value: unknown): MoneyResult {
+  const raw = String(value ?? '').trim();
+  if (!raw) return { ok: false, error: "Qiymat bo'sh." };
+  if (raw.startsWith('-')) return { ok: false, error: "Manfiy son bo'lmaydi." };
+  const digits = raw.replace(/[^\d]/g, '');
+  if (!digits) return { ok: false, error: "Son kiriting." };
+  const n = Number(digits);
+  if (!Number.isFinite(n) || n > MONEY_CAP) return { ok: false, error: "Juda katta son." };
+  return { ok: true, value: Math.floor(n) };
+}
+
+/** 57880 -> "57 880 so'm" */
+export function som(value: number): string {
+  const n = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+  const grouped = n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${grouped} so'm`;
+}
+
+export type MeterTone = 'free' | 'ok' | 'low' | 'due';
+
+/** Price 0 is free. Twenty sends or fewer is a warning. Below one send, payment is due. */
+export function meter(credit: number, price: number): { tone: MeterTone; left: number | null; pct: number } {
+  const c = Math.max(0, Math.floor(credit));
+  const p = Math.max(0, Math.floor(price));
+  if (p === 0) return { tone: 'free', left: null, pct: 100 };
+  const left = Math.floor(c / p);
+  if (left < 1) return { tone: 'due', left: 0, pct: 0 };
+  if (left <= 20) return { tone: 'low', left, pct: Math.max(8, Math.round((left / 20) * 100)) };
+  return { tone: 'ok', left, pct: 100 };
+}
+
+export type FeedStatus = 'sending' | 'sent' | 'error' | 'short';
+
+export function feedStatus(row: { status?: string; detail?: string }): FeedStatus | '' {
+  if (row.status === 'sending' || row.status === 'sent' || row.status === 'error' || row.status === 'short') {
+    return row.status;
+  }
+  const detail = (row.detail || '').toLowerCase();
+  if (detail.includes('yetarli') || detail.includes('balans')) return 'short';
+  if (detail.includes('ketmadi') || detail.includes('javob bermadi') || detail.includes('xato')) return 'error';
+  if (detail.includes('yuborildi')) return 'sent';
+  if (detail.includes('yuborilmoqda')) return 'sending';
+  return '';
+}
+
+export function feedPurpose(row: { purpose?: string; detail?: string }): string {
+  if (row.purpose) return row.purpose;
+  const match = /\((login|register|reset|payment|notice|ai)\)/i.exec(row.detail || '');
+  return match ? match[1].toLowerCase() : '';
+}
+
 /** Price 0 means the send is free. Otherwise the credit must cover one send. */
 export function spend(credit: number, price: number): { ok: boolean; next: number } {
   const c = Math.max(0, Math.floor(credit));

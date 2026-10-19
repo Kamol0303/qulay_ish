@@ -24,8 +24,12 @@ function prepare(res: Response) {
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   );
+}
+
+function wantsJson(req: Request, body: OwnerFormDto): boolean {
+  return body?.format === 'json' || String(req.headers.accept || '').includes('application/json');
 }
 
 @Controller('gate')
@@ -47,15 +51,15 @@ export class OwnerController {
   async page(@Req() req: Request, @Res() res: Response) {
     prepare(res);
     const authed = this.gate.valid(readCookie(req.headers.cookie, OWNER_COOKIE));
-    const snap = authed ? await this.gate.snapshot() : null;
-    const feed = authed ? await this.gate.listFeed() : [];
-    res.type('html').send(renderOwnerPage({ authed, snap, feed }));
+    const view = authed ? await this.view() : { snap: null, feed: [], ledger: [], subscription: { until: null, days: null } };
+    res.type('html').send(renderOwnerPage({ authed, ...view }));
   }
 
   @Post()
   async submit(@Req() req: Request, @Res() res: Response, @Body() body: OwnerFormDto) {
     prepare(res);
     const action = String(body?.action || '');
+    const json = wantsJson(req, body || {});
     if (action === 'login') {
       try {
         const ok = await this.gate.checkLogin(String(body.phone || ''), String(body.password || ''), req.ip || 'unknown');
@@ -74,6 +78,10 @@ export class OwnerController {
     }
 
     if (!this.gate.valid(readCookie(req.headers.cookie, OWNER_COOKIE))) {
+      if (json) {
+        res.status(401).json({ ok: false, error: 'Kirish kerak.' });
+        return;
+      }
       res.redirect(303, OWNER_PATH);
       return;
     }
@@ -83,18 +91,35 @@ export class OwnerController {
       return;
     }
     try {
-      await this.gate.apply(body || {});
-    } catch {
-      const snap = await this.gate.snapshot();
-      const feed = await this.gate.listFeed();
-      res.status(500).type('html').send(renderOwnerPage({
-        authed: true,
-        snap,
-        feed,
-        error: "Saqlab bo'lmadi. Serverda baza yangilanishi kerak.",
-      }));
+      const prompt = await this.gate.apply(body || {});
+      if (json) {
+        const view = await this.view();
+        res.json({ ok: true, message: 'Saqlandi', prompt, ...view });
+        return;
+      }
+    } catch (err) {
+      const message = err instanceof HttpException && err.getStatus() < 500
+        ? String(err.message)
+        : "Saqlab bo'lmadi. Serverda baza yangilanishi kerak.";
+      const status = err instanceof HttpException && err.getStatus() < 500 ? err.getStatus() : 500;
+      if (json) {
+        res.status(status).json({ ok: false, error: message });
+        return;
+      }
+      const view = await this.view();
+      res.status(status).type('html').send(renderOwnerPage({ authed: true, ...view, error: message }));
       return;
     }
     res.redirect(303, OWNER_PATH);
+  }
+
+  private async view() {
+    const [snap, feed, ledger, subscription] = await Promise.all([
+      this.gate.snapshot(),
+      this.gate.listFeed(),
+      this.gate.listLedger(),
+      this.gate.subscriptionBrief(),
+    ]);
+    return { snap, feed, ledger, subscription };
   }
 }

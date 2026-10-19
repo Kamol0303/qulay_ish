@@ -192,6 +192,7 @@ export class OtpService {
 
     try {
       const smsMeta = await this.devSms.sendOtpSms(phone, code, purpose);
+      await this.gate.markSendDelivered(claim.feedId);
       await this.gate.rememberSmsBalance(smsMeta.balance);
       await this.prisma.otpSession.update({
         where: { id: sessionId },
@@ -205,7 +206,7 @@ export class OtpService {
       });
     } catch {
       this.logger.warn('SMS ketmadi. Provayder qabul qilmadi.');
-      await this.gate.markSendFailed('otp', 'SMS ketmadi. Provayder qabul qilmadi.');
+      await this.gate.markSendFailed('otp', 'SMS ketmadi. Provayder qabul qilmadi.', claim.feedId);
       return { success: true };
     }
 

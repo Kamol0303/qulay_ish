@@ -6,8 +6,12 @@ import {
   allSectionsOn,
   decideAccess,
   defaultSnapshot,
+  feedStatus,
+  meter,
   normalizeSections,
   otpPurposeAllowed,
+  parseMoney,
+  som,
   spend,
   type GateSections,
 } from './platform-gate.policy';
@@ -79,6 +83,17 @@ test('a send is free at price zero and stops when the balance is short', () => {
   assert.deepEqual(spend(1000, 0), { ok: true, next: 1000 });
   assert.deepEqual(spend(500, 200), { ok: true, next: 300 });
   assert.deepEqual(spend(100, 200), { ok: false, next: 100 });
+  assert.equal(som(57880), "57 880 so'm");
+  assert.deepEqual(parseMoney('57 880'), { ok: true, value: 57880 });
+  assert.equal(parseMoney('').ok, false);
+  assert.equal(parseMoney('-5').ok, false);
+  assert.equal(parseMoney('100000001').ok, false);
+  assert.equal(meter(0, 100).tone, 'due');
+  assert.equal(meter(2000, 100).tone, 'low');
+  assert.equal(meter(2100, 100).tone, 'ok');
+  assert.equal(meter(500, 0).tone, 'free');
+  assert.equal(feedStatus({ detail: 'SMS ketmadi. OTP qoldig‘i yetarli emas.' }), 'short');
+  assert.equal(feedStatus({ status: 'sent', detail: 'eski' }), 'sent');
 });
 
 test('staff panels can be closed without closing worker login', () => {

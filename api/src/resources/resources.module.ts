@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { RolesGuard } from '../auth/roles.guard';
 import { DevSmsService } from '../auth/devsms.service';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { OwnerModule } from '../owner/owner.module';
 import {
   UsersController,
   JobsController,
@@ -22,7 +23,7 @@ import {
 } from './resources.controllers';
 
 @Module({
-  imports: [SubscriptionModule],
+  imports: [SubscriptionModule, OwnerModule],
   providers: [RolesGuard, DevSmsService],
   controllers: [
     UsersController,
