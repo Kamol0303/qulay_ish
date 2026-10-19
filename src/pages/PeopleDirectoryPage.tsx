@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BadgeCheck, Building2, Loader2, MapPin, Search, UserRound } from 'lucide-react';
+import StarRow from '../components/StarRow';
 import { useTranslation } from 'react-i18next';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -120,23 +121,30 @@ function DirectoryContent() {
                     ? t(`districts.${person.district}`, { defaultValue: person.district })
                     : t('directory.location_unknown')}
                 </p>
-                <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
-                  {targetRole === 'worker' ? <UserRound size={13} /> : <Building2 size={13} />}
-                  {targetRole === 'worker' ? t('directory.worker') : t('directory.employer')}
-                </p>
-                {targetRole === 'worker' && (
-                  <span
-                    className={`ml-1 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                      person.availability === 'busy'
-                        ? 'bg-amber-500/10 text-amber-600'
-                        : 'bg-emerald-500/10 text-emerald-600'
-                    }`}
-                  >
-                    {person.availability === 'busy'
-                      ? t('directory.busy')
-                      : t('directory.available')}
-                  </span>
-                )}
+                <div className="mt-2 flex flex-wrap items-center gap-1">
+                  <p className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
+                    {targetRole === 'worker' ? <UserRound size={13} /> : <Building2 size={13} />}
+                    {targetRole === 'worker' ? t('directory.worker') : t('directory.employer')}
+                  </p>
+                  {targetRole === 'worker' && (
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                        person.availability === 'busy'
+                          ? 'bg-amber-500/10 text-amber-600'
+                          : 'bg-emerald-500/10 text-emerald-600'
+                      }`}
+                    >
+                      {person.availability === 'busy'
+                        ? t('directory.busy')
+                        : t('directory.available')}
+                    </span>
+                  )}
+                </div>
+                {targetRole === 'worker' && person.reviewCount ? (
+                  <div className="mt-2">
+                    <StarRow rating={person.rating} count={person.reviewCount} />
+                  </div>
+                ) : null}
               </div>
             </Link>
           ))}

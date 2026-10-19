@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { getDistrictKey } from '../lib/utils';
 import { CATEGORIES, SKILLS } from '../constants/categories';
 import RoleBadge from './RoleBadge';
+import StarRow from './StarRow';
 import { useAuth } from '../hooks/useAuth';
 import { phoneTelHref } from '../lib/phoneLink';
 import { api } from '../lib/api';
@@ -98,12 +99,16 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
             <MapPin size={12} className="mr-1 text-gray-400" />
             {t('common.region_name', { defaultValue: 'Samarqand viloyati' })}{worker.district ? `, ${t(`districts.${getDistrictKey(worker.district)}`)}` : ''}
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center text-yellow-500">
-              <Star size={14} fill="currentColor" />
-              <span className="ml-1 text-sm font-bold text-gray-900">{worker.rating || t('worker_profile.new')}</span>
-              <span className="ml-1 text-xs text-gray-400">({worker.reviewCount || 0})</span>
-            </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {worker.reviewCount ? (
+              <StarRow rating={worker.rating} count={worker.reviewCount} />
+            ) : (
+              <div className="flex items-center text-yellow-500">
+                <Star size={14} fill="currentColor" />
+                <span className="ml-1 text-sm font-bold text-gray-900">{t('worker_profile.new')}</span>
+                <span className="ml-1 text-xs text-gray-400">(0)</span>
+              </div>
+            )}
             <div className="text-xs text-gray-500">
               <span className="font-bold text-blue-600">{worker.completedJobs || 0}</span> {t('worker_profile.completed_jobs')}
             </div>

@@ -35,7 +35,8 @@
     "complete_confirm": "Have you fully completed this job? The employer will receive a rating request.",
     "completing": "Completing...",
     "complete_error": "Could not complete the job",
-    "load_error": "Could not load current work"
+    "load_error": "Could not load current work",
+    "not_rated": "Not rated yet"
   },
   "admin_users": {
     "title": "Admin Users",
@@ -1200,6 +1201,9 @@
     "saved": "Your rating was saved",
     "pick_rating": "Please pick a star rating",
     "rate_worker": "Rate worker",
-    "rated": "Rated"
+    "rated": "Rated",
+    "not_found": "Job was not found",
+    "only_hirer": "Only the person who hired this worker can rate them",
+    "wait_finish": "The five stars open after the worker finishes the job"
   }
 }

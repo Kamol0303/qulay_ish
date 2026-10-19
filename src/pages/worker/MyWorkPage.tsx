@@ -5,7 +5,8 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { useIsMobileUi } from '../../hooks/useIsMobileUi';
 import { api } from '../../lib/api';
-import type { Application, Job } from '../../types';
+import type { Application, Job, Review } from '../../types';
+import StarRow from '../../components/StarRow';
 import { appConfirm } from '../../lib/appDialog';
 
 type Assignment = Application & { job?: Job };
@@ -17,12 +18,21 @@ function MyWorkContent() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [reviews, setReviews] = useState<Record<string, Review>>({});
 
   const load = useCallback(async () => {
     if (!profile?.uid) return;
     setLoading(true);
     try {
-      const applications = await api.applications.list({ workerId: profile.uid });
+      const [applications, reviewRows] = await Promise.all([
+        api.applications.list({ workerId: profile.uid }),
+        api.reviews.list({ workerId: profile.uid }).catch(() => [] as Review[]),
+      ]);
+      const byApplication: Record<string, Review> = {};
+      for (const review of reviewRows) {
+        if (review.applicationId) byApplication[review.applicationId] = review;
+      }
+      setReviews(byApplication);
       const active = applications.filter(
         (application) => application.status === 'accepted' || application.status === 'completed',
       );
@@ -125,6 +135,19 @@ function MyWorkContent() {
                   {row.status === 'accepted' ? t('my_work.in_progress') : t('my_work.completed')}
                 </span>
               </div>
+
+              {row.status === 'completed' ? (
+                <div className="mt-4">
+                  {reviews[row.id] ? (
+                    <StarRow rating={reviews[row.id].rating} size={18} />
+                  ) : (
+                    <p className="text-sm font-semibold text-muted-foreground">{t('my_work.not_rated')}</p>
+                  )}
+                  {reviews[row.id]?.comment ? (
+                    <p className="mt-2 text-sm text-slate-600">{reviews[row.id].comment}</p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {row.status === 'accepted' && (
                 <button

@@ -967,7 +967,7 @@ export class ApplicationsController {
         title: 'Ish yakunlandi',
         message: `${workerName} "${jobTitle}" ishini yakunladi. Iltimos, ishchini baholang.`,
         type: 'application',
-        link: `/employer/jobs/${app.jobId}?review=${app.id}`,
+        link: `/rate/${app.id}`,
         read: false,
       },
     }).catch(() => undefined);

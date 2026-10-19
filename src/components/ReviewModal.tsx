@@ -11,7 +11,7 @@ interface ReviewModalProps {
   applicationId: string;
   workerName?: string;
   jobTitle?: string;
-  onSubmitted?: () => void;
+  onSubmitted?: (rating: number) => void;
 }
 
 export default function ReviewModal({
@@ -52,7 +52,7 @@ export default function ReviewModal({
     try {
       await api.reviews.create({ applicationId, rating, comment: comment.trim() || undefined });
       setSuccess(true);
-      onSubmitted?.();
+      onSubmitted?.(rating);
       setTimeout(() => {
         setSuccess(false);
         onClose();
@@ -94,8 +94,7 @@ export default function ReviewModal({
                     {t('reviews.title', { defaultValue: 'Ishchini baholang' })}
                   </h2>
                   <p className="text-muted-foreground text-sm mt-1">
-                    {workerName || t('common.unknown_worker', { defaultValue: 'Ishchi' })}
-                    {jobTitle ? ` — ${jobTitle}` : ''}
+                    {jobTitle || workerName || t('common.unknown_worker', { defaultValue: 'Ishchi' })}
                   </p>
                 </div>
                 <button type="button" onClick={onClose} className="p-2 hover:bg-secondary rounded-full transition-colors">

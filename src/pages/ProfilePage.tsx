@@ -2,8 +2,9 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { Profile } from '../types';
+import { Profile, Review } from '../types';
 import { MapPin, Star, ShieldCheck, Award, MessageSquare, Phone, Briefcase } from 'lucide-react';
+import StarRow from '../components/StarRow';
 import Layout from '../components/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { getDistrictKey } from '../lib/utils';
@@ -17,6 +18,7 @@ export default function ProfilePage() {
   const { userId } = useParams();
   const { user: currentUser, profile: currentProfile } = useAuth();
   const [worker, setWorker] = React.useState<Profile | null>(null);
+  const [reviews, setReviews] = React.useState<Review[]>([]);
   const [loading, setLoading] = React.useState(true);
   const navigate = useNavigate();
 
@@ -29,6 +31,8 @@ export default function ProfilePage() {
         const workerData = await api.users.get(userId);
         if (cancelled) return;
         setWorker(workerData);
+        const rows = await api.reviews.list({ workerId: userId }).catch(() => []);
+        if (!cancelled) setReviews(rows);
       } catch {
         if (!cancelled) setWorker(null);
       } finally {
@@ -113,7 +117,11 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex flex-wrap items-center text-gray-500 gap-4 mb-6">
                   <span className="flex items-center"><MapPin size={18} className="mr-1.5 text-gray-400" /> {t('common.region_name', { defaultValue: 'Samarqand viloyati' })}, {t(`districts.${getDistrictKey(worker.district)}`)}</span>
-                  <span className="flex items-center"><Star size={18} className="mr-1.5 text-yellow-500 fill-current" /> {worker.rating || t('worker_profile.new')} ({worker.reviewCount || 0} {t('worker_profile.ratings')})</span>
+                  {worker.reviewCount ? (
+                    <span className="flex items-center"><StarRow rating={worker.rating} count={worker.reviewCount} size={18} /></span>
+                  ) : (
+                    <span className="flex items-center"><Star size={18} className="mr-1.5 text-yellow-500 fill-current" /> {t('worker_profile.new')} (0 {t('worker_profile.ratings')})</span>
+                  )}
                   <span className="flex items-center"><Briefcase size={18} className="mr-1.5 text-gray-400" /> {worker.completedJobs || 0} {t('worker_profile.completed_jobs')}</span>
                 </div>
 
@@ -122,6 +130,25 @@ export default function ProfilePage() {
                   <p className="text-gray-600 leading-relaxed">
                     {worker.bio || t('worker_profile.no_bio')}
                   </p>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">{t('worker_profile.employer_reviews')}</h3>
+                  {reviews.length ? (
+                    <div className="space-y-3">
+                      {reviews.map((review) => (
+                        <div key={review.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-bold text-gray-900">{review.reviewerName || t('worker_profile.anonymous_employer')}</p>
+                            <StarRow rating={review.rating} size={16} />
+                          </div>
+                          {review.comment ? <p className="mt-2 text-sm text-gray-600">{review.comment}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">{t('worker_profile.no_reviews')}</p>
+                  )}
                 </div>
 
                 <div className="mb-8">

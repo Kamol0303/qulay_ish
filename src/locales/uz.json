@@ -35,7 +35,8 @@
     "complete_confirm": "Ishni to‘liq yakunladingizmi? Buyurtmachiga baholash uchun xabar yuboriladi.",
     "completing": "Yakunlanmoqda...",
     "complete_error": "Ishni yakunlab bo‘lmadi",
-    "load_error": "Joriy ishni yuklab bo‘lmadi"
+    "load_error": "Joriy ishni yuklab bo‘lmadi",
+    "not_rated": "Hali baholanmagan"
   },
   "admin_users": {
     "title": "Admin foydalanuvchilar",
@@ -1200,6 +1201,9 @@
     "saved": "Bahoyingiz saqlandi",
     "pick_rating": "Iltimos, yulduz tanlang",
     "rate_worker": "Ishchini baholash",
-    "rated": "Baholangan"
+    "rated": "Baholangan",
+    "not_found": "Ish topilmadi",
+    "only_hirer": "Bu ishchini faqat uni yollagan odam baholaydi",
+    "wait_finish": "Ishchi ishni yakunlagach 5 yulduz qo'yiladi"
   }
 }

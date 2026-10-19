@@ -44,6 +44,7 @@ import EmployerApplications from './pages/employer/Applications';
 import EmployerJobDetails from './pages/employer/JobDetails';
 import CreateContract from './pages/employer/CreateContract';
 import WorkerContracts from './pages/worker/Contracts';
+import RateWorkerPage from './pages/RateWorkerPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -119,6 +120,7 @@ function AppRoutes({ mobile }: { mobile: boolean }) {
           <ProtectedRoute>{mobile ? <NotificationsMobile /> : <NotificationsPage />}</ProtectedRoute>
         }
       />
+      <Route path="/rate/:applicationId" element={<ProtectedRoute><RateWorkerPage /></ProtectedRoute>} />
       <Route path="/contracts/:contractId" element={<ProtectedRoute><ContractPage /></ProtectedRoute>} />
       <Route path="/contracts/contracts/:contractId" element={<ContractsRedirect />} />
       <Route path="/verification" element={<ProtectedRoute><VerificationPage /></ProtectedRoute>} />
