@@ -4,7 +4,7 @@ import { Profile, ServicePost } from '../types';
 import { motion } from 'motion/react';
 import { Search, SlidersHorizontal, ArrowLeft, Play, BookOpen } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
-import { pointDistanceKm } from '../constants/districts';
+import { compareByDistance, sortsByDistance } from '../constants/districts';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
 import { useAuth } from '../hooks/useAuth';
@@ -92,25 +92,8 @@ export default function WorkersPage() {
           );
         }
 
-        const distanceOf = (worker: Profile) => {
-          if (!origin) return Number.POSITIVE_INFINITY;
-          const km = pointDistanceKm(origin.lat, origin.lng, worker.district);
-          return km == null ? Number.POSITIVE_INFINITY : km;
-        };
-        const priceOf = (worker: Profile) => nextPrices[worker.uid] ?? Number.POSITIVE_INFINITY;
-
-        if (filters.sortBy === 'price-low') {
-          workersData.sort((a, b) => priceOf(a) - priceOf(b));
-        } else if (filters.sortBy === 'price-high') {
-          workersData.sort((a, b) => {
-            const ap = nextPrices[a.uid] ?? Number.NEGATIVE_INFINITY;
-            const bp = nextPrices[b.uid] ?? Number.NEGATIVE_INFINITY;
-            return bp - ap;
-          });
-        } else if (filters.sortBy === 'nearest') {
-          workersData.sort((a, b) => distanceOf(a) - distanceOf(b));
-        } else if (filters.sortBy === 'farthest') {
-          workersData.sort((a, b) => distanceOf(b) - distanceOf(a));
+        if (sortsByDistance(filters.sortBy)) {
+          workersData.sort((a, b) => compareByDistance(origin, a.district, b.district));
         }
 
         setWorkers(workersData);
@@ -138,16 +121,23 @@ export default function WorkersPage() {
     setFilters({ skill: '', sortBy: 'price-low' });
   };
 
-  const onSortChange = async (value: string) => {
-    setFilters((prev) => ({ ...prev, sortBy: value }));
-    if ((value === 'nearest' || value === 'farthest') && !origin) {
-      try {
-        const pos = await getCurrentPosition();
-        setOrigin({ lat: pos.latitude, lng: pos.longitude });
-      } catch {
+  React.useEffect(() => {
+    if (!sortsByDistance(filters.sortBy) || origin) return;
+    let cancelled = false;
+    getCurrentPosition()
+      .then((pos) => {
+        if (!cancelled) setOrigin({ lat: pos.latitude, lng: pos.longitude });
+      })
+      .catch(() => {
         // Distance sort stays in place if location is declined.
-      }
-    }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.sortBy, origin]);
+
+  const onSortChange = (value: string) => {
+    setFilters((prev) => ({ ...prev, sortBy: value }));
   };
 
   return (

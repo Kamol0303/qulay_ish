@@ -12,7 +12,7 @@ import {
 } from '../constants/categories';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
-import { pointDistanceKm } from '../constants/districts';
+import { compareByDistance, sortsByDistance } from '../constants/districts';
 import { getCurrentPosition } from '../lib/geolocation';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -75,25 +75,8 @@ export default function JobsPage() {
           });
         }
 
-        const distanceOf = (worker: Profile) => {
-          if (!origin) return Number.POSITIVE_INFINITY;
-          const km = pointDistanceKm(origin.lat, origin.lng, worker.district);
-          return km == null ? Number.POSITIVE_INFINITY : km;
-        };
-        const priceOf = (worker: Profile) => nextPrices[worker.uid] ?? Number.POSITIVE_INFINITY;
-
-        if (sortBy === 'price-low') {
-          filtered.sort((a, b) => priceOf(a) - priceOf(b));
-        } else if (sortBy === 'price-high') {
-          filtered.sort((a, b) => {
-            const ap = nextPrices[a.uid] ?? Number.NEGATIVE_INFINITY;
-            const bp = nextPrices[b.uid] ?? Number.NEGATIVE_INFINITY;
-            return bp - ap;
-          });
-        } else if (sortBy === 'nearest') {
-          filtered.sort((a, b) => distanceOf(a) - distanceOf(b));
-        } else if (sortBy === 'farthest') {
-          filtered.sort((a, b) => distanceOf(b) - distanceOf(a));
+        if (sortsByDistance(sortBy)) {
+          filtered.sort((a, b) => compareByDistance(origin, a.district, b.district));
         }
 
         setWorkers(filtered);
@@ -131,16 +114,19 @@ export default function JobsPage() {
     }
   };
 
+  const ensureOrigin = async () => {
+    if (origin) return;
+    try {
+      const pos = await getCurrentPosition();
+      setOrigin({ lat: pos.latitude, lng: pos.longitude });
+    } catch {
+      // Keep the chosen filter even if location is declined.
+    }
+  };
+
   const onSortChange = async (value: string) => {
     setSortBy(value);
-    if ((value === 'nearest' || value === 'farthest') && !origin) {
-      try {
-        const pos = await getCurrentPosition();
-        setOrigin({ lat: pos.latitude, lng: pos.longitude });
-      } catch {
-        // Keep the chosen sort even if location is declined.
-      }
-    }
+    if (sortsByDistance(value)) await ensureOrigin();
   };
 
   return (

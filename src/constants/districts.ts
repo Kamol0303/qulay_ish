@@ -69,6 +69,38 @@ export function pointDistanceKm(lat: number, lng: number, districtId?: string | 
   return haversineKm(lat, lng, district.lat, district.lng);
 }
 
+/**
+ * All four worker-list filters (cheapest, dearest, nearest, farthest) rank
+ * people the same way: closest to the user first, farthest last.
+ */
+export const DISTANCE_SORTS = ['price-low', 'price-high', 'nearest', 'farthest'] as const;
+
+export function sortsByDistance(sortBy: string): boolean {
+  return (DISTANCE_SORTS as readonly string[]).includes(sortBy);
+}
+
+/** Km used as a sort key. Missing GPS or an unknown district sinks to the bottom. */
+export function workerDistanceKm(
+  origin: { lat: number; lng: number } | null | undefined,
+  districtId?: string | null,
+): number {
+  if (!origin) return Number.POSITIVE_INFINITY;
+  const km = pointDistanceKm(origin.lat, origin.lng, districtId);
+  return km == null ? Number.POSITIVE_INFINITY : km;
+}
+
+/** Nearest district first. Equal distances keep their previous order. */
+export function compareByDistance(
+  origin: { lat: number; lng: number } | null | undefined,
+  aDistrict?: string | null,
+  bDistrict?: string | null,
+): number {
+  const left = workerDistanceKm(origin, aDistrict);
+  const right = workerDistanceKm(origin, bDistrict);
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 /** Approximate km between two canonical districts; null when either is unknown. */
 export function districtDistanceKm(a?: string | null, b?: string | null): number | null {
   const da = findDistrict(a);
