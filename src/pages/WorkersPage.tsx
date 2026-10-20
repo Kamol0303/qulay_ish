@@ -4,7 +4,7 @@ import { Profile, ServicePost } from '../types';
 import { motion } from 'motion/react';
 import { Search, SlidersHorizontal, ArrowLeft, Play, BookOpen } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
-import { pickDistanceWindow, sortsByDistance } from '../constants/districts';
+import { listForMixedFilter, pickDistanceWindow, sortsByDistance } from '../constants/districts';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
 import { useAuth } from '../hooks/useAuth';
@@ -85,14 +85,12 @@ export default function WorkersPage() {
         }
         setPrices(nextPrices);
 
-        let workersData = filterWorkersForSamarkand(listed);
-        if (filters.skill) {
-          workersData = workersData.filter(
-            (w) => w.profession === filters.skill || w.skills?.includes(filters.skill),
-          );
-        }
-
-        setWorkers(pickDistanceWindow(workersData, filters.sortBy, origin));
+        const everyone = filterWorkersForSamarkand(listed);
+        const narrowed = filters.skill
+          ? everyone.filter((worker) => worker.profession === filters.skill || worker.skills?.includes(filters.skill))
+          : everyone;
+        const pool = listForMixedFilter(narrowed, everyone, filters.sortBy);
+        setWorkers(pickDistanceWindow(pool, filters.sortBy, origin, filters.skill));
       } catch {
         if (!cancelled) setWorkers([]);
       } finally {

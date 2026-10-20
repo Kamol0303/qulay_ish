@@ -12,7 +12,7 @@ import {
 } from '../constants/categories';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
-import { pickDistanceWindow, sortsByDistance } from '../constants/districts';
+import { listForMixedFilter, pickDistanceWindow, sortsByDistance } from '../constants/districts';
 import { getCurrentPosition } from '../lib/geolocation';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -58,9 +58,11 @@ export default function JobsPage() {
         }
         setPrices(nextPrices);
 
-        let filtered = filterWorkersForSamarkand(listed, {
-          ...(isValidDistrictId(districtFilter) ? { district: districtFilter } : {}),
-        });
+        const everyone = filterWorkersForSamarkand(listed);
+        let filtered = everyone;
+        if (isValidDistrictId(districtFilter)) {
+          filtered = filtered.filter((worker) => worker.district === districtFilter);
+        }
         if (direction) {
           filtered = filtered.filter((worker) => {
             if (workerMatchesDirection(worker, direction)) return true;
@@ -75,7 +77,8 @@ export default function JobsPage() {
           });
         }
 
-        setWorkers(pickDistanceWindow(filtered, sortBy, origin));
+        const pool = listForMixedFilter(filtered, everyone, sortBy);
+        setWorkers(pickDistanceWindow(pool, sortBy, origin, `${direction}|${districtFilter}`));
       } catch (error) {
         debugLogger.error('Error fetching workers:', error);
         if (!cancelled) setWorkers([]);

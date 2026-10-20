@@ -72,21 +72,97 @@ export function pointDistanceKm(lat: number, lng: number, districtId?: string | 
 /**
  * All four worker-list filters (cheapest, dearest, nearest, farthest) rank
  * people the same way: closest to the user first, farthest last.
+ * Website and APK both use this list, so the two stay in step.
  */
 export const DISTANCE_SORTS = ['price-low', 'price-high', 'nearest', 'farthest'] as const;
 
 export type DistanceSort = (typeof DISTANCE_SORTS)[number];
 
-/** How many real workers each filter shows. The four windows do not overlap. */
-export const DISTANCE_FILTER_SIZE: Record<DistanceSort, number> = {
-  'price-low': 10,
-  'price-high': 8,
-  nearest: 5,
-  farthest: 14,
-};
+/**
+ * Mixed sizes for the four filters. Which button gets which size also
+ * shifts with the user's area and with the other active filters.
+ */
+export const MIXED_FILTER_COUNTS = [10, 5, 50, 30] as const;
 
 export function sortsByDistance(sortBy: string): sortBy is DistanceSort {
   return (DISTANCE_SORTS as readonly string[]).includes(sortBy);
+}
+
+function textHash(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+/** Coarse map cell. The same town stays stable; another district mixes the counts. */
+function locationBand(origin: { lat: number; lng: number } | null | undefined): number {
+  if (!origin) return 0;
+  const latCell = Math.round(origin.lat * 10);
+  const lngCell = Math.round(origin.lng * 10);
+  return Math.abs(latCell * 31 + lngCell * 7);
+}
+
+/** Non-empty extra filters always move the sizes. Empty stays on the base order. */
+function scopeShift(scope: string): number {
+  const trimmed = scope.replace(/\|/g, '').trim();
+  if (!trimmed) return 0;
+  return (textHash(trimmed) % (MIXED_FILTER_COUNTS.length - 1)) + 1;
+}
+
+/** A known map area always moves the sizes. No location stays on the base order. */
+function areaShift(origin: { lat: number; lng: number } | null | undefined): number {
+  if (!origin) return 0;
+  return (locationBand(origin) % (MIXED_FILTER_COUNTS.length - 1)) + 1;
+}
+
+/** One of 10, 5, 50, 30. The four filters never share a size at the same place. */
+export function mixedFilterCount(
+  sortBy: DistanceSort,
+  origin: { lat: number; lng: number } | null | undefined,
+  scope = '',
+): number {
+  const shift = (DISTANCE_SORTS.indexOf(sortBy) + areaShift(origin) + scopeShift(scope)) % MIXED_FILTER_COUNTS.length;
+  return MIXED_FILTER_COUNTS[shift];
+}
+
+/** Shrink the mixed sizes so they still fit the real list and stay different when they can. */
+export function fitMixedCounts(poolSize: number, wants: readonly number[]): number[] {
+  const count = wants.length;
+  if (poolSize <= 0) return wants.map(() => 0);
+  const wantedSum = wants.reduce((sum, size) => sum + size, 0);
+  if (poolSize >= wantedSum) return [...wants];
+
+  const fitted = wants.map((size) => Math.max(1, Math.round((size / wantedSum) * poolSize)));
+  let used = fitted.reduce((sum, size) => sum + size, 0);
+  const largerFirst = fitted.map((_, index) => index).sort((a, b) => wants[b] - wants[a] || a - b);
+  while (used > poolSize) {
+    const index = largerFirst.find((item) => fitted[item] > 0);
+    if (index == null) break;
+    fitted[index] -= 1;
+    used -= 1;
+  }
+  while (used < poolSize) {
+    fitted[largerFirst[0]] += 1;
+    used += 1;
+  }
+  for (let guard = 0; guard < count; guard += 1) {
+    const seen = new Map<number, number>();
+    let split = false;
+    for (let index = 0; index < count; index += 1) {
+      const previous = seen.get(fitted[index]);
+      if (previous != null && fitted[index] > 1) {
+        fitted[index] -= 1;
+        fitted[previous] += 1;
+        split = true;
+        break;
+      }
+      seen.set(fitted[index], index);
+    }
+    if (!split) break;
+  }
+  return fitted;
 }
 
 /** Km used as a sort key. Missing GPS or an unknown district sinks to the bottom. */
@@ -112,28 +188,48 @@ export function compareByDistance(
 }
 
 /**
- * One filter, one window of the live list.
- * Nearest takes the 5 closest, cheapest the next 10, dearest the next 8,
- * farthest the 14 farthest. Inside every window the closest person is first.
+ * Real workers only. Each of the four filters gets its own mixed count
+ * (10, 5, 50 or 30, shifted by area and by the other active filters).
+ * Inside the window the closest person stays first. People are not repeated
+ * across the four filters when the live list is long enough.
  */
+/**
+ * A direction or district with only a handful of real people cannot fill
+ * 10, 5, 50 and 30. In that case the filters keep using the full live list,
+ * so the website and the APK still show a mixed count instead of an empty page.
+ */
+export function listForMixedFilter<T>(narrowed: readonly T[], everyone: readonly T[], sortBy: string): readonly T[] {
+  if (!sortsByDistance(sortBy)) return narrowed.length > 0 ? narrowed : everyone;
+  const smallest = Math.min(...MIXED_FILTER_COUNTS);
+  if (narrowed.length >= smallest) return narrowed;
+  return everyone;
+}
+
 export function pickDistanceWindow<T extends { district?: string | null }>(
   workers: readonly T[],
   sortBy: string,
   origin: { lat: number; lng: number } | null | undefined,
+  scope = '',
 ): T[] {
   if (!sortsByDistance(sortBy)) return [...workers];
   const ranked = [...workers].sort((a, b) => compareByDistance(origin, a.district, b.district));
-  const size = DISTANCE_FILTER_SIZE[sortBy];
-  const nearestSize = DISTANCE_FILTER_SIZE.nearest;
-  const lowSize = DISTANCE_FILTER_SIZE['price-low'];
-  const highSize = DISTANCE_FILTER_SIZE['price-high'];
+  const wants = DISTANCE_SORTS.map((key) => mixedFilterCount(key, origin, scope));
+  const counts = fitMixedCounts(ranked.length, wants);
+  const sizeOf = (key: DistanceSort) => counts[DISTANCE_SORTS.indexOf(key)];
+
+  let cursor = 0;
+  const frontStart: Partial<Record<DistanceSort, number>> = {};
+  for (const key of ['nearest', 'price-low', 'price-high'] as const) {
+    frontStart[key] = cursor;
+    cursor += sizeOf(key);
+  }
   if (sortBy === 'farthest') {
-    const reserved = nearestSize + lowSize + highSize;
-    const start = Math.min(Math.max(reserved, ranked.length - size), ranked.length);
+    const size = sizeOf('farthest');
+    const start = Math.max(cursor, ranked.length - size);
     return ranked.slice(start, start + size);
   }
-  const skip = sortBy === 'nearest' ? 0 : sortBy === 'price-low' ? nearestSize : nearestSize + lowSize;
-  return ranked.slice(skip, skip + size);
+  const start = frontStart[sortBy] ?? 0;
+  return ranked.slice(start, start + sizeOf(sortBy));
 }
 
 /** Approximate km between two canonical districts; null when either is unknown. */
