@@ -12,7 +12,7 @@ import {
 } from '../constants/categories';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
-import { compareByDistance, sortsByDistance } from '../constants/districts';
+import { pickDistanceWindow, sortsByDistance } from '../constants/districts';
 import { getCurrentPosition } from '../lib/geolocation';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -75,11 +75,7 @@ export default function JobsPage() {
           });
         }
 
-        if (sortsByDistance(sortBy)) {
-          filtered.sort((a, b) => compareByDistance(origin, a.district, b.district));
-        }
-
-        setWorkers(filtered);
+        setWorkers(pickDistanceWindow(filtered, sortBy, origin));
       } catch (error) {
         debugLogger.error('Error fetching workers:', error);
         if (!cancelled) setWorkers([]);

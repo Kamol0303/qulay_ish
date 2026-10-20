@@ -4,7 +4,7 @@ import { Profile, ServicePost } from '../types';
 import { motion } from 'motion/react';
 import { Search, SlidersHorizontal, ArrowLeft, Play, BookOpen } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
-import { compareByDistance, sortsByDistance } from '../constants/districts';
+import { pickDistanceWindow, sortsByDistance } from '../constants/districts';
 import Layout from '../components/Layout';
 import WorkerCard from '../components/WorkerCard';
 import { useAuth } from '../hooks/useAuth';
@@ -92,11 +92,7 @@ export default function WorkersPage() {
           );
         }
 
-        if (sortsByDistance(filters.sortBy)) {
-          workersData.sort((a, b) => compareByDistance(origin, a.district, b.district));
-        }
-
-        setWorkers(workersData);
+        setWorkers(pickDistanceWindow(workersData, filters.sortBy, origin));
       } catch {
         if (!cancelled) setWorkers([]);
       } finally {

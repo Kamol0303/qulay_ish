@@ -75,7 +75,17 @@ export function pointDistanceKm(lat: number, lng: number, districtId?: string | 
  */
 export const DISTANCE_SORTS = ['price-low', 'price-high', 'nearest', 'farthest'] as const;
 
-export function sortsByDistance(sortBy: string): boolean {
+export type DistanceSort = (typeof DISTANCE_SORTS)[number];
+
+/** How many real workers each filter shows. The four windows do not overlap. */
+export const DISTANCE_FILTER_SIZE: Record<DistanceSort, number> = {
+  'price-low': 10,
+  'price-high': 8,
+  nearest: 5,
+  farthest: 14,
+};
+
+export function sortsByDistance(sortBy: string): sortBy is DistanceSort {
   return (DISTANCE_SORTS as readonly string[]).includes(sortBy);
 }
 
@@ -99,6 +109,31 @@ export function compareByDistance(
   const right = workerDistanceKm(origin, bDistrict);
   if (left === right) return 0;
   return left < right ? -1 : 1;
+}
+
+/**
+ * One filter, one window of the live list.
+ * Nearest takes the 5 closest, cheapest the next 10, dearest the next 8,
+ * farthest the 14 farthest. Inside every window the closest person is first.
+ */
+export function pickDistanceWindow<T extends { district?: string | null }>(
+  workers: readonly T[],
+  sortBy: string,
+  origin: { lat: number; lng: number } | null | undefined,
+): T[] {
+  if (!sortsByDistance(sortBy)) return [...workers];
+  const ranked = [...workers].sort((a, b) => compareByDistance(origin, a.district, b.district));
+  const size = DISTANCE_FILTER_SIZE[sortBy];
+  const nearestSize = DISTANCE_FILTER_SIZE.nearest;
+  const lowSize = DISTANCE_FILTER_SIZE['price-low'];
+  const highSize = DISTANCE_FILTER_SIZE['price-high'];
+  if (sortBy === 'farthest') {
+    const reserved = nearestSize + lowSize + highSize;
+    const start = Math.min(Math.max(reserved, ranked.length - size), ranked.length);
+    return ranked.slice(start, start + size);
+  }
+  const skip = sortBy === 'nearest' ? 0 : sortBy === 'price-low' ? nearestSize : nearestSize + lowSize;
+  return ranked.slice(skip, skip + size);
 }
 
 /** Approximate km between two canonical districts; null when either is unknown. */
