@@ -19,7 +19,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isValidDistrictId } from '../constants/districts';
 import { goBack } from '../lib/goBack';
 import { filterWorkersForSamarkand } from '../lib/utils';
-import { generateFemaleWorkers, isFemaleFilterSort } from '../lib/generatedWomen';
 
 export default function JobsPage() {
   const { t } = useTranslation();
@@ -44,13 +43,6 @@ export default function JobsPage() {
 
     const loadWorkers = async () => {
       try {
-        if (isFemaleFilterSort(sortBy)) {
-          if (cancelled) return;
-          const generated = generateFemaleWorkers(sortBy, direction);
-          setWorkers(generated.workers);
-          setPrices(generated.prices);
-          return;
-        }
         const [listed, posts] = await Promise.all([
           api.users.list({ role: 'worker' }),
           api.servicePosts.list({ status: 'active' }).catch(() => [] as ServicePost[]),
