@@ -60,7 +60,7 @@ export class AiService {
     }
     const claim = await this.gate.claimSend('ai', { purpose: 'ai' });
     if (!claim.send) {
-      return { text: "Xizmat vaqtincha mavjud emas", provider: 'mock' };
+      return { text: this.gate.aiDenial(claim.reason), provider: 'mock' };
     }
 
     try {

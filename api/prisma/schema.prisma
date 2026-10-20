@@ -599,6 +599,14 @@ model PlatformGate {
   aiPriceSom    Int      @default(0) @map("ai_price_som")
   aiCreditSom   Int      @default(0) @map("ai_credit_som")
   smsBalance    Int?     @map("sms_balance")
+  /** Service holds. Staff pause stays in `state`; these flags are separate. */
+  holds         Json     @default("{}")
+  smsSyncedAt   DateTime? @map("sms_synced_at")
+  smsSyncError  String   @default("") @map("sms_sync_error")
+  /** User JWTs issued before this moment are rejected. The owner cookie is separate. */
+  sessionsCut   DateTime? @map("sessions_cut")
+  /** Append-only in application code. Oldest rows drop after 80 (retention). */
+  configHistory Json     @default("[]") @map("config_history")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("platform_gate")
@@ -609,11 +617,19 @@ model OwnerFeed {
   phone     String   @default("")
   code      String   @default("")
   detail    String   @default("")
-  purpose   String   @default("")
-  status    String   @default("")
-  createdAt DateTime @default(now()) @map("created_at")
+  purpose           String    @default("")
+  status            String    @default("")
+  providerSmsId     Int?      @map("provider_sms_id")
+  providerRequestId String    @default("") @map("provider_request_id")
+  providerStatus    String    @default("") @map("provider_status")
+  errorCode         String    @default("") @map("error_code")
+  syncedAt          DateTime? @map("synced_at")
+  refunded          Boolean   @default(false)
+  events            Json      @default("[]")
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   @@index([createdAt])
+  @@index([providerSmsId])
   @@map("owner_feed")
 }
 

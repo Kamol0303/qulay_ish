@@ -15,7 +15,7 @@ async function bootstrap() {
     throw new Error('JWT_SECRET must be set in production');
   }
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   app.use(urlencoded({ extended: false }));
   app.set('trust proxy', 1);
   app.setGlobalPrefix('api');

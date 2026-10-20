@@ -1,6 +1,12 @@
 import { OWNER_PATH } from './owner.constants';
 import type { LedgerItem, OwnerFeedItem } from './platform-gate.service';
-import { meter, som, type GateSnapshot } from './platform-gate.policy';
+import {
+  decommissionPlan,
+  meter,
+  som,
+  type AuditEvent,
+  type GateSnapshot,
+} from './platform-gate.policy';
 
 const LABELS = {
   admin: 'Admin paneli',
@@ -8,10 +14,22 @@ const LABELS = {
 } as const;
 
 const STATUS_LABEL: Record<string, string> = {
+  created: 'Yaratildi',
+  queued: 'Navbatda',
   sending: 'Yuborilmoqda',
+  accepted: 'Qabul qilindi',
   sent: 'Yuborildi',
+  delivered: 'Yetkazildi',
+  failed: 'Yetkazilmadi',
+  pending: 'Kutilmoqda',
+  verified: 'Tasdiqlandi',
+  expired: 'Muddati tugadi',
+  cancelled: 'Bekor',
+  refunded: 'Qaytarildi',
   error: 'Xato',
+  unknown: 'Noma’lum',
   short: 'Balans yetmadi',
+  blocked: 'Bloklangan',
 };
 
 const PURPOSE_LABEL: Record<string, string> = {
@@ -78,11 +96,23 @@ export function renderOwnerPage(opts: {
   feed?: OwnerFeedItem[];
   ledger?: LedgerItem[];
   subscription?: { until: string | null; days: number | null };
+  history?: AuditEvent[];
+  sessions?: number;
+  inventory?: { cwd: string; remote: string; branch: string };
   error?: string;
 }): string {
   const error = opts.error ? `<p class="err">${esc(opts.error)}</p>` : '';
   const body = opts.authed && opts.snap
-    ? panel(opts.snap, opts.feed || [], opts.ledger || [], opts.subscription || { until: null, days: null }, error)
+    ? panel(
+      opts.snap,
+      opts.feed || [],
+      opts.ledger || [],
+      opts.subscription || { until: null, days: null },
+      opts.history || [],
+      opts.sessions || 0,
+      opts.inventory || { cwd: '', remote: '', branch: '' },
+      error,
+    )
     : login(error);
   return `<!doctype html>
 <html lang="uz">
@@ -138,12 +168,12 @@ export function renderOwnerPage(opts: {
   button.warn { background: var(--due); color: #fff; }
   button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
   button:disabled { opacity: 0.45; cursor: default; }
-  input[type="text"], input[type="password"], input[type="number"], select {
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"], select {
     width: 100%; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
   label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
   .top { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }
   .top-actions { display: flex; gap: 8px; align-items: center; }
-  .status { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .status { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
   .pill { background: var(--card); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow); border: 1px solid var(--line); }
   .pill b { display: block; margin-top: 4px; }
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -168,7 +198,8 @@ export function renderOwnerPage(opts: {
   .banner { margin-top: 10px; border-radius: 12px; padding: 8px 10px; font-size: 14px; font-weight: 650; }
   .banner.low { background: var(--low-bg); color: var(--low); }
   .banner.due { background: var(--due-bg); color: var(--due); }
-  .filters { display: grid; grid-template-columns: 1.4fr 0.8fr 0.8fr auto; gap: 8px; margin-bottom: 10px; }
+  .filters { display: grid; grid-template-columns: 1.3fr repeat(4, minmax(0, 0.7fr)) auto; gap: 8px; margin-bottom: 10px; }
+  details { color: var(--muted); font-size: 13px; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { text-align: left; padding: 8px 6px; border-top: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -223,7 +254,7 @@ function moneyForm(name: string, label: string, value: number): string {
   </form>`;
 }
 
-function meterBlock(kind: 'otp' | 'ai', credit: number, price: number): string {
+function meterBlock(kind: 'otp' | 'ai', credit: number, price: number, paymentHeld: boolean): string {
   const view = meter(credit, price);
   const title = kind === 'otp' ? 'OTP' : "Sun'iy intellekt";
   const unit = kind === 'otp' ? 'SMS' : "so'rov";
@@ -244,9 +275,104 @@ function meterBlock(kind: 'otp' | 'ai', credit: number, price: number): string {
     <div class="note" data-caption="${kind}">Narx ${esc(som(price))} · ${esc(caption)}</div>
     <div class="bar" aria-hidden="true"><span data-bar="${kind}" style="width:${view.pct}%"></span></div>
     ${banner}
+    ${paymentHeld ? `<p class="banner due">To‘lov kutilmoqda. Qoldiq yetganda ham xizmat egasi ruxsat bermaguncha yopiq.</p>
+      <form method="post" action="${OWNER_PATH}" class="money">
+        <input type="hidden" name="action" value="resume">
+        <input type="hidden" name="name" value="${kind}">
+        <input name="password" type="password" placeholder="Parol" autocomplete="current-password" required>
+        <button type="submit">Ruxsat berish</button>
+      </form>` : ''}
     ${moneyForm(kind === 'otp' ? 'otpPrice' : 'aiPrice', `${title} narxi`, price)}
     ${moneyForm(kind === 'otp' ? 'otpCredit' : 'aiCredit', kind === 'otp' ? 'OTP qoldiq' : "Sun'iy intellekt qoldiq", credit)}
+    <p class="note">${price > 0 ? 'Pullik' : 'Bepul'} · birlik: ${kind === 'otp' ? '1 SMS' : "1 so'rov"}</p>
   </div>`;
+}
+
+function providerLine(snap: GateSnapshot): string {
+  const threshold = Number(process.env.DEVSMS_BALANCE_WARN_THRESHOLD || 10000);
+  if (!snap.providerConfigured) return 'Ulanish yo‘q: token sozlanmagan. Saqlangan qoldiqdan boshqa raqam ko‘rsatilmaydi.';
+  if (snap.smsSyncError) return `Sinxron xato: ${snap.smsSyncError}`;
+  if (!snap.smsSyncedAt) return 'Hali sinxron qilinmagan.';
+  const low = snap.smsBalance != null && snap.smsBalance < threshold ? ' Qoldiq belgilangan chegaradan past.' : '';
+  return `So‘nggi muvaffaqiyatli sinxron: ${when(snap.smsSyncedAt)}.${low}`;
+}
+
+function holdTone(on: boolean): string {
+  return on ? 'due' : 'ok';
+}
+
+function serviceRow(name: string, label: string, on: boolean, note: string): string {
+  return `<div class="row">
+    <div><strong>${esc(label)}</strong><div class="note">${esc(note)}</div></div>
+    <div>
+      <span class="tag ${holdTone(on)}">${on ? 'To‘xtagan' : 'Ishlayapti'}</span>
+      <form method="post" action="${OWNER_PATH}" class="money">
+        <input type="hidden" name="action" value="hold">
+        <input type="hidden" name="name" value="${name}">
+        <input type="hidden" name="value" value="${on ? 'off' : 'on'}">
+        ${on ? '<input name="password" type="password" placeholder="Parol" autocomplete="current-password" required>' : ''}
+        <button type="submit" class="${on ? 'on' : 'ghost'}">${on ? 'Davom ettirish' : 'To‘xtatish'}</button>
+      </form>
+    </div>
+  </div>`;
+}
+
+function servicePanel(snap: GateSnapshot, sessions: number): string {
+  const holds = snap.holds;
+  const locked = holds.lockdown;
+  return `<section class="card" style="margin-top:14px">
+    <h2>Xizmatlar</h2>
+    <p class="note">Bu tugmalar admin panelidagi to‘xtatishdan alohida. Har biri faqat o‘z ishini yopadi.</p>
+    ${serviceRow('registrations', 'Yangi ro‘yxat', holds.registrations, 'Yangi hisob ochilmaydi. Kirish qoladi.')}
+    ${serviceRow('otp', 'OTP / SMS', holds.otp, 'Yangi kod ketmaydi. Egasi parol bilan kiradi.')}
+    ${serviceRow('ai', 'Sun’iy intellekt', holds.ai, 'Yangi so‘rov rad etiladi.')}
+    ${serviceRow('billing', 'Yangi to‘lov', holds.billing, 'Yangi obuna kodi ketmaydi.')}
+    ${serviceRow('maintenance', 'Sayt texnik ishi', holds.maintenance, 'Ochiq sahifa xabar ko‘rsatadi. O‘qish qoladi.')}
+    <div class="row">
+      <div><strong>To‘liq to‘xtatish</strong><div class="note">Yangi amallar yopiladi, foydalanuvchi sessiyalari tugaydi. Shu sahifa ochiq qoladi.</div></div>
+      <span class="tag ${locked ? 'due' : 'ok'}">${locked ? 'Yoqilgan' : 'O‘chiq'}</span>
+    </div>
+    <form method="post" action="${OWNER_PATH}" data-danger="1" data-title="${locked ? 'To‘xtatishni ochasizmi?' : 'To‘liq to‘xtatilsinmi?'}" data-copy="${locked ? 'Parol va OCHISH so‘zi kerak.' : 'Parol va YOPISH so‘zi kerak. Foydalanuvchi sessiyalari yopiladi.'}">
+      <input type="hidden" name="action" value="lock">
+      <input type="hidden" name="name" value="${locked ? 'off' : 'on'}">
+      <div class="money">
+        <input name="password" type="password" placeholder="Parol" autocomplete="current-password" required>
+        <input name="value" type="text" placeholder="${locked ? 'OCHISH' : 'YOPISH'}" maxlength="20" required>
+        <button type="submit" class="warn">${locked ? 'Ochish' : 'To‘liq to‘xtatish'}</button>
+      </div>
+    </form>
+    <form method="post" action="${OWNER_PATH}" class="money">
+      <input type="hidden" name="action" value="revoke">
+      <div style="flex:1"><strong>Sessiyalar</strong><div class="note">${sessions} ta saqlangan kirish. Bekor qilish foydalanuvchilarni chiqaradi. Egasi qoladi. IP dan joy aniqlanmaydi.</div></div>
+      <input name="password" type="password" placeholder="Parol" autocomplete="current-password" required>
+      <button type="submit" class="ghost">Sessiyalarni yopish</button>
+    </form>
+  </section>`;
+}
+
+function planPanel(probed: { cwd: string; remote: string; branch: string }): string {
+  const plan = decommissionPlan(probed);
+  const lines = plan.lines.map((line) => `<div class="row"><span>${esc(line.label)}</span><b>${esc(line.value)}</b></div>`).join('');
+  const notes = plan.notes.map((note) => `<p class="note">${esc(note)}</p>`).join('');
+  return `<section class="card" style="margin-top:14px">
+    <h2>O‘chirish rejasi — sinov</h2>
+    ${lines}
+    ${notes}
+  </section>`;
+}
+
+function historyPanel(history: AuditEvent[]): string {
+  const rows = history.length
+    ? history.map((item) => `<tr><td>${esc(when(item.at))}</td><td>${esc(item.action)}</td><td>${esc(item.target)}</td><td>${esc(item.outcome)}</td><td>${esc(item.reason)}</td></tr>`).join('')
+    : '<tr><td colspan="5">Hali yozuv yo‘q.</td></tr>';
+  return `<section class="card" style="margin-top:14px">
+    <h2>O‘zgarishlar tarixi</h2>
+    <p class="note">So‘nggi 80 yozuv saqlanadi. Parol va kod yozilmaydi.</p>
+    <table>
+      <thead><tr><th>Sana</th><th>Amal</th><th>Nishon</th><th>Natija</th><th>Sabab</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </section>`;
 }
 
 function panel(
@@ -254,6 +380,9 @@ function panel(
   feed: OwnerFeedItem[],
   ledger: LedgerItem[],
   subscription: { until: string | null; days: number | null },
+  history: AuditEvent[],
+  sessions: number,
+  probed: { cwd: string; remote: string; branch: string },
   error: string,
 ): string {
   const sections = (['admin', 'superAdmin'] as const).map((key) => {
@@ -279,13 +408,18 @@ function panel(
     </form>`;
   };
 
-  const rows = feed.map((item) => `<tr>
+  const rows = feed.map((item) => {
+    const timeline = (item.events || []).map((event) => `${esc(when(event.at))} · ${esc(STATUS_LABEL[event.status] || event.status)}${event.error ? ` · ${esc(event.error)}` : ''}`).join('<br>');
+    return `<tr>
     <td>${esc(when(item.at))}</td>
     <td>${esc(PURPOSE_LABEL[item.purpose] || 'Boshqa')}</td>
     <td>${esc(item.phone || '—')}</td>
     <td><code>${esc(item.code || '—')}</code> ${item.code ? `<button type="button" class="ghost copy" data-code="${esc(item.code)}">Nusxa</button>` : ''}</td>
-    <td>${item.status ? `<span class="tag ${item.status === 'short' || item.status === 'error' ? 'due' : item.status === 'sending' ? 'info' : ''}">${esc(STATUS_LABEL[item.status] || item.status)}</span>` : '—'}</td>
-  </tr>`).join('');
+    <td>${item.status ? `<span class="tag ${item.status === 'short' || item.status === 'error' || item.status === 'failed' || item.status === 'blocked' ? 'due' : item.status === 'sending' || item.status === 'accepted' || item.status === 'queued' ? 'info' : ''}">${esc(STATUS_LABEL[item.status] || item.status)}</span>` : '—'}
+      ${item.smsId ? `<div class="note">#${item.smsId}</div>` : ''}</td>
+    <td>${esc(item.detail || '—')}${timeline ? `<details><summary>Hodisalar</summary>${timeline}</details>` : ''}</td>
+  </tr>`;
+  }).join('');
 
   const ledgerRows = ledger.length
     ? ledger.map((item) => {
@@ -324,6 +458,7 @@ function panel(
     <div class="pill"><span class="note">Panellar holati</span><b class="tag ${stateTone(snap.state)}" id="state-tag">${esc(stateLabel(snap.state))}</b></div>
     <div class="pill"><span class="note">Rejim</span><b id="billing-tag">${snap.billing === 'free' ? 'Bepul' : 'Pullik'}</b></div>
     <div class="pill"><span class="note">Obuna tugashi</span><b class="tag ${daysTone}" id="days-tag">${esc(untilText(subscription.until))} · ${esc(dayText(subscription.days))}</b></div>
+    <div class="pill"><span class="note">Tiklanish</span><b class="tag ${snap.holds.lockdown ? 'due' : 'ok'}" id="recover-tag">${snap.holds.lockdown ? 'To‘liq to‘xtatish yoqilgan' : 'Ochiq'}</b></div>
   </section>
   <div class="grid">
     <section class="card">
@@ -356,12 +491,17 @@ function panel(
       <p class="note">Pullik rejimda obuna tugasa admin va super admin paneli to'xtaydi. Bepul rejimda ochiq.</p>
       ${moneyForm('staff', 'Admin va super admin narxi', snap.staffPriceSom)}
     </section>
-    ${meterBlock('otp', snap.otpCreditSom, snap.otpPriceSom)}
-    ${meterBlock('ai', snap.aiCreditSom, snap.aiPriceSom)}
+    ${meterBlock('otp', snap.otpCreditSom, snap.otpPriceSom, snap.holds.otpPayment)}
+    ${meterBlock('ai', snap.aiCreditSom, snap.aiPriceSom, snap.holds.aiPayment)}
     <section class="card">
       <h2>Provayderdagi SMS qoldiq</h2>
       <div class="figure" id="sms-balance">${esc(balance)}</div>
-      <p class="note">Bu provayder hisobidagi qoldiq. OTP qoldig‘idan alohida.</p>
+      <p class="note" id="sms-sync">${esc(providerLine(snap))}</p>
+      <p class="note">Bu provayder hamyonidagi qoldiq. OTP qoldig‘i, obuna va tushumdan alohida. ${snap.webhookConfigured ? 'Webhook yoqilgan.' : 'Webhook siri yo‘q — holat so‘rov bilan yangilanadi.'}</p>
+      <form method="post" action="${OWNER_PATH}">
+        <input type="hidden" name="action" value="sync">
+        <button type="submit" class="ghost">Sinxron</button>
+      </form>
     </section>
     <section class="card danger">
       <h2>Xavfli zona</h2>
@@ -377,10 +517,14 @@ function panel(
       </div>
     </section>
   </div>
+  ${servicePanel(snap, sessions)}
+  ${planPanel(probed)}
+  ${historyPanel(history)}
   <section class="card" style="margin-top:14px">
     <h2>Kodlar jurnali</h2>
+    <p class="note">Qabul qilindi — provayder oldi. Yetkazildi — telefon qabul qildi. Tasdiqlandi — kod tekshirildi. Uchala alohida.</p>
     <div class="filters">
-      <input id="q" type="text" placeholder="Telefon yoki kod">
+      <input id="q" type="text" placeholder="Telefon, kod yoki ID">
       <select id="purpose">
         <option value="">Barcha tur</option>
         <option value="login">Kirish</option>
@@ -391,16 +535,34 @@ function panel(
       </select>
       <select id="status">
         <option value="">Barcha holat</option>
+        <option value="accepted">Qabul qilindi</option>
         <option value="sent">Yuborildi</option>
+        <option value="delivered">Yetkazildi</option>
+        <option value="verified">Tasdiqlandi</option>
+        <option value="failed">Yetkazilmadi</option>
         <option value="sending">Yuborilmoqda</option>
+        <option value="expired">Muddati tugadi</option>
         <option value="error">Xato</option>
         <option value="short">Balans yetmadi</option>
+        <option value="blocked">Bloklangan</option>
+        <option value="cancelled">Bekor</option>
       </select>
+      <select id="band">
+        <option value="">Barcha toifa</option>
+        <option value="fail">Xato</option>
+        <option value="pay">To‘lov</option>
+        <option value="ok">Yetkazilgan</option>
+      </select>
+      <input id="from" type="date" aria-label="Dan">
       <button type="button" class="ghost" id="sort">Yangi</button>
     </div>
+    <div class="filters">
+      <input id="to" type="date" aria-label="Gacha">
+      <select id="provider"><option value="">Provayder: hammasi</option><option value="devsms">DevSMS</option></select>
+    </div>
     <table>
-      <thead><tr><th>Sana</th><th>Tur</th><th>Telefon</th><th>Kod</th><th>Holat</th></tr></thead>
-      <tbody id="feed-body">${rows || '<tr><td colspan="5">Hali kod yo‘q.</td></tr>'}</tbody>
+      <thead><tr><th>Sana</th><th>Tur</th><th>Telefon</th><th>Kod</th><th>Holat</th><th>Tafsilot</th></tr></thead>
+      <tbody id="feed-body">${rows || '<tr><td colspan="6">Hali kod yo‘q.</td></tr>'}</tbody>
     </table>
     <div class="pager">
       <button type="button" class="ghost" id="prev">Oldingi</button>
@@ -434,8 +596,8 @@ function panel(
   </div>
   <div id="confirm" class="modal" hidden>
     <div class="sheet" role="dialog" aria-modal="true">
-      <h2>Panellar yopilsinmi?</h2>
-      <p class="note">Admin va super admin paneli yopiladi. Ishchi va buyurtmachi ishlayveradi.</p>
+      <h2 id="confirm-title">Panellar yopilsinmi?</h2>
+      <p class="note" id="confirm-copy">Admin va super admin paneli yopiladi. Ishchi va buyurtmachi ishlayveradi.</p>
       <div class="actions" style="margin-top:14px">
         <button type="button" class="warn" id="confirm-yes">Tasdiqlash</button>
         <button type="button" class="ghost" id="confirm-no">Bekor</button>
@@ -529,16 +691,33 @@ function clientScript(): string {
     return { login: 'Kirish', register: "Ro'yxat", reset: 'Parol', payment: "To'lov", notice: 'Bildirishnoma' }[v] || 'Boshqa';
   }
   function statusLabel(v) {
-    return { sending: 'Yuborilmoqda', sent: 'Yuborildi', error: 'Xato', short: 'Balans yetmadi' }[v] || '—';
+    return { created: 'Yaratildi', queued: 'Navbatda', sending: 'Yuborilmoqda', accepted: 'Qabul qilindi', sent: 'Yuborildi', delivered: 'Yetkazildi', failed: 'Yetkazilmadi', pending: 'Kutilmoqda', verified: 'Tasdiqlandi', expired: 'Muddati tugadi', cancelled: 'Bekor', refunded: 'Qaytarildi', error: 'Xato', unknown: 'Noma’lum', short: 'Balans yetmadi', blocked: 'Bloklangan' }[v] || '—';
+  }
+  function statusTone(v) {
+    if (v === 'short' || v === 'error' || v === 'failed' || v === 'blocked' || v === 'cancelled') return 'due';
+    if (v === 'sending' || v === 'queued' || v === 'accepted' || v === 'pending' || v === 'created' || v === 'unknown') return 'info';
+    if (v === 'expired' || v === 'refunded') return 'low';
+    return '';
   }
   function rows() {
     var q = (document.getElementById('q').value || '').toLowerCase();
     var purpose = document.getElementById('purpose').value;
     var status = document.getElementById('status').value;
+    var band = document.getElementById('band').value;
+    var provider = document.getElementById('provider').value;
+    var from = document.getElementById('from').value;
+    var to = document.getElementById('to').value;
     var list = (boot.feed || []).filter(function (item) {
       if (purpose && item.purpose !== purpose) return false;
       if (status && item.status !== status) return false;
-      var blob = (item.phone + ' ' + item.code).toLowerCase();
+      if (band === 'fail' && ['failed', 'error', 'blocked', 'cancelled'].indexOf(item.status) < 0) return false;
+      if (band === 'pay' && item.status !== 'short') return false;
+      if (band === 'ok' && ['delivered', 'verified', 'sent', 'accepted'].indexOf(item.status) < 0) return false;
+      if (provider === 'devsms' && !item.smsId && !item.requestId) return false;
+      var day = (item.at || '').slice(0, 10);
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      var blob = ((item.phone || '') + ' ' + (item.code || '') + ' ' + (item.requestId || '') + ' ' + (item.smsId || '') + ' ' + (item.errorCode || '')).toLowerCase();
       return !q || blob.indexOf(q) >= 0;
     });
     list.sort(function (a, b) {
@@ -556,7 +735,7 @@ function clientScript(): string {
     if (!slice.length) {
       var tr = document.createElement('tr');
       var td = document.createElement('td');
-      td.colSpan = 5;
+      td.colSpan = 6;
       td.textContent = 'Hali kod yo‘q.';
       tr.appendChild(td);
       body.appendChild(tr);
@@ -585,11 +764,32 @@ function clientScript(): string {
       var st = document.createElement('td');
       if (item.status) {
         var badge = document.createElement('span');
-        badge.className = 'tag ' + (item.status === 'short' || item.status === 'error' ? 'due' : item.status === 'sending' ? 'info' : '');
+        badge.className = 'tag ' + statusTone(item.status);
         badge.textContent = statusLabel(item.status);
         st.appendChild(badge);
       } else st.textContent = '—';
+      if (item.smsId) {
+        var idLine = document.createElement('div');
+        idLine.className = 'note';
+        idLine.textContent = '#' + item.smsId;
+        st.appendChild(idLine);
+      }
       tr.appendChild(st);
+      var detail = document.createElement('td');
+      detail.textContent = item.detail || '—';
+      if (item.events && item.events.length) {
+        var box = document.createElement('details');
+        var sum = document.createElement('summary');
+        sum.textContent = 'Hodisalar';
+        box.appendChild(sum);
+        item.events.forEach(function (event) {
+          var line = document.createElement('div');
+          line.textContent = when(event.at) + ' · ' + statusLabel(event.status) + (event.error ? ' · ' + event.error : '');
+          box.appendChild(line);
+        });
+        detail.appendChild(box);
+      }
+      tr.appendChild(detail);
       body.appendChild(tr);
     });
     document.getElementById('page-label').textContent = page + ' / ' + pages;
@@ -632,14 +832,23 @@ function clientScript(): string {
   function send(form) {
     var body = new URLSearchParams(new FormData(form));
     body.set('format', 'json');
+    var button = form.querySelector('button[type="submit"], button:not([type])');
+    if (button) button.disabled = true;
+    var actionInput = form.querySelector('input[name="action"]');
+    var actionName = actionInput ? actionInput.value : '';
     return fetch(form.action, {
       method: 'POST',
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body
     }).then(function (res) { return res.json().then(function (data) { data._status = res.status; return data; }); })
       .then(function (data) {
-        if (!data.ok) { toast(data.error || "Saqlab bo'lmadi"); return; }
+        if (!data.ok) { toast(data.error || "Saqlab bo'lmadi"); if (button) button.disabled = false; return; }
+        if (actionName === 'hold' || actionName === 'lock' || actionName === 'resume' || actionName === 'revoke' || actionName === 'sync') {
+          location.reload();
+          return;
+        }
         toast(data.message || 'Saqlandi');
+        if (button) button.disabled = false;
         paintSnap(data.snap);
         boot.feed = data.feed || [];
         paintFeed();
@@ -647,7 +856,7 @@ function clientScript(): string {
         document.getElementById('modal').hidden = true;
         if (data.prompt) openPay(data.prompt);
       })
-      .catch(function () { toast("Saqlab bo'lmadi"); });
+      .catch(function () { if (button) button.disabled = false; toast("Saqlab bo'lmadi"); });
   }
   document.addEventListener('submit', function (event) {
     var form = event.target;
@@ -657,6 +866,10 @@ function clientScript(): string {
     event.preventDefault();
     if (form.dataset.danger && !form.dataset.confirmed) {
       pending = form;
+      var title = form.getAttribute('data-title');
+      var copy = form.getAttribute('data-copy');
+      document.getElementById('confirm-title').textContent = title || 'Panellar yopilsinmi?';
+      document.getElementById('confirm-copy').textContent = copy || 'Admin va super admin paneli yopiladi. Ishchi va buyurtmachi ishlayveradi.';
       document.getElementById('confirm').hidden = false;
       return;
     }
@@ -688,6 +901,10 @@ function clientScript(): string {
   document.getElementById('q').addEventListener('input', function () { page = 1; paintFeed(); });
   document.getElementById('purpose').addEventListener('change', function () { page = 1; paintFeed(); });
   document.getElementById('status').addEventListener('change', function () { page = 1; paintFeed(); });
+  document.getElementById('band').addEventListener('change', function () { page = 1; paintFeed(); });
+  document.getElementById('provider').addEventListener('change', function () { page = 1; paintFeed(); });
+  document.getElementById('from').addEventListener('change', function () { page = 1; paintFeed(); });
+  document.getElementById('to').addEventListener('change', function () { page = 1; paintFeed(); });
   document.getElementById('sort').onclick = function () {
     sort = sort === 'new' ? 'old' : 'new';
     this.textContent = sort === 'new' ? 'Yangi' : 'Eski';

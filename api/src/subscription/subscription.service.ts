@@ -170,6 +170,8 @@ export class SubscriptionService {
    * the code to the owner phone. Rate-limited per requester.
    */
   async requestPaymentOtp(requestedBy: string): Promise<{ sent: true; maskedPhone: string; expiresInMs: number }> {
+    const billing = await this.gate.explainBilling();
+    if (!billing.allow) throw new HttpException(billing.message, HttpStatus.SERVICE_UNAVAILABLE);
     const ownerPhone = (process.env.OWNER_OTP_PHONE || '').trim();
     if (!ownerPhone) {
       throw new HttpException(
@@ -198,11 +200,15 @@ export class SubscriptionService {
       data: { locked: true },
     });
 
+    const preview = await this.gate.explainOtp('payment');
+    if (!preview.send) throw new HttpException(preview.message, HttpStatus.PAYMENT_REQUIRED);
+
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     const codeHash = await bcrypt.hash(code, 10);
+    const otpId = randomUUID();
     await this.prisma.paymentOtp.create({
       data: {
-        id: randomUUID(),
+        id: otpId,
         codeHash,
         requestedBy,
         expiresAt: new Date(Date.now() + PAYMENT_OTP_TTL_MS),
@@ -211,14 +217,20 @@ export class SubscriptionService {
 
     const claim = await this.gate.claimSend('otp', { phone: ownerPhone, code, purpose: 'payment' });
     if (!claim.send) {
+      await this.prisma.paymentOtp.delete({ where: { id: otpId } }).catch(() => undefined);
+      const explained = await this.gate.explainOtp('payment');
       throw new HttpException(
-        "Tasdiqlash kodi yuborilmadi. OTP qoldig'i yetarli emas.",
+        explained.message || "Tasdiqlash kodi yuborilmadi. OTP qoldig'i yetarli emas.",
         HttpStatus.PAYMENT_REQUIRED,
       );
     }
     try {
       const sms = await this.devSms.sendOtpSms(ownerPhone, code, 'login');
-      await this.gate.markSendDelivered(claim.feedId);
+      await this.gate.markSendDelivered(claim.feedId, {
+        smsId: sms.smsId,
+        requestId: sms.requestId,
+        providerStatus: 'accepted',
+      });
       await this.gate.rememberSmsBalance(sms.balance);
     } catch (err) {
       await this.gate.markSendFailed('otp', "To'lov SMSi ketmadi. Provayder qabul qilmadi.", claim.feedId);

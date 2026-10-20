@@ -34,6 +34,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!isSessionCurrent(iat, user.sessionValidAfter)) {
       throw new UnauthorizedException('Session expired');
     }
+    try {
+      const gate = await this.prisma.platformGate.findUnique({ where: { id: 'gate' } });
+      if (gate?.sessionsCut && !isSessionCurrent(iat, gate.sessionsCut)) {
+        throw new UnauthorizedException('Session expired');
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+    }
 
     if (user.isBlocked) {
       if (user.blockUntil && user.blockUntil > new Date()) {

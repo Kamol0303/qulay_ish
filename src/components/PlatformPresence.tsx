@@ -5,7 +5,7 @@ import { readGatePayload, type GateSections, type GateState } from '../lib/platf
 export type GateView =
   | { status: 'loading' }
   | { status: 'open' }
-  | { status: 'ready'; state: GateState; sections: GateSections };
+  | { status: 'ready'; state: GateState; sections: GateSections; notice: string };
 
 export function useSiteGate(): GateView {
   const [gate, setGate] = useState<GateView>({ status: 'loading' });

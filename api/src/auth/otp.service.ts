@@ -97,6 +97,8 @@ export class OtpService {
     await this.assertRateLimit(phone);
 
     const purpose = dto.purpose || 'login';
+    const gate = await this.gate.explainOtp(purpose);
+    if (!gate.send) throw new HttpException(gate.message, HttpStatus.SERVICE_UNAVAILABLE);
     const requestedRole = (dto as { role?: string }).role;
 
     if (purpose === 'register' && requestedRole && requestedRole !== 'worker') {
@@ -187,12 +189,18 @@ export class OtpService {
 
     const claim = await this.gate.claimSend('otp', { phone, code, purpose });
     if (!claim.send) {
-      return { success: true };
+      await this.prisma.otpSession.delete({ where: { id: sessionId } }).catch(() => undefined);
+      const again = await this.gate.explainOtp(purpose);
+      throw new HttpException(again.message || gate.message, HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     try {
       const smsMeta = await this.devSms.sendOtpSms(phone, code, purpose);
-      await this.gate.markSendDelivered(claim.feedId);
+      await this.gate.markSendDelivered(claim.feedId, {
+        smsId: smsMeta.smsId,
+        requestId: smsMeta.requestId,
+        providerStatus: 'accepted',
+      });
       await this.gate.rememberSmsBalance(smsMeta.balance);
       await this.prisma.otpSession.update({
         where: { id: sessionId },
@@ -231,6 +239,7 @@ export class OtpService {
     }
 
     if (session.expiresAt < new Date()) {
+      await this.gate.markFeedExpired(phone).catch(() => undefined);
       await this.prisma.otpSession.delete({ where: { id: session.id } }).catch(() => undefined);
       throw new GoneException('Tasdiqlash kodi muddati tugagan');
     }
@@ -279,6 +288,7 @@ export class OtpService {
       where: { id: session.id },
       data: { verified: true },
     });
+    await this.gate.markFeedVerified(phone).catch(() => undefined);
 
     const purpose = session.purpose || 'login';
 
@@ -414,6 +424,8 @@ export class OtpService {
     phoneNumber?: string;
     district?: string;
   }) {
+    const registration = await this.gate.explainRegister();
+    if (!registration.allow) throw new HttpException(registration.message, HttpStatus.SERVICE_UNAVAILABLE);
     if (!data.password || data.password.length < 8) {
       throw new BadRequestException('Parol kamida 8 ta belgidan iborat bo\'lishi kerak');
     }

@@ -252,12 +252,17 @@ function AppShell() {
   if (gate.status === 'loading') return <div className="min-h-screen bg-background" />;
   const panelOff =
     gate.status === 'ready' && closedSection(location.pathname, gate.state, gate.sections);
+  const notice = gate.status === 'ready' ? gate.notice : '';
   return (
     <Shell>
       <div className="min-h-screen overflow-x-hidden bg-background text-foreground transition-colors duration-300">
         <NativeBackHandler />
         <AppDialogHost />
-        {panelOff ? (
+        {notice ? (
+          <div className="mx-auto max-w-lg px-6 py-24 text-center">
+            <p className="text-lg font-semibold">{notice}</p>
+          </div>
+        ) : panelOff ? (
           <div className="mx-auto max-w-lg px-6 py-24 text-center">
             <p className="text-lg font-semibold">Panel hozir yopiq.</p>
           </div>

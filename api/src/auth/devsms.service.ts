@@ -235,6 +235,7 @@ export class DevSmsService implements OnModuleInit {
     let lastError: DevSmsError | undefined;
     const serviceNames = this.getServiceNames();
 
+    const callback = this.callbackFields();
     for (let i = 0; i < serviceNames.length; i++) {
       const serviceName = serviceNames[i];
       try {
@@ -244,6 +245,7 @@ export class DevSmsService implements OnModuleInit {
           template_type: templateType,
           service_name: serviceName,
           otp_code: code,
+          ...callback,
         });
       } catch (err) {
         if (!(err instanceof DevSmsError)) throw err;
@@ -296,6 +298,7 @@ export class DevSmsService implements OnModuleInit {
             service_name: serviceName,
             message: text,
             text,
+            ...this.callbackFields(),
           }),
         });
         const data = (await res.json().catch(() => null)) as DevSmsResponse | null;
@@ -318,4 +321,101 @@ export class DevSmsService implements OnModuleInit {
     }
     return false;
   }
+
+  /**
+   * Official balance. Returns an error instead of a made-up number when the
+   * token is missing or the provider does not answer.
+   */
+  async fetchBalance(): Promise<{ ok: true; balance: number } | { ok: false; error: string }> {
+    const token = this.getToken();
+    if (!token) return { ok: false, error: 'Token yo‘q' };
+    try {
+      const res = await fetch(`${this.getBaseUrl()}/balance`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(4000),
+      });
+      const data = (await res.json().catch(() => null)) as { success?: boolean; data?: { balance?: unknown }; error?: string } | null;
+      if (!res.ok || !data?.success) return { ok: false, error: data?.error || `Balans ${res.status}` };
+      const balance = wholeSom(data.data?.balance);
+      if (balance == null) return { ok: false, error: 'Balans javobi bo‘sh' };
+      if (balance < this.balanceWarnThreshold) this.logger.warn(`DevSMS balance past: ${balance}`);
+      return { ok: true, balance };
+    } catch {
+      return { ok: false, error: 'Balans olinmadi' };
+    }
+  }
+
+  /**
+   * Official status. The message body is dropped so an OTP code is never logged.
+   */
+  async fetchSmsStatus(query: { smsId?: number | null; requestId?: string }): Promise<
+    { ok: true; status: string; error: string; missing?: false } | { ok: false; error: string; missing?: boolean }
+  > {
+    const token = this.getToken();
+    if (!token) return { ok: false, error: 'Token yo‘q' };
+    const params = new URLSearchParams();
+    if (query.smsId && query.smsId > 0) params.set('sms_id', String(query.smsId));
+    else if (query.requestId && !query.requestId.startsWith('dev-')) params.set('request_id', query.requestId);
+    else return { ok: false, error: 'So‘rov yo‘q' };
+    try {
+      const res = await fetch(`${this.getBaseUrl()}/sms/status?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.status === 404) return { ok: false, error: 'SMS topilmadi', missing: true };
+      const data = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        error?: string;
+        data?: { status?: string; error_message?: string | null; message?: string };
+      } | null;
+      if (!res.ok || !data?.success || !data.data?.status) {
+        return { ok: false, error: data?.error || `Holat ${res.status}` };
+      }
+      return { ok: true, status: data.data.status, error: data.data.error_message || '' };
+    } catch {
+      return { ok: false, error: 'Holat olinmadi' };
+    }
+  }
+
+  /** Public callback only when a webhook secret and a non-local URL exist. */
+  private callbackFields(): { callback_url?: string } {
+    const secret = (process.env.DEVSMS_WEBHOOK_SECRET || '').trim();
+    if (!secret) return {};
+    const explicit = (process.env.DEVSMS_WEBHOOK_URL || '').trim();
+    const origin = (process.env.PUBLIC_APP_URL || process.env.APP_URL || '').trim().replace(/\/$/, '');
+    const url = explicit || (origin ? `${origin}/api/sms/hook` : '');
+    if (!isPublicHook(url)) return {};
+    return { callback_url: url };
+  }
+}
+
+function wholeSom(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.replace(',', '.'));
+    if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed));
+  }
+  return null;
+}
+
+function isPublicHook(url: string): boolean {
+  if (!url || url.length > 500) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.local') || host === 'example.com' || host === 'test.com') return false;
+  if (host === '::1' || host.startsWith('127.') || host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('169.254.')) {
+    return false;
+  }
+  const parts = host.split('.');
+  if (parts[0] === '172') {
+    const second = Number(parts[1]);
+    if (second >= 16 && second <= 31) return false;
+  }
+  return true;
 }

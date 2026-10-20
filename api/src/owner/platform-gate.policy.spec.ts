@@ -2,17 +2,30 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { renderOwnerPage } from './owner.page';
 import { PlatformGateService } from './platform-gate.service';
+import { isSessionCurrent } from '../common/session.util';
 import {
+  AI_PAYMENT_NOTICE,
+  OTP_PAYMENT_NOTICE,
+  advanceStatus,
   allSectionsOn,
+  claimDecision,
   decideAccess,
+  decommissionPlan,
   defaultSnapshot,
+  emptyHolds,
   feedStatus,
+  foldProviderStatus,
   meter,
   normalizeSections,
   otpPurposeAllowed,
   parseMoney,
+  paymentHoldForPrice,
+  reduceProviderEvent,
+  signWebhook,
   som,
   spend,
+  webhookSignatureOk,
+  webhookTimestampFresh,
   type GateSections,
 } from './platform-gate.policy';
 import { OWNER_PATH, isOwnerPhone } from './owner.constants';
@@ -143,4 +156,86 @@ test('missing section flags stay open', () => {
   assert.equal(normalizeSections({ chat: false }).chat, false);
   assert.equal(otpPurposeAllowed('register', { ...allSectionsOn(), register: false }), false);
   assert.equal(otpPurposeAllowed('login', { ...allSectionsOn(), register: false }), true);
+});
+
+test('lockdown blocks ordinary calls and leaves the owner path', () => {
+  const holds = { ...emptyHolds(), lockdown: true };
+  assert.equal(decideAccess({ ...live, holds, path: '/api/auth/send-otp', method: 'POST' }).allow, false);
+  assert.equal(decideAccess({ ...live, holds, path: '/api/ai/employer/match', method: 'POST' }).allow, false);
+  assert.equal(decideAccess({ ...live, holds, role: 'super_admin', path: '/api/admin/users' }).allow, false);
+  assert.equal(decideAccess({ ...live, holds, path: OWNER_PATH, method: 'POST' }).allow, true);
+  assert.equal(decideAccess({ ...live, holds, path: '/api/gate' }).allow, true);
+  assert.equal(decideAccess({ ...live, holds, path: '/api/sms/hook', method: 'POST' }).allow, true);
+  assert.equal(decideAccess({ ...live, holds, path: '/api/auth/logout', method: 'POST' }).allow, true);
+});
+
+test('maintenance blocks writes and leaves reads and the staff pause alone', () => {
+  const holds = { ...emptyHolds(), maintenance: true };
+  assert.equal(decideAccess({ ...live, holds, path: '/api/jobs', method: 'GET' }).allow, true);
+  assert.equal(decideAccess({ ...live, holds, path: '/api/jobs', method: 'POST' }).allow, false);
+  assert.equal(decideAccess({ ...live, path: '/api/jobs', role: 'worker' }).allow, true);
+});
+
+test('a payment hold stops the meter until the price is covered', () => {
+  const holds = { ...emptyHolds(), otpPayment: true, aiPayment: true };
+  assert.deepEqual(claimDecision({ kind: 'otp', holds, price: 100, credit: 5000 }), { send: false, reason: 'payment' });
+  assert.deepEqual(claimDecision({ kind: 'ai', holds, price: 100, credit: 5000 }), { send: false, reason: 'payment' });
+  assert.equal(claimDecision({ kind: 'otp', holds, price: 0, credit: 0 }).send, true);
+  assert.equal(claimDecision({ kind: 'otp', holds: emptyHolds(), price: 200, credit: 100 }).reason, 'short');
+  assert.equal(paymentHoldForPrice(200, 100), true);
+  assert.equal(paymentHoldForPrice(0, 0), false);
+  assert.equal(paymentHoldForPrice(100, 100), false);
+  assert.equal(OTP_PAYMENT_NOTICE.includes('OTP/SMS'), true);
+  assert.equal(AI_PAYMENT_NOTICE.includes('Sun'), true);
+});
+
+test('provider events do not walk backwards or refund twice', () => {
+  assert.equal(foldProviderStatus('pending'), 'accepted');
+  assert.equal(advanceStatus('delivered', 'sent'), 'delivered');
+  assert.equal(advanceStatus('failed', 'delivered'), 'failed');
+  assert.equal(advanceStatus('sent', 'verified'), 'verified');
+  const first = reduceProviderEvent({ status: 'sent', refunded: false, seen: ['accepted', 'sent'], incoming: 'failed' });
+  assert.equal(first.status, 'failed');
+  assert.equal(first.refund, true);
+  const again = reduceProviderEvent({ status: 'failed', refunded: true, seen: first.seen, incoming: 'failed' });
+  assert.equal(again.duplicate, true);
+  assert.equal(again.refund, false);
+  const late = reduceProviderEvent({ status: 'delivered', refunded: false, seen: ['delivered'], incoming: 'sent' });
+  assert.equal(late.status, 'delivered');
+  assert.equal(late.refund, false);
+});
+
+test('a forged or stale webhook signature is rejected', () => {
+  const body = '{"sms_id":1,"status":"delivered"}';
+  const stamp = '1700000000';
+  const good = signWebhook('whsec_test', stamp, body);
+  assert.equal(webhookSignatureOk('whsec_test', stamp, body, good), true);
+  assert.equal(webhookSignatureOk('whsec_test', stamp, body, good.replace('a', 'b')), false);
+  assert.equal(webhookSignatureOk('', stamp, body, good), false);
+  assert.equal(webhookSignatureOk('whsec_test', stamp, body + ' ', good), false);
+  assert.equal(webhookTimestampFresh(stamp, 1700000100), true);
+  assert.equal(webhookTimestampFresh(stamp, 1700000401), false);
+  assert.equal(webhookTimestampFresh('nope', 1700000000), false);
+});
+
+test('a cut session is expired and a dry-run plan deletes nothing', () => {
+  const cut = new Date('2026-10-20T09:00:00Z');
+  assert.equal(isSessionCurrent(Math.floor(cut.getTime() / 1000) - 10, cut), false);
+  assert.equal(isSessionCurrent(Math.floor(cut.getTime() / 1000) + 10, cut), true);
+  const plan = decommissionPlan({ cwd: '', remote: '', branch: '' });
+  const text = JSON.stringify(plan);
+  assert.equal(text.includes('aniqlanmadi'), true);
+  assert.equal(text.includes('o‘chirilmaydi'), true);
+  assert.equal(text.includes('rm '), false);
+  assert.equal(feedStatus({ status: 'delivered' }), 'delivered');
+});
+
+test('the control page shows service holds and does not invent a provider balance', () => {
+  const html = renderOwnerPage({ authed: true, snap: defaultSnapshot() });
+  for (const word of ['To‘liq to‘xtatish', 'Yetkazildi', 'Sinxron', 'hali yo‘q', 'O‘chirish rejasi']) {
+    assert.equal(html.includes(word), true, word);
+  }
+  const service = new PlatformGateService({} as never);
+  assert.equal(service.valid(service.sign()), true);
+  assert.equal(service.valid('not-a-session'), false);
 });

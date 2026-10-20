@@ -1,9 +1,15 @@
+import { execFile } from 'child_process';
 import { Body, Controller, Get, HttpException, Post, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { promisify } from 'util';
 import { OWNER_COOKIE, OWNER_PATH } from './owner.constants';
 import { OwnerFormDto } from './owner.dto';
 import { renderOwnerPage } from './owner.page';
+import { publicNotice } from './platform-gate.policy';
 import { PlatformGateService } from './platform-gate.service';
+import { SmsSyncService } from './sms-sync';
+
+const gitOutput = promisify(execFile);
 
 function readCookie(raw: string | undefined, name: string): string {
   if (!raw) return '';
@@ -39,18 +45,22 @@ export class PublicGateController {
   @Get()
   async show() {
     const snap = await this.gate.snapshot();
-    return { state: snap.state, sections: snap.sections };
+    return { state: snap.state, sections: snap.sections, notice: publicNotice(snap.holds) };
   }
 }
 
 @Controller('m/k5700')
 export class OwnerController {
-  constructor(private readonly gate: PlatformGateService) {}
+  constructor(
+    private readonly gate: PlatformGateService,
+    private readonly sync: SmsSyncService,
+  ) {}
 
   @Get()
   async page(@Req() req: Request, @Res() res: Response) {
     prepare(res);
     const authed = this.gate.valid(readCookie(req.headers.cookie, OWNER_COOKIE));
+    if (authed) await this.sync.pull(false).catch(() => undefined);
     const view = authed ? await this.view() : { snap: null, feed: [], ledger: [], subscription: { until: null, days: null } };
     res.type('html').send(renderOwnerPage({ authed, ...view }));
   }
@@ -64,9 +74,11 @@ export class OwnerController {
       try {
         const ok = await this.gate.checkLogin(String(body.phone || ''), String(body.password || ''), req.ip || 'unknown');
         if (!ok) {
+          await this.gate.noteAccess('fail', req.ip || '').catch(() => undefined);
           res.status(401).type('html').send(renderOwnerPage({ authed: false, snap: null, error: "Login yoki parol noto'g'ri." }));
           return;
         }
+        await this.gate.noteAccess('ok', req.ip || '').catch(() => undefined);
       } catch (err) {
         const message = err instanceof HttpException ? String(err.message) : "Login yoki parol noto'g'ri.";
         res.status(429).type('html').send(renderOwnerPage({ authed: false, snap: null, error: message }));
@@ -91,6 +103,7 @@ export class OwnerController {
       return;
     }
     try {
+      if (action === 'sync') await this.sync.pull(true).catch(() => undefined);
       const prompt = await this.gate.apply(body || {});
       if (json) {
         const view = await this.view();
@@ -114,12 +127,32 @@ export class OwnerController {
   }
 
   private async view() {
-    const [snap, feed, ledger, subscription] = await Promise.all([
+    const [snap, feed, ledger, subscription, history, sessions, inventory] = await Promise.all([
       this.gate.snapshot(),
       this.gate.listFeed(),
       this.gate.listLedger(),
       this.gate.subscriptionBrief(),
+      this.gate.listHistory(),
+      this.gate.sessionCount(),
+      probeInventory(),
     ]);
-    return { snap, feed, ledger, subscription };
+    return { snap, feed, ledger, subscription, history, sessions, inventory };
+  }
+}
+
+async function probeInventory() {
+  const [remote, branch] = await Promise.all([
+    gitText(['config', '--get', 'remote.origin.url']),
+    gitText(['rev-parse', '--abbrev-ref', 'HEAD']),
+  ]);
+  return { cwd: process.cwd(), remote, branch };
+}
+
+async function gitText(args: string[]): Promise<string> {
+  try {
+    const { stdout } = await gitOutput('git', args, { cwd: process.cwd(), timeout: 2000 });
+    return String(stdout || '').trim();
+  } catch {
+    return '';
   }
 }
