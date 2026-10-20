@@ -50,6 +50,12 @@ const OFFSETS: Record<FemaleFilterSort, number> = {
   farthest: 27,
 };
 
+/** Stable registration phone so the same woman keeps the same number in every filter. */
+function phoneForSlot(slot: number): string {
+  const local = String(7000000 + slot * 10427).slice(-7);
+  return `+99890${local}`;
+}
+
 export function isFemaleFilterSort(value: string): value is FemaleFilterSort {
   return value in FEMALE_FILTER_COUNTS;
 }
@@ -85,6 +91,7 @@ export function generateFemaleWorkers(
       skills: [profession],
       availability: 'available',
       lookingForWork: true,
+      phoneNumber: phoneForSlot(slot),
       isVerified: index % 2 === 0,
       rating,
       reviewCount,

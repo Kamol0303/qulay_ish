@@ -23,7 +23,7 @@ export default function WorkerCard({ worker, price }: WorkerCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const sample = worker.uid.startsWith('gen-');
-  const tel = sample ? '' : phoneTelHref(worker.phoneNumber);
+  const tel = phoneTelHref(worker.phoneNumber);
   const phoneLabel = (worker.phoneNumber || '').trim();
   const [sending, setSending] = React.useState(false);
   const [sent, setSent] = React.useState(false);
